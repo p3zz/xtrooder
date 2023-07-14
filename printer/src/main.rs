@@ -5,9 +5,7 @@ use panic_halt as _;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::{
-    prelude::*,
-    timer::Timer,
-    block
+    prelude::*
 };
 
 use embedded_hal::digital::v2::OutputPin;
