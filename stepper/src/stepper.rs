@@ -2,6 +2,11 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
 use embedded_time::duration::*;
 
+enum StepperDirection{
+    Clockwise,
+    CounterClockwise
+}
+
 struct Stepper<O, T>{
     step: O,
     dir: O,
@@ -15,12 +20,23 @@ where O: OutputPin, T: CountDown<Time = Microseconds>,
 {
     pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T) -> Stepper<O,T>{
         Stepper{
-            step, dir, steps_per_revolution, timer, step_delay: sps_from_rpm(1, steps_per_revolution)
+            step,
+            dir,
+            steps_per_revolution,
+            timer,
+            step_delay: sps_from_rpm(1, steps_per_revolution),
         }
     }
 
     pub fn set_speed(&mut self, rpm: u32) -> (){
         self.step_delay = sps_from_rpm(rpm, self.steps_per_revolution);
+    }
+
+    pub fn set_direction(&mut self, direction: StepperDirection) -> (){
+        let _  = match direction {
+            StepperDirection::Clockwise => self.dir.set_high(),
+            StepperDirection::CounterClockwise => self.dir.set_low()
+        };
     }
 
     pub fn step(&mut self) -> (){
