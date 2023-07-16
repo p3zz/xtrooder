@@ -4,12 +4,12 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
 use embedded_time::duration::*;
 
-enum StepperDirection{
+pub enum StepperDirection{
     Clockwise,
     CounterClockwise
 }
 
-struct Stepper<O, T>{
+pub struct Stepper<O, T>{
     step: O,
     dir: O,
     steps_per_revolution: u32,
@@ -80,13 +80,13 @@ fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> Microseconds<u32> {
 
 // get distance per step from pulley's radius
 // used for X/Y axis
-fn dps_from_radius(r: f32, steps_per_revolution: u32) -> f32 {
+pub fn dps_from_radius(r: f32, steps_per_revolution: u32) -> f32 {
     let p = 2.0 * r * 3.14159;
     return p / (steps_per_revolution as f32);
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
-fn dps_from_pitch(pitch: f32, steps_per_revolution: u32) -> f32 {
+pub fn dps_from_pitch(pitch: f32, steps_per_revolution: u32) -> f32 {
     return pitch / (steps_per_revolution as f32);
 }
