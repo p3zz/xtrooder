@@ -15,8 +15,11 @@ struct Stepper<O, T>{
     steps_per_revolution: u32,
     timer: T,
     step_delay: Microseconds,
-    // distance is in mm
-    distance_per_step: f32
+    // mm
+    distance_per_step: f32,
+    // mm
+    position: f32,
+    direction: StepperDirection
 }
 
 impl <O, T> Stepper<O, T>
@@ -29,16 +32,19 @@ where O: OutputPin, T: CountDown<Time = Microseconds>,
             steps_per_revolution,
             timer,
             step_delay: sps_from_rpm(1, steps_per_revolution),
-            distance_per_step
+            distance_per_step,
+            position: 0.0,
+            direction: StepperDirection::Clockwise
         }
     }
 
-    pub fn set_speed(&mut self, rpm: u32) -> (){
-        self.step_delay = sps_from_rpm(rpm, self.steps_per_revolution);
+    pub fn set_speed(&mut self, speed: u32) -> (){
+        self.step_delay = sps_from_rpm(speed, self.steps_per_revolution);
     }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
-        let _  = match direction {
+        self.direction = direction;
+        let _  = match self.direction {
             StepperDirection::Clockwise => self.dir.set_high(),
             StepperDirection::CounterClockwise => self.dir.set_low()
         };
@@ -49,6 +55,10 @@ where O: OutputPin, T: CountDown<Time = Microseconds>,
         self.timer.start(self.step_delay);
         self.timer.wait().unwrap();
         let _ = self.step.set_low();
+        self.position += match self.direction{
+            StepperDirection::Clockwise => self.distance_per_step,
+            StepperDirection::CounterClockwise => -self.distance_per_step,
+        };
     }
 
     pub fn move_for(&mut self, distance: f32) -> (){
