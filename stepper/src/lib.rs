@@ -1,3 +1,5 @@
+#![no_std]
+
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
 use embedded_time::duration::*;
@@ -12,19 +14,22 @@ struct Stepper<O, T>{
     dir: O,
     steps_per_revolution: u32,
     timer: T,
-    step_delay: Microseconds
+    step_delay: Microseconds,
+    // distance is in mm
+    distance_per_step: f32
 }
 
 impl <O, T> Stepper<O, T>
 where O: OutputPin, T: CountDown<Time = Microseconds>,
 {
-    pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T) -> Stepper<O,T>{
+    pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T, pulley_radius: f32) -> Stepper<O,T>{
         Stepper{
             step,
             dir,
             steps_per_revolution,
             timer,
             step_delay: sps_from_rpm(1, steps_per_revolution),
+            distance_per_step: dps_from_radius(pulley_radius, steps_per_revolution)
         }
     }
 
@@ -45,6 +50,13 @@ where O: OutputPin, T: CountDown<Time = Microseconds>,
         self.timer.wait().unwrap();
         let _ = self.step.set_low();
     }
+
+    pub fn move_for(&mut self, distance: f32) -> (){
+        let steps = (distance / self.distance_per_step) as u32;
+        for _ in 0..steps{
+            self.step();
+        }
+    }
 }
 
 // get second per step from round per minute
@@ -54,4 +66,10 @@ fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> Microseconds<u32> {
     let sps = spr/(steps_per_revolution as f32);
     let microsps = (sps * 1_000_000.0) as u32;
     return Microseconds(microsps);
+}
+
+// get distance per step from pulley radius
+fn dps_from_radius(r: f32, steps_per_revolution: u32) -> f32 {
+    let p = 2.0 * r * 3.14159;
+    return p / (steps_per_revolution as f32);
 }
