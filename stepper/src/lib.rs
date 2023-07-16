@@ -22,14 +22,14 @@ struct Stepper<O, T>{
 impl <O, T> Stepper<O, T>
 where O: OutputPin, T: CountDown<Time = Microseconds>,
 {
-    pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T, pulley_radius: f32) -> Stepper<O,T>{
+    pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T, distance_per_step: f32) -> Stepper<O,T>{
         Stepper{
             step,
             dir,
             steps_per_revolution,
             timer,
             step_delay: sps_from_rpm(1, steps_per_revolution),
-            distance_per_step: dps_from_radius(pulley_radius, steps_per_revolution)
+            distance_per_step
         }
     }
 
@@ -68,8 +68,15 @@ fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> Microseconds<u32> {
     return Microseconds(microsps);
 }
 
-// get distance per step from pulley radius
+// get distance per step from pulley's radius
+// used for X/Y axis
 fn dps_from_radius(r: f32, steps_per_revolution: u32) -> f32 {
     let p = 2.0 * r * 3.14159;
     return p / (steps_per_revolution as f32);
+}
+
+// get distance per step from bar's pitch
+// used for Z axis
+fn dps_from_pitch(pitch: f32, steps_per_revolution: u32) -> f32 {
+    return pitch / (steps_per_revolution as f32);
 }
