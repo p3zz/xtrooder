@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use stepper::{Stepper, dps_from_radius, StepperDirection};
+use stepper::{Stepper, dps_from_radius, StepperDirection, Length};
 use panic_halt as _;
 use cortex_m_rt::entry;
 
@@ -37,7 +37,10 @@ fn main() -> ! {
     
     let timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
 
-    let mut stepper = Stepper::new(green, red, 200, timer, dps_from_radius(5.0, 200));
+    let steps_per_revolution = 200;
+    let pulley_radius = Length::from_millimeters(5.0);
+
+    let mut stepper = Stepper::new(green, red, steps_per_revolution, timer, dps_from_radius(pulley_radius, steps_per_revolution));
 
     let mut t = Timer::tim2(dp.TIM2, ccdr.peripheral.TIM2, &ccdr.clocks);
 
@@ -45,7 +48,7 @@ fn main() -> ! {
     stepper.set_speed(60);
 
     loop{
-        stepper.step();
+        stepper.move_for(Length::from_millimeters(1000.0));
         t.start(MilliSeconds(500));
         block!(t.wait()).unwrap();
     }
