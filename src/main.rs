@@ -1,16 +1,15 @@
 #![no_std]
 #![no_main]
 
-use stepper::Stepper;
+use stepper::{Stepper, dps_from_radius, StepperDirection};
 use panic_halt as _;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::{
     prelude::*,
     timer::Timer,
+    block, time::MilliSeconds
 };
-
-use embedded_hal::digital::v2::OutputPin;
 
 #[entry]
 fn main() -> ! {
@@ -31,15 +30,23 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
     // Configure gpio B pin 0 (green led) as a push-pull output.
-    let mut green = gpiob.pb0.into_push_pull_output();
+    let green = gpiob.pb0.into_push_pull_output();
 
     // Configure gpio B pin 14 (red led) as a push-pull output.
-    let mut red = gpiob.pb14.into_push_pull_output();
+    let red = gpiob.pb14.into_push_pull_output();
     
-    let mut timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
+    let timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
 
-    let stepper = Stepper::new(green, red, 200, timer, 1.0);
+    let mut stepper = Stepper::new(green, red, 200, timer, dps_from_radius(5.0, 200));
+
+    let mut t = Timer::tim2(dp.TIM2, ccdr.peripheral.TIM2, &ccdr.clocks);
+
+    stepper.set_direction(StepperDirection::CounterClockwise);
+    stepper.set_speed(60);
 
     loop{
+        stepper.step();
+        t.start(MilliSeconds(500));
+        block!(t.wait()).unwrap();
     }
 }
