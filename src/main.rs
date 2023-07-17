@@ -42,14 +42,12 @@ fn main() -> ! {
 
     let mut stepper = Stepper::new(green, red, steps_per_revolution, timer, dps_from_radius(pulley_radius, steps_per_revolution));
 
-    let mut t = Timer::tim2(dp.TIM2, ccdr.peripheral.TIM2, &ccdr.clocks);
-
-    stepper.set_direction(StepperDirection::CounterClockwise);
-    stepper.set_speed(60);
-
     loop{
+        stepper.set_direction(StepperDirection::Clockwise);
+        stepper.set_speed(100);
         stepper.move_for(Length::from_millimeters(1000.0));
-        t.start(MilliSeconds(500));
-        block!(t.wait()).unwrap();
+        stepper.set_direction(StepperDirection::CounterClockwise);
+        stepper.set_speed(1000);
+        stepper.move_for(Length::from_millimeters(1000.0));
     }
 }
