@@ -2,8 +2,8 @@
 
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
-use embedded_time::duration::*;
-use nb::block;
+use stm32h7xx_hal::time::{Hertz, MicroSeconds};
+use stm32h7xx_hal::block;
 
 pub enum StepperDirection{
     Clockwise,
@@ -15,7 +15,7 @@ pub struct Stepper<S, D, T>{
     dir: D,
     steps_per_revolution: u32,
     timer: T,
-    step_delay: Microseconds,
+    step_delay: MicroSeconds,
     // mm
     distance_per_step: f32,
     // mm
@@ -24,7 +24,7 @@ pub struct Stepper<S, D, T>{
 }
 
 impl <S, D, T> Stepper<S, D, T>
-where S: OutputPin, D: OutputPin, T: CountDown<Time = Microseconds>,
+where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
 {
     pub fn new(step: S, dir: D, steps_per_revolution: u32, timer: T, distance_per_step: f32) -> Stepper<S, D, T>{
         Stepper{
@@ -71,12 +71,12 @@ where S: OutputPin, D: OutputPin, T: CountDown<Time = Microseconds>,
 }
 
 // get second per step from round per minute
-fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> Microseconds<u32> {
+fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> MicroSeconds {
     let rps = (rpm / 60) as f32;
     let spr = 1.0 / rps;
     let sps = spr/(steps_per_revolution as f32);
     let microsps = (sps * 1_000_000.0) as u32;
-    return Microseconds(microsps);
+    return MicroSeconds(microsps);
 }
 
 // get distance per step from pulley's radius
