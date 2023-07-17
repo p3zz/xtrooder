@@ -10,9 +10,9 @@ pub enum StepperDirection{
     CounterClockwise
 }
 
-pub struct Stepper<O, T>{
-    step: O,
-    dir: O,
+pub struct Stepper<S, D, T>{
+    step: S,
+    dir: D,
     steps_per_revolution: u32,
     timer: T,
     step_delay: Microseconds,
@@ -23,10 +23,10 @@ pub struct Stepper<O, T>{
     direction: StepperDirection
 }
 
-impl <O, T> Stepper<O, T>
-where O: OutputPin, T: CountDown<Time = Microseconds>,
+impl <S, D, T> Stepper<S, D, T>
+where S: OutputPin, D: OutputPin, T: CountDown<Time = Microseconds>,
 {
-    pub fn new(step: O, dir: O, steps_per_revolution: u32, timer: T, distance_per_step: f32) -> Stepper<O,T>{
+    pub fn new(step: S, dir: D, steps_per_revolution: u32, timer: T, distance_per_step: f32) -> Stepper<S, D, T>{
         Stepper{
             step,
             dir,
