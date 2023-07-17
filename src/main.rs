@@ -6,7 +6,10 @@ use panic_halt as _;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::{
-    prelude::*
+    prelude::*,
+    timer::Timer,
+    time::*,
+    block
 };
 
 use embedded_hal::digital::v2::OutputPin;
@@ -29,12 +32,22 @@ fn main() -> ! {
     // Acquire the GPIOB peripheral
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
 
-    // Configure gpio B pin 14 as a push-pull output.
-    let mut ld3 = gpiob.pb14.into_push_pull_output();
-    ld3.set_high().unwrap();
+    // Configure gpio B pin 0 (green led) as a push-pull output.
+    let mut green = gpiob.pb0.into_push_pull_output();
 
+    // Configure gpio B pin 14 (red led) as a push-pull output.
+    let mut red = gpiob.pb14.into_push_pull_output();
+    
+    let mut timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
 
     loop{
-        
+        green.set_high().unwrap();
+        timer.start(MilliSeconds(1000));
+        block!(timer.wait()).unwrap();
+        green.set_low().unwrap();
+        red.set_high().unwrap();
+        timer.start(MilliSeconds(1000));
+        block!(timer.wait()).unwrap();
+        red.set_low().unwrap();
     }
 }
