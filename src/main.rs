@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+// use stepper;
 use panic_halt as _;
 use cortex_m_rt::entry;
 
@@ -23,7 +24,6 @@ fn main() -> ! {
 
     // Freeze the configuration of all the clocks in the system and
     // retrieve the Core Clock Distribution and Reset (CCDR) object
-    let rcc = rcc.use_hse(8.mhz()).bypass_hse();
     let ccdr = rcc.freeze(pwrcfg, &dp.SYSCFG);
 
     // Acquire the GPIOB peripheral
