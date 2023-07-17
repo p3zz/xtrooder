@@ -1,15 +1,13 @@
 #![no_std]
 #![no_main]
 
-// use stepper;
+use stepper::Stepper;
 use panic_halt as _;
 use cortex_m_rt::entry;
 
 use stm32h7xx_hal::{
     prelude::*,
     timer::Timer,
-    time::*,
-    block
 };
 
 use embedded_hal::digital::v2::OutputPin;
@@ -40,14 +38,8 @@ fn main() -> ! {
     
     let mut timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
 
+    let stepper = Stepper::new(green, red, 200, timer, 1.0);
+
     loop{
-        green.set_high().unwrap();
-        timer.start(MilliSeconds(1000));
-        block!(timer.wait()).unwrap();
-        green.set_low().unwrap();
-        red.set_high().unwrap();
-        timer.start(MilliSeconds(1000));
-        block!(timer.wait()).unwrap();
-        red.set_low().unwrap();
     }
 }
