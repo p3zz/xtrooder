@@ -5,6 +5,23 @@ use embedded_hal::timer::CountDown;
 use stm32h7xx_hal::time::{Hertz, MicroSeconds};
 use stm32h7xx_hal::block;
 
+pub struct Length{
+    // mm
+    value: f32
+}
+
+impl Length{
+    pub fn from_millimeters(value: f32) -> Length{
+        Length{
+            value
+        }
+    }
+
+    pub fn to_millimeters(&self) -> f32{
+        return self.value;
+    }
+}
+
 pub enum StepperDirection{
     Clockwise,
     CounterClockwise
@@ -17,16 +34,16 @@ pub struct Stepper<S, D, T>{
     timer: T,
     step_delay: MicroSeconds,
     // mm
-    distance_per_step: f32,
+    distance_per_step: Length,
     // mm
-    position: f32,
+    position: Length,
     direction: StepperDirection
 }
 
 impl <S, D, T> Stepper<S, D, T>
 where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
 {
-    pub fn new(step: S, dir: D, steps_per_revolution: u32, timer: T, distance_per_step: f32) -> Stepper<S, D, T>{
+    pub fn new(step: S, dir: D, steps_per_revolution: u32, timer: T, distance_per_step: Length) -> Stepper<S, D, T>{
         Stepper{
             step,
             dir,
@@ -34,7 +51,7 @@ where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
             timer,
             step_delay: sps_from_rpm(1, steps_per_revolution),
             distance_per_step,
-            position: 0.0,
+            position: Length::from_millimeters(0.0),
             direction: StepperDirection::Clockwise
         }
     }
@@ -56,14 +73,15 @@ where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
         self.timer.start(self.step_delay);
         block!(self.timer.wait()).unwrap();
         let _ = self.step.set_low();
-        self.position += match self.direction{
-            StepperDirection::Clockwise => self.distance_per_step,
-            StepperDirection::CounterClockwise => -self.distance_per_step,
+        let distance = match self.direction{
+            StepperDirection::Clockwise => self.distance_per_step.to_millimeters(),
+            StepperDirection::CounterClockwise => -self.distance_per_step.to_millimeters()
         };
+        self.position = Length::from_millimeters(self.position.to_millimeters() + distance);
     }
 
-    pub fn move_for(&mut self, distance: f32) -> (){
-        let steps = (distance / self.distance_per_step) as u32;
+    pub fn move_for(&mut self, distance: Length) -> (){
+        let steps = (distance.to_millimeters() / self.distance_per_step.to_millimeters()) as u32;
         for _ in 0..steps{
             self.step();
         }
@@ -81,13 +99,13 @@ fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> MicroSeconds {
 
 // get distance per step from pulley's radius
 // used for X/Y axis
-pub fn dps_from_radius(r: f32, steps_per_revolution: u32) -> f32 {
-    let p = 2.0 * r * 3.14159;
-    return p / (steps_per_revolution as f32);
+pub fn dps_from_radius(r: Length, steps_per_revolution: u32) -> Length {
+    let p = 2.0 * r.to_millimeters() * 3.14159;
+    return Length::from_millimeters(p / (steps_per_revolution as f32));
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
-pub fn dps_from_pitch(pitch: f32, steps_per_revolution: u32) -> f32 {
-    return pitch / (steps_per_revolution as f32);
+pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u32) -> Length {
+    return Length::from_millimeters(pitch.to_millimeters() / (steps_per_revolution as f32));
 }
