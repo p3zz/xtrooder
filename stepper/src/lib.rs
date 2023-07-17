@@ -3,6 +3,7 @@
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
 use embedded_time::duration::*;
+use nb::block;
 
 pub enum StepperDirection{
     Clockwise,
@@ -53,7 +54,7 @@ where O: OutputPin, T: CountDown<Time = Microseconds>,
     pub fn step(&mut self) -> (){
         let _ = self.step.set_high();
         self.timer.start(self.step_delay);
-        self.timer.wait().unwrap();
+        block!(self.timer.wait()).unwrap();
         let _ = self.step.set_low();
         self.position += match self.direction{
             StepperDirection::Clockwise => self.distance_per_step,
