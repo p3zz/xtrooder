@@ -2,13 +2,14 @@
 #![no_main]
 
 use stepper::{Stepper, dps_from_radius, StepperDirection, Length};
-use panic_halt as _;
+use panic_probe as _;
 use cortex_m_rt::entry;
+use defmt_rtt as _;
 
 use stm32h7xx_hal::{
     prelude::*,
     timer::Timer,
-    block, time::MilliSeconds
+    // block, time::MilliSeconds
 };
 
 #[entry]
@@ -41,6 +42,8 @@ fn main() -> ! {
     let pulley_radius = Length::from_millimeters(5.0);
 
     let mut stepper = Stepper::new(green, red, steps_per_revolution, timer, dps_from_radius(pulley_radius, steps_per_revolution));
+
+    defmt::println!("setup complete");
 
     loop{
         stepper.set_direction(StepperDirection::Clockwise);
