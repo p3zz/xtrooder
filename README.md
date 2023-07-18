@@ -18,3 +18,8 @@ or
 ```bash
 cargo run path/to/bin
 ```
+
+## Reference
+- https://amanjeev.com/blog/stm32-embassy-rust-love/
+- https://defmt.ferrous-systems.com/setup.html
+- https://docs.rs/defmt-rtt/latest/defmt_rtt/
