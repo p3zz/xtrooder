@@ -23,3 +23,4 @@ cargo run path/to/bin
 - https://amanjeev.com/blog/stm32-embassy-rust-love/
 - https://defmt.ferrous-systems.com/setup.html
 - https://docs.rs/defmt-rtt/latest/defmt_rtt/
+- https://embassy.dev/
