@@ -3,6 +3,7 @@ rustflags = [
   # LLD (shipped with the Rust toolchain) is used as the default linker
   "-C", "link-arg=-Tlink.x",
 ]
+runner = "probe-run --chip STM32H753ZITx"
 
 [build]
 target = "thumbv7em-none-eabihf"

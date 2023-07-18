@@ -2,22 +2,19 @@
 ```bash
 cargo build --release
 ```
-
-## Flash (don't use it, WIP)
+## Flash & Run
+Flashing is performed through probe-run.
+First, install it:
 ```bash
-cargo objcopy --release --bin printer -- -O binary target/thumbv7em-none-eabihf/release/printer.bin
-cp target/thumbv7em-none-eabihf/release/printer.bin /path/to/NODE_H743ZI/
+cargo install probe-run
 ```
 
-## Flash (use this instead)
-The operation is performed through an openocd server and gdb-multiarch
-
-Open an OpenOCD server:
+Then, flash your binary
 ```bash
-openocd
+cargo run --bin path/to/bin
 ```
+or 
 
-Connect to it through gdb-multiarch, specifying the file you want to flash:
 ```bash
-gdb-multiarch -x openocd.gdb <executable>
+cargo run path/to/bin
 ```
