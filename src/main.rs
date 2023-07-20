@@ -1,56 +1,44 @@
 #![no_std]
 #![no_main]
+#![feature(type_alias_impl_trait)]
 
-use stepper::{Stepper, dps_from_radius, StepperDirection, Length};
-use panic_probe as _;
-use cortex_m_rt::entry;
-use defmt_rtt as _;
+use defmt::*;
+use embassy_executor::Spawner;
+use embassy_stm32::gpio::{Level, Output, Speed, AnyPin};
+use embassy_time::{Duration, Timer};
+use {defmt_rtt as _, panic_probe as _};
 
-use stm32h7xx_hal::{
-    prelude::*,
-    timer::Timer,
-    // block, time::MilliSeconds
-};
+use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
+use embassy_stm32::pwm::Channel;
 
-#[entry]
-fn main() -> ! {
-    // Get access to the device specific peripherals from the peripheral access crate
-    let dp = stm32h7xx_hal::stm32::Peripherals::take().unwrap();
+#[embassy_executor::task(pool_size=2)]
+async fn blink(mut pin: Output<'static, AnyPin>, duration: Duration){
+    loop {
+        info!("high");
+        pin.set_high();
+        Timer::after(duration).await;
 
-    // Take ownership over the RCC devices and convert them into the corresponding HAL structs
-    let rcc = dp.RCC.constrain();
+        info!("low");
+        pin.set_low();
+        Timer::after(duration).await;
+    }
+}
 
-    let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
 
-    // Freeze the configuration of all the clocks in the system and
-    // retrieve the Core Clock Distribution and Reset (CCDR) object
-    let ccdr = rcc.freeze(pwrcfg, &dp.SYSCFG);
+#[embassy_executor::main]
+async fn main(_spawner: Spawner) {
+    let p = embassy_stm32::init(Default::default());
 
-    // Acquire the GPIOB peripheral
-    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
+    let red = Output::new(p.PB14, Level::High, Speed::Low);
 
-    // Configure gpio B pin 0 (green led) as a push-pull output.
-    let green = gpiob.pb0.into_push_pull_output();
+    let green = Output::new(p.PB0, Level::High, Speed::Low);
 
-    // Configure gpio B pin 14 (red led) as a push-pull output.
-    let red = gpiob.pb14.into_push_pull_output();
-    
-    let timer = Timer::tim1(dp.TIM1, ccdr.peripheral.TIM1, &ccdr.clocks);
-
-    let steps_per_revolution = 200;
-    let pulley_radius = Length::from_millimeters(5.0);
-
-    let mut stepper = Stepper::new(green, red, steps_per_revolution, timer, dps_from_radius(pulley_radius, steps_per_revolution));
-
-    defmt::println!("setup complete");
+    let _ =_spawner.spawn(blink(red.degrade(), Duration::from_millis(200)));
+    let _ =_spawner.spawn(blink(green.degrade(), Duration::from_millis(500)));
 
     loop{
-        stepper.set_direction(StepperDirection::Clockwise);
-        stepper.set_speed(100);
-        stepper.move_for(Length::from_millimeters(1000.0));
-        stepper.set_direction(StepperDirection::CounterClockwise);
-        stepper.set_speed(1000);
-        stepper.move_for(Length::from_millimeters(1000.0));
+        Timer::after(Duration::from_millis(2000)).await;
+        info!("Hello World!");
     }
+    
 }
