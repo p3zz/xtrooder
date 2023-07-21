@@ -11,13 +11,13 @@ pub struct Length{
 }
 
 impl Length{
-    pub fn from_millimeters(value: f32) -> Length{
+    pub fn from_mm(value: f32) -> Length{
         Length{
             value
         }
     }
 
-    pub fn to_millimeters(&self) -> f32{
+    pub fn to_mm(&self) -> f32{
         return self.value;
     }
 }
@@ -51,7 +51,7 @@ where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
             timer,
             step_delay: sps_from_rpm(1, steps_per_revolution),
             distance_per_step,
-            position: Length::from_millimeters(0.0),
+            position: Length::from_mm(0.0),
             direction: StepperDirection::Clockwise
         }
     }
@@ -74,14 +74,14 @@ where S: OutputPin, D: OutputPin, T: CountDown<Time = Hertz>,
         block!(self.timer.wait()).unwrap();
         let _ = self.step.set_low();
         let distance = match self.direction{
-            StepperDirection::Clockwise => self.distance_per_step.to_millimeters(),
-            StepperDirection::CounterClockwise => -self.distance_per_step.to_millimeters()
+            StepperDirection::Clockwise => self.distance_per_step.to_mm(),
+            StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
         };
-        self.position = Length::from_millimeters(self.position.to_millimeters() + distance);
+        self.position = Length::from_mm(self.position.to_mm() + distance);
     }
 
     pub fn move_for(&mut self, distance: Length) -> (){
-        let steps = (distance.to_millimeters() / self.distance_per_step.to_millimeters()) as u32;
+        let steps = (distance.to_mm() / self.distance_per_step.to_mm()) as u32;
         for _ in 0..steps{
             self.step();
         }
@@ -100,12 +100,12 @@ fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> MicroSeconds {
 // get distance per step from pulley's radius
 // used for X/Y axis
 pub fn dps_from_radius(r: Length, steps_per_revolution: u32) -> Length {
-    let p = 2.0 * r.to_millimeters() * 3.14159;
-    return Length::from_millimeters(p / (steps_per_revolution as f32));
+    let p = 2.0 * r.to_mm() * 3.14159;
+    return Length::from_mm(p / (steps_per_revolution as f32));
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
 pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u32) -> Length {
-    return Length::from_millimeters(pitch.to_millimeters() / (steps_per_revolution as f32));
+    return Length::from_mm(pitch.to_mm() / (steps_per_revolution as f32));
 }
