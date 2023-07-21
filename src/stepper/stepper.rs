@@ -2,8 +2,6 @@
 
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::timer::CountDown;
-use stm32h7xx_hal::time::{Hertz, MicroSeconds};
-use stm32h7xx_hal::block;
 
 pub struct Length{
     // mm
