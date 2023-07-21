@@ -8,22 +8,16 @@ use embassy_stm32::Peripheral;
 use embassy_stm32::gpio::{Output, Level, Speed, AnyPin};
 use embassy_stm32::peripherals::{TIM3, TIM5, PA6};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
-use embassy_stm32::pwm::Channel;
+use embassy_stm32::pwm::{Channel, CaptureCompare16bitInstance};
 use embassy_stm32::time::{khz, hz, Hertz};
+use embassy_stm32::timer::GeneralPurpose16bitInstance;
 use embassy_time::{Duration, Timer};
 use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 // mod stepper;
 
-async fn move_x(pwm: &mut SimplePwm<'_, TIM3>, duration: Duration, f: Hertz) {
-    pwm.enable(Channel::Ch1);
-    pwm.set_freq(f);
-    Timer::after(duration).await;
-    pwm.disable(Channel::Ch1)
-}
-
-async fn move_y(pwm: &mut SimplePwm<'_, TIM5>, duration: Duration, f: Hertz) {
+async fn move_for<T: CaptureCompare16bitInstance>(pwm: &mut SimplePwm<'_, T>, duration: Duration, f: Hertz) {
     pwm.enable(Channel::Ch1);
     pwm.set_freq(f);
     Timer::after(duration).await;
@@ -54,8 +48,8 @@ async fn main(_spawner: Spawner) {
 
     loop {
         info!("Main loop");
-        join!(move_x(&mut red_pwm, Duration::from_millis(500), hz(20)),
-            move_y(&mut green_pwm, Duration::from_millis(500), hz(10)));
+        join!(move_for(&mut red_pwm, Duration::from_millis(500), hz(20)),
+            move_for(&mut green_pwm, Duration::from_millis(500), hz(10)));
         Timer::after(Duration::from_millis(500)).await;
     }
 }
