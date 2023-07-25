@@ -1,5 +1,7 @@
 #![no_std]
 
+use core::f64::consts::PI;
+
 use embassy_stm32::gpio::{Output, AnyPin};
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
@@ -8,17 +10,17 @@ use embassy_time::{Timer, Duration};
 
 pub struct Length{
     // mm
-    value: f32
+    value: f64
 }
 
 impl Length{
-    pub fn from_mm(value: f32) -> Length{
+    pub fn from_mm(value: f64) -> Length{
         Length{
             value
         }
     }
 
-    pub fn to_mm(&self) -> f32{
+    pub fn to_mm(&self) -> f64{
         return self.value;
     }
 }
@@ -31,11 +33,10 @@ pub enum StepperDirection{
 pub struct Stepper<'s, 'd, S>{
     step: SimplePwm<'s, S>,
     dir: Output<'d, AnyPin>,
-    // steps_per_revolution: u32,
-    // timer: T,
-    // step_delay: MicroSeconds,
+    steps_per_revolution: u64,
+    step_delay: Duration,
     // mm
-    // distance_per_step: Length,
+    distance_per_step: Length,
     // mm
     // position: Length,
     // direction: StepperDirection
@@ -44,23 +45,21 @@ pub struct Stepper<'s, 'd, S>{
 impl <'s, 'd, S> Stepper <'s, 'd, S>
 where S: CaptureCompare16bitInstance,
 {
-    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>) -> Stepper<'s, 'd, S>{
+    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, steps_per_revolution: u64, distance_per_step: Length) -> Stepper<'s, 'd, S>{
         Stepper{
             step,
-            dir
-            // dir,
-            // steps_per_revolution,
-            // timer,
-            // step_delay: sps_from_rpm(1, steps_per_revolution),
-            // distance_per_step,
+            dir,
+            steps_per_revolution,
+            step_delay: sps_from_rpm(1, steps_per_revolution),
+            distance_per_step,
             // position: Length::from_mm(0.0),
             // direction: StepperDirection::Clockwise
         }
     }
 
-    // pub fn set_speed(&mut self, speed: u32) -> (){
-    //     self.step_delay = sps_from_rpm(speed, self.steps_per_revolution);
-    // }
+    pub fn set_speed(&mut self, speed: u64) -> (){
+        self.step_delay = sps_from_rpm(speed, self.steps_per_revolution);
+    }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
         // self.direction = direction;
@@ -75,10 +74,6 @@ where S: CaptureCompare16bitInstance,
         self.step.set_freq(hz(10));
         Timer::after(Duration::from_millis(500)).await;
         self.step.disable(Channel::Ch1);
-        // let _ = self.step.set_high();
-        // self.timer.start(self.step_delay);
-        // block!(self.timer.wait()).unwrap();
-        // let _ = self.step.set_low();
         // let distance = match self.direction{
             // StepperDirection::Clockwise => self.distance_per_step.to_mm(),
             // StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
@@ -95,23 +90,24 @@ where S: CaptureCompare16bitInstance,
 }
 
 // get second per step from round per minute
-// fn sps_from_rpm(rpm: u32, steps_per_revolution: u32) -> MicroSeconds {
-//     let rps = (rpm / 60) as f32;
-//     let spr = 1.0 / rps;
-//     let sps = spr/(steps_per_revolution as f32);
-//     let microsps = (sps * 1_000_000.0) as u32;
-//     return MicroSeconds(microsps);
-// }
+// TODO check types
+fn sps_from_rpm(rpm: u64, steps_per_revolution: u64) -> Duration {
+    let rps = rpm as f64 / 60.0;
+    let spr = 1.0 / rps;
+    let sps = spr/(steps_per_revolution as f64);
+    let microsps = (sps * 1_000_000.0) as u64;
+    return Duration::from_micros(microsps);
+}
 
 // get distance per step from pulley's radius
 // used for X/Y axis
-pub fn dps_from_radius(r: Length, steps_per_revolution: u32) -> Length {
-    let p = 2.0 * r.to_mm() * 3.14159;
-    return Length::from_mm(p / (steps_per_revolution as f32));
+pub fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
+    let p = 2.0 * r.to_mm() * PI;
+    return Length::from_mm(p / (steps_per_revolution as f64));
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
-pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u32) -> Length {
-    return Length::from_mm(pitch.to_mm() / (steps_per_revolution as f32));
+pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u64) -> Length {
+    return Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64));
 }

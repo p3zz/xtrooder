@@ -8,11 +8,11 @@ use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
-use embassy_time::{Duration, Timer};
 use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
+use stepper::a4988::{Length, Stepper, StepperDirection, dps_from_radius};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -29,7 +29,7 @@ async fn main(_spawner: Spawner) {
 
     let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let mut red_stepper = stepper::a4988::Stepper::new(red_pwm, red_dir.degrade());
+    let mut red_stepper = Stepper::new(red_pwm, red_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
     let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
@@ -38,14 +38,14 @@ async fn main(_spawner: Spawner) {
 
     let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
 
-    let mut green_stepper = stepper::a4988::Stepper::new(green_pwm, green_dir.degrade());
+    let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
     loop {
-        red_stepper.set_direction(stepper::a4988::StepperDirection::Clockwise);
-        green_stepper.set_direction(stepper::a4988::StepperDirection::Clockwise);
+        red_stepper.set_direction(StepperDirection::Clockwise);
+        green_stepper.set_direction(StepperDirection::Clockwise);
         join!(red_stepper.step(), green_stepper.step());
-        red_stepper.set_direction(stepper::a4988::StepperDirection::CounterClockwise);
-        green_stepper.set_direction(stepper::a4988::StepperDirection::CounterClockwise);
+        red_stepper.set_direction(StepperDirection::CounterClockwise);
+        green_stepper.set_direction(StepperDirection::CounterClockwise);
         join!(red_stepper.step(), green_stepper.step());
     }
 }
