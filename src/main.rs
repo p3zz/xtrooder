@@ -4,6 +4,7 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
@@ -26,17 +27,25 @@ async fn main(_spawner: Spawner) {
     let red_max = red_pwm.get_max_duty();
     red_pwm.set_duty(Channel::Ch1, red_max/2);
 
-    let mut red_stepper = stepper::stepper::Stepper::new(red_pwm);
+    let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
+
+    let mut red_stepper = stepper::stepper::Stepper::new(red_pwm, red_dir.degrade());
 
     let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
     let green_max = green_pwm.get_max_duty();
     green_pwm.set_duty(Channel::Ch1, green_max/2);
 
-    let mut green_stepper = stepper::stepper::Stepper::new(green_pwm);
+    let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
+
+    let mut green_stepper = stepper::stepper::Stepper::new(green_pwm, green_dir.degrade());
 
     loop {
+        red_stepper.set_direction(stepper::stepper::StepperDirection::Clockwise);
+        green_stepper.set_direction(stepper::stepper::StepperDirection::Clockwise);
         join!(red_stepper.step(), green_stepper.step());
-        Timer::after(Duration::from_millis(500)).await;
+        red_stepper.set_direction(stepper::stepper::StepperDirection::CounterClockwise);
+        green_stepper.set_direction(stepper::stepper::StepperDirection::CounterClockwise);
+        join!(red_stepper.step(), green_stepper.step());
     }
 }
