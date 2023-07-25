@@ -29,7 +29,7 @@ async fn main(_spawner: Spawner) {
 
     let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let mut red_stepper = stepper::stepper::Stepper::new(red_pwm, red_dir.degrade());
+    let mut red_stepper = stepper::a4988::Stepper::new(red_pwm, red_dir.degrade());
 
     let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
@@ -38,14 +38,14 @@ async fn main(_spawner: Spawner) {
 
     let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
 
-    let mut green_stepper = stepper::stepper::Stepper::new(green_pwm, green_dir.degrade());
+    let mut green_stepper = stepper::a4988::Stepper::new(green_pwm, green_dir.degrade());
 
     loop {
-        red_stepper.set_direction(stepper::stepper::StepperDirection::Clockwise);
-        green_stepper.set_direction(stepper::stepper::StepperDirection::Clockwise);
+        red_stepper.set_direction(stepper::a4988::StepperDirection::Clockwise);
+        green_stepper.set_direction(stepper::a4988::StepperDirection::Clockwise);
         join!(red_stepper.step(), green_stepper.step());
-        red_stepper.set_direction(stepper::stepper::StepperDirection::CounterClockwise);
-        green_stepper.set_direction(stepper::stepper::StepperDirection::CounterClockwise);
+        red_stepper.set_direction(stepper::a4988::StepperDirection::CounterClockwise);
+        green_stepper.set_direction(stepper::a4988::StepperDirection::CounterClockwise);
         join!(red_stepper.step(), green_stepper.step());
     }
 }
