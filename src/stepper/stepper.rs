@@ -1,5 +1,6 @@
 #![no_std]
 
+use embassy_stm32::gpio::{Output, AnyPin};
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
@@ -27,9 +28,9 @@ pub enum StepperDirection{
     CounterClockwise
 }
 
-pub struct Stepper<'d, T>{
-    step: SimplePwm<'d, T>,
-    // dir: D,
+pub struct Stepper<'s, 'd, S>{
+    step: SimplePwm<'s, S>,
+    dir: Output<'d, AnyPin>,
     // steps_per_revolution: u32,
     // timer: T,
     // step_delay: MicroSeconds,
@@ -40,12 +41,13 @@ pub struct Stepper<'d, T>{
     // direction: StepperDirection
 }
 
-impl <'d, T> Stepper<'d, T>
-where T: CaptureCompare16bitInstance,
+impl <'s, 'd, S> Stepper <'s, 'd, S>
+where S: CaptureCompare16bitInstance,
 {
-    pub fn new(step: SimplePwm<'d, T>) -> Stepper<T>{
+    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>) -> Stepper<'s, 'd, S>{
         Stepper{
             step,
+            dir
             // dir,
             // steps_per_revolution,
             // timer,
@@ -60,13 +62,13 @@ where T: CaptureCompare16bitInstance,
     //     self.step_delay = sps_from_rpm(speed, self.steps_per_revolution);
     // }
 
-    // pub fn set_direction(&mut self, direction: StepperDirection) -> (){
-    //     self.direction = direction;
-    //     let _  = match self.direction {
-    //         StepperDirection::Clockwise => self.dir.set_high(),
-    //         StepperDirection::CounterClockwise => self.dir.set_low()
-    //     };
-    // }
+    pub fn set_direction(&mut self, direction: StepperDirection) -> (){
+        // self.direction = direction;
+        let _  = match direction {
+            StepperDirection::Clockwise => self.dir.set_high(),
+            StepperDirection::CounterClockwise => self.dir.set_low()
+        };
+    }
 
     pub async fn step(&mut self) -> (){
         self.step.enable(Channel::Ch1);
