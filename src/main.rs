@@ -12,7 +12,7 @@ use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
-use stepper::a4988::{Length, Stepper, StepperDirection, dps_from_radius};
+use stepper::a4988::{Length, Stepper, StepperDirection, dps_from_radius, Speed as StepperSpeed};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -41,11 +41,15 @@ async fn main(_spawner: Spawner) {
     let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
     loop {
+        red_stepper.set_speed(StepperSpeed::from_rps(10));
         red_stepper.set_direction(StepperDirection::Clockwise);
+        green_stepper.set_speed(StepperSpeed::from_rps(10));
         green_stepper.set_direction(StepperDirection::Clockwise);
-        join!(red_stepper.step(), green_stepper.step());
+        join!(red_stepper.move_for(Length::from_mm(10.0)), green_stepper.move_for(Length::from_mm(20.0)));
+        red_stepper.set_speed(StepperSpeed::from_rps(1));
         red_stepper.set_direction(StepperDirection::CounterClockwise);
+        red_stepper.set_speed(StepperSpeed::from_rps(1));
         green_stepper.set_direction(StepperDirection::CounterClockwise);
-        join!(red_stepper.step(), green_stepper.step());
+        join!(red_stepper.move_for(Length::from_mm(10.0)), green_stepper.move_for(Length::from_mm(20.0)));
     }
 }

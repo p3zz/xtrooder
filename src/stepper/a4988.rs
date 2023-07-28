@@ -69,8 +69,8 @@ pub struct Stepper<'s, 'd, S>{
     // mm
     distance_per_step: Length,
     // mm
-    // position: Length,
-    // direction: StepperDirection
+    position: Length,
+    direction: StepperDirection
 }
 
 impl <'s, 'd, S> Stepper <'s, 'd, S>
@@ -83,8 +83,8 @@ where S: CaptureCompare16bitInstance,
             steps_per_revolution,
             step_delay: compute_step_delay(Speed::from_rps(1), steps_per_revolution),
             distance_per_step,
-            // position: Length::from_mm(0.0),
-            // direction: StepperDirection::Clockwise
+            position: Length::from_mm(0.0),
+            direction: StepperDirection::Clockwise
         }
     }
 
@@ -93,8 +93,8 @@ where S: CaptureCompare16bitInstance,
     }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
-        // self.direction = direction;
-        let _  = match direction {
+        self.direction = direction;
+        let _  = match self.direction {
             StepperDirection::Clockwise => self.dir.set_high(),
             StepperDirection::CounterClockwise => self.dir.set_low()
         };
@@ -108,19 +108,13 @@ where S: CaptureCompare16bitInstance,
         self.step.set_freq(mhz(1 / (self.step_delay.as_micros() as u32)));
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
-        // let distance = match self.direction{
-            // StepperDirection::Clockwise => self.distance_per_step.to_mm(),
-            // StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
-        // };
-        // self.position = Length::from_mm(self.position.to_mm() + distance);
+        let distance = match self.direction{
+            StepperDirection::Clockwise => self.distance_per_step.to_mm(),
+            StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
+        };
+        self.position = Length::from_mm(self.position.to_mm() + distance);
     }
 
-    // pub fn move_for(&mut self, distance: Length) -> (){
-    //     let steps = (distance.to_mm() / self.distance_per_step.to_mm()) as u32;
-    //     for _ in 0..steps{
-    //         self.step();
-    //     }
-    // }
 }
 
 // get second per step from round per minute
