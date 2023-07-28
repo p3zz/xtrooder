@@ -8,6 +8,17 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::mhz;
 use embassy_time::{Timer, Duration};
 
+pub struct Position {
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+impl Position{
+    pub fn new(x: f64, y: f64, z: f64) -> Position{
+        Position { x, y, z }
+    }
+}
 pub struct Speed {
     // rps
     value: u64
@@ -39,6 +50,7 @@ impl Speed {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Length{
     // mm
     value: f64
@@ -100,11 +112,13 @@ where S: CaptureCompare16bitInstance,
         };
     }
 
-    pub async fn move_for(&mut self, distance: Length) -> (){
+    // FIXME need a way to update the direction based on the sign of the distance
+    pub async fn move_for(&mut self, distance: Length){
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
         // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
         let duration = Duration::from_micros(2 * self.step_delay.as_micros() * steps_n);
         self.step.enable(Channel::Ch1);
+        // FIXME check the frequence, or something horrible will happen 
         self.step.set_freq(mhz(1 / (self.step_delay.as_micros() as u32)));
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
@@ -113,6 +127,18 @@ where S: CaptureCompare16bitInstance,
             StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
         };
         self.position = Length::from_mm(self.position.to_mm() + distance);
+    }
+
+    // FIXME make distance always positive
+    pub async fn move_to(&mut self, dst: Length){
+        let delta = dst.to_mm() - self.position.to_mm();
+        self.direction = if delta.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise}; 
+        let distance = Length::from_mm(delta);
+        self.move_for(distance).await;
+    }
+
+    pub fn get_position(&self) -> Length{
+        self.position
     }
 
 }
