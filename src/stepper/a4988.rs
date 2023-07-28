@@ -5,7 +5,7 @@ use core::f64::consts::PI;
 use embassy_stm32::gpio::{Output, AnyPin};
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
-use embassy_stm32::time::hz;
+use embassy_stm32::time::mhz;
 use embassy_time::{Timer, Duration};
 
 pub struct Speed {
@@ -29,11 +29,11 @@ impl Speed {
         }
     }
 
-    pub fn to_rps(self) -> u64{
+    pub fn to_rps(&self) -> u64{
         self.value
     }
 
-    pub fn to_mmps(self, radius: Length) -> f64{
+    pub fn to_mmps(&self, radius: Length) -> f64{
         let perimeter = 2.0 * PI * radius.to_mm();
         self.value as f64 * perimeter
     }
@@ -51,7 +51,7 @@ impl Length{
         }
     }
 
-    pub fn to_mm(self) -> f64{
+    pub fn to_mm(&self) -> f64{
         return self.value;
     }
 }
@@ -81,15 +81,15 @@ where S: CaptureCompare16bitInstance,
             step,
             dir,
             steps_per_revolution,
-            step_delay: sps_from_rpm(1, steps_per_revolution),
+            step_delay: compute_step_delay(Speed::from_rps(1), steps_per_revolution),
             distance_per_step,
             // position: Length::from_mm(0.0),
             // direction: StepperDirection::Clockwise
         }
     }
 
-    pub fn set_speed(&mut self, speed: u64) -> (){
-        self.step_delay = sps_from_rpm(speed, self.steps_per_revolution);
+    pub fn set_speed(&mut self, speed: Speed) -> (){
+        self.step_delay = compute_step_delay(speed, self.steps_per_revolution);
     }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
@@ -100,10 +100,13 @@ where S: CaptureCompare16bitInstance,
         };
     }
 
-    pub async fn step(&mut self) -> (){
+    pub async fn move_for(&mut self, distance: Length) -> (){
+        let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
+        // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
+        let duration = Duration::from_micros(2 * self.step_delay.as_micros() * steps_n);
         self.step.enable(Channel::Ch1);
-        self.step.set_freq(hz(10));
-        Timer::after(Duration::from_millis(500)).await;
+        self.step.set_freq(mhz(1 / (self.step_delay.as_micros() as u32)));
+        Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
         // let distance = match self.direction{
             // StepperDirection::Clockwise => self.distance_per_step.to_mm(),
@@ -122,9 +125,8 @@ where S: CaptureCompare16bitInstance,
 
 // get second per step from round per minute
 // TODO check types
-fn sps_from_rpm(rpm: u64, steps_per_revolution: u64) -> Duration {
-    let rps = rpm as f64 / 60.0;
-    let spr = 1.0 / rps;
+fn compute_step_delay(speed: Speed, steps_per_revolution: u64) -> Duration {
+    let spr = 1.0 / speed.to_rps() as f64;
     let sps = spr/(steps_per_revolution as f64);
     let microsps = (sps * 1_000_000.0) as u64;
     return Duration::from_micros(microsps);
