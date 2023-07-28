@@ -12,6 +12,7 @@ use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
+mod motion;
 use stepper::a4988::{Length, Stepper, StepperDirection, dps_from_radius, Speed as StepperSpeed};
 
 #[embassy_executor::main]
