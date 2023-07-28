@@ -8,6 +8,37 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
 use embassy_time::{Timer, Duration};
 
+pub struct Speed {
+    // rps
+    value: u64
+}
+
+impl Speed {
+    // round per second
+    pub fn from_rps(rps: u64) -> Speed{
+        Speed{
+            value: rps
+        }
+    }
+
+    // mm per second
+    pub fn from_mmps(mmps: f64, radius: Length) -> Speed{
+        let perimeter = 2.0 * PI * radius.to_mm();
+        Speed{
+            value: (mmps/perimeter) as u64
+        }
+    }
+
+    pub fn to_rps(self) -> u64{
+        self.value
+    }
+
+    pub fn to_mmps(self, radius: Length) -> f64{
+        let perimeter = 2.0 * PI * radius.to_mm();
+        self.value as f64 * perimeter
+    }
+}
+
 pub struct Length{
     // mm
     value: f64
@@ -20,7 +51,7 @@ impl Length{
         }
     }
 
-    pub fn to_mm(&self) -> f64{
+    pub fn to_mm(self) -> f64{
         return self.value;
     }
 }
