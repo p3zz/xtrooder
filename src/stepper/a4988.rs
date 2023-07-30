@@ -1,4 +1,4 @@
-#![no_std]
+#[no_std]
 
 use core::f64::consts::PI;
 
@@ -8,80 +8,7 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::mhz;
 use embassy_time::{Timer, Duration};
 use micromath::F32Ext;
-
-#[derive(Clone, Copy)]
-pub struct Position1D{
-    value: f64
-}
-impl Position1D{
-    pub fn from_mm(value: f64) -> Position1D{
-        Position1D { value }
-    }
-
-    pub fn to_mm(self) -> f64 {
-        self.value
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Position3D {
-    x: Position1D,
-    y: Position1D,
-    z: Position1D,
-}
-impl Position3D{
-    pub fn new(x: Position1D, y: Position1D, z: Position1D) -> Position3D{
-        Position3D { x, y, z }
-    }
-}
-pub struct Speed {
-    // rps
-    value: u64
-}
-
-impl Speed {
-    // round per second
-    pub fn from_rps(rps: u64) -> Speed{
-        Speed{
-            value: rps
-        }
-    }
-
-    // mm per second
-    pub fn from_mmps(mmps: f64, radius: Length) -> Speed{
-        let perimeter = 2.0 * PI * radius.to_mm();
-        Speed{
-            value: (mmps/perimeter) as u64
-        }
-    }
-
-    pub fn to_rps(&self) -> u64{
-        self.value
-    }
-
-    pub fn to_mmps(&self, radius: Length) -> f64{
-        let perimeter = 2.0 * PI * radius.to_mm();
-        self.value as f64 * perimeter
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Length{
-    // mm
-    value: f64
-}
-
-impl Length{
-    pub fn from_mm(value: f64) -> Length{
-        Length{
-            value
-        }
-    }
-
-    pub fn to_mm(self) -> f64{
-        self.value
-    }
-}
+use crate::stepper::motion::{Length, Position1D, Speed};
 
 pub enum StepperDirection{
     Clockwise,
@@ -140,11 +67,11 @@ where S: CaptureCompare16bitInstance,
             StepperDirection::Clockwise => self.distance_per_step.to_mm(),
             StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
         };
-        self.position = Position1D::from_mm(self.position.value + distance);
+        self.position = Position1D::from_mm(self.position.to_mm() + distance);
     }
 
     pub async fn move_to(&mut self, dst: Position1D){
-        let delta = dst.value - self.position.value;
+        let delta = dst.to_mm() - self.position.to_mm();
         let direction = if delta.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
         self.set_direction(direction);
         let distance = Length::from_mm((delta as f32).abs() as f64);

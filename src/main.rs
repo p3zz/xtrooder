@@ -8,13 +8,11 @@ use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
-use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
-mod motion;
-use stepper::a4988::{Length, Stepper, StepperDirection, dps_from_radius, Speed as StepperSpeed};
-use motion::motion::{move_to, Position};
+use stepper::a4988::{Stepper, dps_from_radius};
+use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, move_to, Length};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -43,7 +41,7 @@ async fn main(_spawner: Spawner) {
     let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
     loop {
-        move_to(Position::new(0.0,0.0,0.0), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
-        move_to(Position::new(0.0,0.0,0.0), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
+        move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
+        move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(10.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
     }
 }
