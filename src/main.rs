@@ -4,6 +4,8 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_stm32::{bind_interrupts, usart, peripherals};
+use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
@@ -11,8 +13,13 @@ use embassy_stm32::time::hz;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
+use embassy_stm32::usart::{Uart, Config};
 use stepper::a4988::{Stepper, dps_from_radius};
 use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, move_to, Length};
+
+bind_interrupts!(struct Irqs {
+    UART7 => usart::InterruptHandler<peripherals::UART7>;
+});
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -40,8 +47,15 @@ async fn main(_spawner: Spawner) {
 
     let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
+    let mut uart = Uart::new(p.UART7, p.PF6, p.PF7, Irqs, NoDma, NoDma, Config::default());
+    
+    uart.blocking_write(b"UART hello").unwrap();
+
+    move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
+
+    let mut buf = [0u8; 1];
     loop {
-        move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
-        move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(10.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
+        uart.blocking_read(&mut buf).unwrap();
+        uart.blocking_write(&buf).unwrap();   
     }
 }
