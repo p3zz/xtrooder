@@ -7,16 +7,23 @@ use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::mhz;
 use embassy_time::{Timer, Duration};
+use micromath::F32Ext;
 
+#[derive(Clone, Copy)]
 pub struct Position1D{
     value: f64
 }
 impl Position1D{
-    pub fn new(value: f64) -> Position1D{
+    pub fn from_mm(value: f64) -> Position1D{
         Position1D { value }
+    }
+
+    pub fn to_mm(&self) -> f64 {
+        self.value
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Position3D {
     x: Position1D,
     y: Position1D,
@@ -103,7 +110,7 @@ where S: CaptureCompare16bitInstance,
             steps_per_revolution,
             step_delay: compute_step_delay(Speed::from_rps(1), steps_per_revolution),
             distance_per_step,
-            position: Position1D::new(0.0),
+            position: Position1D::from_mm(0.0),
             direction: StepperDirection::Clockwise
         }
     }
@@ -133,14 +140,14 @@ where S: CaptureCompare16bitInstance,
             StepperDirection::Clockwise => self.distance_per_step.to_mm(),
             StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
         };
-        self.position = Position1D::new(self.position.value + distance);
+        self.position = Position1D::from_mm(self.position.value + distance);
     }
 
     pub async fn move_to(&mut self, dst: Position1D){
         let delta = dst.value - self.position.value;
         let direction = if delta.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
         self.set_direction(direction);
-        let distance = Length::from_mm(delta);
+        let distance = Length::from_mm((delta as f32).abs() as f64);
         self.move_for(distance).await;
     }
 
