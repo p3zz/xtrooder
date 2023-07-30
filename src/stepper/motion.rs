@@ -91,7 +91,7 @@ impl Length{
     }
 }
 
-
+// TODO add the z axis handling
 pub async fn move_to<X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance>(dst: Position3D, speed: Speed, x_stepper: &mut Stepper<'_, '_, X>, y_stepper: &mut Stepper<'_, '_, Y>){
     let src = Position3D::new(x_stepper.get_position(), y_stepper.get_position(), Position1D::from_mm(0.0));
     let x_delta = Length::from_mm(dst.x.to_mm() - src.x.to_mm());
