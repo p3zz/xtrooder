@@ -18,7 +18,7 @@ impl Position1D{
         Position1D { value }
     }
 
-    pub fn to_mm(&self) -> f64 {
+    pub fn to_mm(self) -> f64 {
         self.value
     }
 }
@@ -78,8 +78,8 @@ impl Length{
         }
     }
 
-    pub fn to_mm(&self) -> f64{
-        return self.value;
+    pub fn to_mm(self) -> f64{
+        self.value
     }
 }
 
@@ -121,7 +121,7 @@ where S: CaptureCompare16bitInstance,
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
         self.direction = direction;
-        let _  = match self.direction {
+        match self.direction {
             StepperDirection::Clockwise => self.dir.set_high(),
             StepperDirection::CounterClockwise => self.dir.set_low()
         };
@@ -163,18 +163,18 @@ fn compute_step_delay(speed: Speed, steps_per_revolution: u64) -> Duration {
     let spr = 1.0 / speed.to_rps() as f64;
     let sps = spr/(steps_per_revolution as f64);
     let microsps = (sps * 1_000_000.0) as u64;
-    return Duration::from_micros(microsps);
+    Duration::from_micros(microsps)
 }
 
 // get distance per step from pulley's radius
 // used for X/Y axis
 pub fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
     let p = 2.0 * r.to_mm() * PI;
-    return Length::from_mm(p / (steps_per_revolution as f64));
+    Length::from_mm(p / (steps_per_revolution as f64))
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
 pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u64) -> Length {
-    return Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64));
+    Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64))
 }
