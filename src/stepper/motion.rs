@@ -30,6 +30,17 @@ impl Position3D{
     pub fn new(x: Position1D, y: Position1D, z: Position1D) -> Position3D{
         Position3D { x, y, z }
     }
+    pub fn get_x(&self) -> Position1D{
+        self.x
+    }
+
+    pub fn get_y(&self) -> Position1D{
+        self.y
+    }
+
+    pub fn get_z(&self) -> Position1D{
+        self.z
+    }
 }
 pub struct Speed {
     // rps
@@ -85,7 +96,7 @@ pub async fn move_to<X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInsta
     let src = Position3D::new(x_stepper.get_position(), y_stepper.get_position(), Position1D::from_mm(0.0));
     let x_delta = Length::from_mm(dst.x.to_mm() - src.x.to_mm());
     let y_delta = Length::from_mm(dst.y.to_mm() - src.y.to_mm());
-    let th = (x_delta.to_mm() as f32).atan2(y_delta.to_mm() as f32);
+    let th = (y_delta.to_mm() as f32).atan2(x_delta.to_mm() as f32);
 
     let x_speed = Speed::from_rps((speed.to_rps() as f32 * th.cos()) as u64);
     x_stepper.set_speed(x_speed);
@@ -93,5 +104,5 @@ pub async fn move_to<X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInsta
     let y_speed = Speed::from_rps((speed.to_rps() as f32 * th.sin()) as u64);
     y_stepper.set_speed(y_speed);
 
-    join!(x_stepper.move_for(x_delta), y_stepper.move_for(y_delta));
+    join!(x_stepper.move_to(dst.get_x()), y_stepper.move_to(dst.get_y()));
 }
