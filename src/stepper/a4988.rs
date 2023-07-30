@@ -5,7 +5,7 @@ use core::f64::consts::PI;
 use embassy_stm32::gpio::{Output, AnyPin};
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
-use embassy_stm32::time::mhz;
+use embassy_stm32::time::hz;
 use embassy_time::{Timer, Duration};
 use micromath::F32Ext;
 use crate::stepper::motion::{Length, Position1D, Speed};
@@ -54,13 +54,15 @@ where S: CaptureCompare16bitInstance,
         };
     }
 
+    // the stepping is implemented through a pwm, where the duty is 50% (in order to have high/low pin for the same amount of time),
+    // and the frequency is computed using the time for a step to be executed (step delay)
     pub async fn move_for(&mut self, distance: Length){
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
         // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
         let duration = Duration::from_micros(2 * self.step_delay.as_micros() * steps_n);
         self.step.enable(Channel::Ch1);
-        // FIXME check the frequence, or something horrible will happen 
-        self.step.set_freq(mhz(1 / (self.step_delay.as_micros() as u32)));
+        let freq = hz(((1.0 / self.step_delay.as_micros() as f64) * 1_000_000.0) as u32);
+        self.step.set_freq(freq);
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
         let distance = match self.direction{
