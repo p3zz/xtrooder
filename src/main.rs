@@ -18,7 +18,7 @@ use stepper::a4988::{Stepper, dps_from_radius};
 use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, move_to, Length};
 
 bind_interrupts!(struct Irqs {
-    UART7 => usart::InterruptHandler<peripherals::UART7>;
+    USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
 
 #[embassy_executor::main]
@@ -47,15 +47,16 @@ async fn main(_spawner: Spawner) {
 
     let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), 200, dps_from_radius(Length::from_mm(5.0), 200));
 
-    let mut uart = Uart::new(p.UART7, p.PF6, p.PF7, Irqs, NoDma, NoDma, Config::default());
+    let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
     
-    uart.blocking_write(b"UART hello").unwrap();
+    uart.blocking_write(b"UART hello").expect("cannot write to serial");
 
     move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_rps(5), &mut red_stepper, &mut green_stepper).await;
 
     let mut buf = [0u8; 1];
     loop {
-        uart.blocking_read(&mut buf).unwrap();
-        uart.blocking_write(&buf).unwrap();   
+        uart.blocking_read(&mut buf).expect("cannot read from serial");
+        info!("Received {}", buf);
+        uart.blocking_write(&buf).expect("Cannot write to serial");
     }
 }
