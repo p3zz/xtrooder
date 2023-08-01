@@ -59,6 +59,9 @@ where S: CaptureCompare16bitInstance,
     // the stepping is implemented through a pwm, where the duty is 50% (in order to have high/low pin for the same amount of time),
     // and the frequency is computed using the time for a step to be executed (step delay)
     pub async fn move_for(&mut self, distance: Length){
+        if distance.to_mm() < self.distance_per_step.to_mm() {
+            return;
+        }
         let step_delay = self.compute_step_delay();
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
         // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
