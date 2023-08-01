@@ -63,17 +63,17 @@ where S: CaptureCompare16bitInstance,
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
         // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
         let duration = Duration::from_micros(2 * step_delay.as_micros() * steps_n);
-        info!("Duration: {}", duration.as_micros());
         self.step.enable(Channel::Ch1);
         let freq = hz(((1.0 / step_delay.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
         let distance = match self.direction{
-            StepperDirection::Clockwise => self.distance_per_step.to_mm(),
-            StepperDirection::CounterClockwise => -self.distance_per_step.to_mm()
+            StepperDirection::Clockwise => distance.to_mm(),
+            StepperDirection::CounterClockwise => -distance.to_mm()
         };
         self.position = Position1D::from_mm(self.position.to_mm() + distance);
+        info!("current position: {} mm", self.position.to_mm());        
     }
 
     pub async fn move_to(&mut self, dst: Position1D){
@@ -81,7 +81,7 @@ where S: CaptureCompare16bitInstance,
         let direction = if delta.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
         self.set_direction(direction);
         let distance = Length::from_mm((delta as f32).abs() as f64);
-        self.move_for(distance).await;
+        self.move_for(distance.unwrap()).await;
     }
 
     pub fn get_position(&self) -> Position1D{
@@ -91,7 +91,7 @@ where S: CaptureCompare16bitInstance,
     // TODO try to simplify this algorithm
     fn compute_step_delay(&self) -> Duration {
         let round_length = Length::from_mm(self.steps_per_revolution as f64 * self.distance_per_step.to_mm());
-        let round_per_second = self.speed.to_mmps() / round_length.to_mm();
+        let round_per_second = self.speed.to_mmps() / round_length.unwrap().to_mm();
         let second_per_round = 1.0 / round_per_second;
         let second_per_step = second_per_round / (self.steps_per_revolution as f64);
         let microsps = (second_per_step * 1_000_000.0) as u64;
@@ -104,11 +104,11 @@ where S: CaptureCompare16bitInstance,
 // used for X/Y axis
 pub fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
     let p = 2.0 * r.to_mm() * PI;
-    Length::from_mm(p / (steps_per_revolution as f64))
+    Length::from_mm(p / (steps_per_revolution as f64)).unwrap()
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
 pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u64) -> Length {
-    Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64))
+    Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64)).unwrap()
 }
