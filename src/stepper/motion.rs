@@ -4,7 +4,7 @@ use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use micromath::F32Ext;
 use futures::join;
 use core::f64::consts::PI;
-use crate::stepper::a4988::Stepper;
+use crate::stepper::a4988::{Stepper, StepperDirection};
 
 use defmt::*;
 use {defmt_rtt as _, panic_probe as _};
@@ -53,10 +53,13 @@ pub struct Speed {
 }
 
 impl Speed {
-    pub fn from_mmps(value: f64) -> Speed{
-        Speed{
-            value
+    pub fn from_mmps(value: f64) -> Result<Speed, ()>{
+        if value.is_sign_negative(){
+            return Result::Err(());
         }
+        Result::Ok(Speed{
+            value
+        })
     }
 
     pub fn to_mmps(&self) -> f64{
@@ -71,10 +74,13 @@ pub struct Length{
 }
 
 impl Length{
-    pub fn from_mm(value: f64) -> Length{
-        Length{
-            value
+    pub fn from_mm(value: f64) -> Result<Length, ()>{
+        if value.is_sign_negative(){
+            return Result::Err(());
         }
+        Result::Ok(Length{
+            value
+        })
     }
 
     pub fn to_mm(self) -> f64{
@@ -84,19 +90,28 @@ impl Length{
 
 // TODO add the z axis handling
 pub async fn move_to<X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance>(dst: Position3D, speed: Speed, x_stepper: &mut Stepper<'_, '_, X>, y_stepper: &mut Stepper<'_, '_, Y>){
+    info!("new move");
     let src = Position3D::new(x_stepper.get_position(), y_stepper.get_position(), Position1D::from_mm(0.0));
-    let x_delta = Length::from_mm(dst.x.to_mm() - src.x.to_mm());
-    let y_delta = Length::from_mm(dst.y.to_mm() - src.y.to_mm());
-    let th = (y_delta.to_mm() as f32).atan2(x_delta.to_mm() as f32);
-    info!("angle: {}", th);
+    let x_delta = dst.x.to_mm() - src.x.to_mm();
+    let y_delta = dst.y.to_mm() - src.y.to_mm();
 
-    let x_speed = Speed::from_mmps(speed.to_mmps() * th.cos() as f64);
-    info!("x speed: {}", x_speed.to_mmps());
-    x_stepper.set_speed(x_speed);
+    let th = (y_delta as f32).atan2(x_delta as f32);
 
-    let y_speed = Speed::from_mmps(speed.to_mmps() * th.sin() as f64);
-    info!("y speed: {}", y_speed.to_mmps());
-    y_stepper.set_speed(y_speed);
+    let x_speed = speed.to_mmps() as f32 * th.cos();
+    let x_direction = if x_speed.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
 
-    join!(x_stepper.move_to(dst.get_x()), y_stepper.move_to(dst.get_y()));
+    info!("x speed: {} mm/s", x_speed);
+    x_stepper.set_speed(Speed::from_mmps(x_speed.abs() as f64).unwrap());
+    x_stepper.set_direction(x_direction);
+
+    let y_speed = speed.to_mmps() as f32 * th.sin();
+    let y_direction = if y_speed.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
+
+    info!("y speed: {} mm/s", y_speed);
+    y_stepper.set_speed(Speed::from_mmps(y_speed.abs() as f64).unwrap());
+    y_stepper.set_direction(y_direction);
+
+    let x_distance = Length::from_mm((x_delta as f32).abs() as f64).unwrap();
+    let y_distance = Length::from_mm((y_delta as f32).abs() as f64).unwrap(); 
+    join!(x_stepper.move_for(x_distance), y_stepper.move_for(y_distance));
 }
