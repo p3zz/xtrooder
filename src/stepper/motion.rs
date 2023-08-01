@@ -6,6 +6,9 @@ use futures::join;
 use core::f64::consts::PI;
 use crate::stepper::a4988::Stepper;
 
+use defmt::*;
+use {defmt_rtt as _, panic_probe as _};
+
 #[derive(Clone, Copy)]
 pub struct Position1D{
     value: f64
@@ -42,34 +45,22 @@ impl Position3D{
         self.z
     }
 }
+
+#[derive(Clone, Copy)]
 pub struct Speed {
-    // rps
-    value: u64
+    // mm per second
+    value: f64
 }
 
 impl Speed {
-    // round per second
-    pub fn from_rps(rps: u64) -> Speed{
+    pub fn from_mmps(value: f64) -> Speed{
         Speed{
-            value: rps
+            value
         }
     }
 
-    // mm per second
-    pub fn from_mmps(mmps: f64, radius: Length) -> Speed{
-        let perimeter = 2.0 * PI * radius.to_mm();
-        Speed{
-            value: (mmps/perimeter) as u64
-        }
-    }
-
-    pub fn to_rps(&self) -> u64{
+    pub fn to_mmps(&self) -> f64{
         self.value
-    }
-
-    pub fn to_mmps(&self, radius: Length) -> f64{
-        let perimeter = 2.0 * PI * radius.to_mm();
-        self.value as f64 * perimeter
     }
 }
 
@@ -97,11 +88,14 @@ pub async fn move_to<X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInsta
     let x_delta = Length::from_mm(dst.x.to_mm() - src.x.to_mm());
     let y_delta = Length::from_mm(dst.y.to_mm() - src.y.to_mm());
     let th = (y_delta.to_mm() as f32).atan2(x_delta.to_mm() as f32);
+    info!("angle: {}", th);
 
-    let x_speed = Speed::from_rps((speed.to_rps() as f32 * th.cos()) as u64);
+    let x_speed = Speed::from_mmps(speed.to_mmps() * th.cos() as f64);
+    info!("x speed: {}", x_speed.to_mmps());
     x_stepper.set_speed(x_speed);
 
-    let y_speed = Speed::from_rps((speed.to_rps() as f32 * th.sin()) as u64);
+    let y_speed = Speed::from_mmps(speed.to_mmps() * th.sin() as f64);
+    info!("y speed: {}", y_speed.to_mmps());
     y_stepper.set_speed(y_speed);
 
     join!(x_stepper.move_to(dst.get_x()), y_stepper.move_to(dst.get_y()));

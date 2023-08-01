@@ -10,6 +10,9 @@ use embassy_time::{Timer, Duration};
 use micromath::F32Ext;
 use crate::stepper::motion::{Length, Position1D, Speed};
 
+use defmt::*;
+use {defmt_rtt as _, panic_probe as _};
+
 pub enum StepperDirection{
     Clockwise,
     CounterClockwise
@@ -19,9 +22,8 @@ pub struct Stepper<'s, 'd, S>{
     step: SimplePwm<'s, S>,
     dir: Output<'d, AnyPin>,
     steps_per_revolution: u64,
-    step_delay: Duration,
-    // mm
     distance_per_step: Length,
+    speed: Speed,
     // mm
     position: Position1D,
     direction: StepperDirection
@@ -30,12 +32,12 @@ pub struct Stepper<'s, 'd, S>{
 impl <'s, 'd, S> Stepper <'s, 'd, S>
 where S: CaptureCompare16bitInstance,
 {
-    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, steps_per_revolution: u64, distance_per_step: Length) -> Stepper<'s, 'd, S>{
+    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, speed: Speed, steps_per_revolution: u64, distance_per_step: Length) -> Stepper<'s, 'd, S>{
         Stepper{
             step,
             dir,
             steps_per_revolution,
-            step_delay: compute_step_delay(Speed::from_rps(1), steps_per_revolution),
+            speed,
             distance_per_step,
             position: Position1D::from_mm(0.0),
             direction: StepperDirection::Clockwise
@@ -43,7 +45,7 @@ where S: CaptureCompare16bitInstance,
     }
 
     pub fn set_speed(&mut self, speed: Speed) -> (){
-        self.step_delay = compute_step_delay(speed, self.steps_per_revolution);
+        self.speed = speed;
     }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
@@ -57,11 +59,13 @@ where S: CaptureCompare16bitInstance,
     // the stepping is implemented through a pwm, where the duty is 50% (in order to have high/low pin for the same amount of time),
     // and the frequency is computed using the time for a step to be executed (step delay)
     pub async fn move_for(&mut self, distance: Length){
+        let step_delay = self.compute_step_delay();
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
         // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
-        let duration = Duration::from_micros(2 * self.step_delay.as_micros() * steps_n);
+        let duration = Duration::from_micros(2 * step_delay.as_micros() * steps_n);
+        info!("Duration: {}", duration.as_micros());
         self.step.enable(Channel::Ch1);
-        let freq = hz(((1.0 / self.step_delay.as_micros() as f64) * 1_000_000.0) as u32);
+        let freq = hz(((1.0 / step_delay.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
@@ -84,15 +88,16 @@ where S: CaptureCompare16bitInstance,
         self.position
     }
 
-}
+    // TODO try to simplify this algorithm
+    fn compute_step_delay(&self) -> Duration {
+        let round_length = Length::from_mm(self.steps_per_revolution as f64 * self.distance_per_step.to_mm());
+        let round_per_second = self.speed.to_mmps() / round_length.to_mm();
+        let second_per_round = 1.0 / round_per_second;
+        let second_per_step = second_per_round / (self.steps_per_revolution as f64);
+        let microsps = (second_per_step * 1_000_000.0) as u64;
+        Duration::from_micros(microsps)
+    }
 
-// get second per step from round per minute
-// TODO check types
-fn compute_step_delay(speed: Speed, steps_per_revolution: u64) -> Duration {
-    let spr = 1.0 / speed.to_rps() as f64;
-    let sps = spr/(steps_per_revolution as f64);
-    let microsps = (sps * 1_000_000.0) as u64;
-    Duration::from_micros(microsps)
 }
 
 // get distance per step from pulley's radius
