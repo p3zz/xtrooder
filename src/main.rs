@@ -36,7 +36,7 @@ async fn main(_spawner: Spawner) {
 
     let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let mut red_stepper = Stepper::new(red_pwm, red_dir.degrade(), StepperSpeed::from_mmps(1.0), 200, dps_from_radius(Length::from_mm(5.0), 200));
+    let mut red_stepper = Stepper::new(red_pwm, red_dir.degrade(), StepperSpeed::from_mmps(1.0).unwrap(), 200, dps_from_radius(Length::from_mm(5.0).unwrap(), 200));
 
     let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
@@ -45,18 +45,20 @@ async fn main(_spawner: Spawner) {
 
     let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
 
-    let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), StepperSpeed::from_mmps(1.0), 200, dps_from_radius(Length::from_mm(5.0), 200));
+    let mut green_stepper = Stepper::new(green_pwm, green_dir.degrade(), StepperSpeed::from_mmps(1.0).unwrap(), 200, dps_from_radius(Length::from_mm(5.0).unwrap(), 200));
 
-    let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
+    // let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
     
-    uart.blocking_write(b"UART hello").expect("cannot write to serial");
+    // uart.blocking_write(b"UART hello").expect("cannot write to serial");
 
-    move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(1.0), &mut red_stepper, &mut green_stepper).await;
 
-    let mut buf = [0u8; 1];
+    // let mut buf = [0u8; 1];
     loop {
-        uart.blocking_read(&mut buf).expect("cannot read from serial");
-        info!("Received {}", buf);
-        uart.blocking_write(&buf).expect("Cannot write to serial");
+        // uart.blocking_read(&mut buf).expect("cannot read from serial");
+        // info!("Received {}", buf);
+        // uart.blocking_write(&buf).expect("Cannot write to serial");
+        move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap(), &mut red_stepper, &mut green_stepper).await;
+        move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap(), &mut red_stepper, &mut green_stepper).await;
+        move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(20.0).unwrap(), &mut red_stepper, &mut green_stepper).await;
     }
 }
