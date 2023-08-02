@@ -12,13 +12,15 @@ use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use {defmt_rtt as _, panic_probe as _};
 use embassy_stm32::usart::{Uart, Config};
+use heapless::String;
+use core::str;
 
 mod stepper;
 use stepper::a4988::{Stepper, dps_from_radius};
 use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, Length};
 
 mod planner;
-use planner::planner::Planner;
+use planner::planner::{Planner, parse_line};
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -51,16 +53,13 @@ async fn main(_spawner: Spawner) {
     let green_stepper = Stepper::new(green_pwm, green_dir.degrade(), StepperSpeed::from_mmps(1.0).unwrap(), 200, dps_from_radius(Length::from_mm(5.0).unwrap(), 200));
 
     let mut planner = Planner::new(red_stepper, green_stepper);
-    // let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
+    let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
     
-    // uart.blocking_write(b"UART hello").expect("cannot write to serial");
-
-
-    // let mut buf = [0u8; 1];
+    let mut buf = [0u8; 8];
     loop {
-        // uart.blocking_read(&mut buf).expect("cannot read from serial");
-        // info!("Received {}", buf);
-        // uart.blocking_write(&buf).expect("Cannot write to serial");
+        uart.blocking_read(&mut buf).expect("cannot read from serial");
+        let line: String<64> = String::from(str::from_utf8(&buf).unwrap());
+        parse_line(line);
         planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
         planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
         planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;

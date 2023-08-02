@@ -1,9 +1,31 @@
 #![no_std]
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
+use heapless::{String, Vec};
 use crate::stepper::a4988::{Stepper, StepperDirection};
 use crate::stepper::motion::{Position1D, Position3D, Speed, Length};
 use micromath::F32Ext;
 use futures::join;
+use {defmt_rtt as _, panic_probe as _};
+use defmt::*;
+
+struct CommandParameter{
+    key: String<8>,
+    value: f64
+}
+
+pub fn parse_line(line: String<64>){
+    let tokens: Vec<String<8>, 16> = line.split(' ').map(String::from).collect();
+    let mut cmd: Vec<CommandParameter, 16> = Vec::new();
+    for t in tokens{
+        info!("Token: {}", t.as_str());
+        let key = t.get(0..1).unwrap();
+        info!("Key: {}", key);
+        let value = t.get(1..).unwrap().parse::<f64>().unwrap();
+        info!("value: {}", value);
+        let param = CommandParameter{key: String::from(key), value};
+        cmd.push(param);
+    }
+}
 
 pub struct Planner<'sx, 'dx, 'sy, 'dy, X, Y> {
     x_stepper: Stepper<'sx, 'dx, X>,
@@ -40,4 +62,4 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance{
         join!(self.x_stepper.move_for(x_distance), self.y_stepper.move_for(y_distance));
     }
 
-} 
+}
