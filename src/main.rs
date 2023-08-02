@@ -55,13 +55,13 @@ async fn main(_spawner: Spawner) {
     let mut planner = Planner::new(red_stepper, green_stepper);
     let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
     
-    let mut buf = [0u8; 8];
+    let mut buf = [0u8; 16];
     loop {
         match uart.blocking_read(&mut buf){
             Ok(_) => {
                 let line: String<64> = String::from(str::from_utf8(&buf).unwrap());
                 match parse_line(line){
-                    Ok(()) => (), // TODO execute command
+                    Ok(cmd) => info!("valid command ready to be processed"), // TODO execute command
                     Err(()) => info!("invalid line")
                 };
             },
