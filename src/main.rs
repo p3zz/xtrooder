@@ -57,11 +57,19 @@ async fn main(_spawner: Spawner) {
     
     let mut buf = [0u8; 8];
     loop {
-        uart.blocking_read(&mut buf).expect("cannot read from serial");
-        let line: String<64> = String::from(str::from_utf8(&buf).unwrap());
-        parse_line(line);
-        planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
+        match uart.blocking_read(&mut buf){
+            Ok(_) => {
+                let line: String<64> = String::from(str::from_utf8(&buf).unwrap());
+                match parse_line(line){
+                    Ok(()) => (), // TODO execute command
+                    Err(()) => info!("invalid line")
+                };
+            },
+            Err(_) => info!("error reading from serial"),
+        };
+        
+        // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
+        // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
+        // planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
     }
 }

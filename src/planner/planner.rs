@@ -1,6 +1,6 @@
 #![no_std]
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
-use heapless::{String, Vec};
+use heapless::{String, Vec, LinearMap};
 use crate::stepper::a4988::{Stepper, StepperDirection};
 use crate::stepper::motion::{Position1D, Position3D, Speed, Length};
 use micromath::F32Ext;
@@ -8,23 +8,30 @@ use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 use defmt::*;
 
-struct CommandParameter{
-    key: String<8>,
-    value: f64
-}
-
-pub fn parse_line(line: String<64>){
+pub fn parse_line(line: String<64>) -> Result<(), ()>{
     let tokens: Vec<String<8>, 16> = line.split(' ').map(String::from).collect();
-    let mut cmd: Vec<CommandParameter, 16> = Vec::new();
-    for t in tokens{
-        info!("Token: {}", t.as_str());
-        let key = t.get(0..1).unwrap();
-        info!("Key: {}", key);
-        let value = t.get(1..).unwrap().parse::<f64>().unwrap();
-        info!("value: {}", value);
-        let param = CommandParameter{key: String::from(key), value};
-        cmd.push(param);
+    // cmd is a command 
+    let mut cmd: LinearMap<&str, f64, 16> = LinearMap::new();
+    if tokens.len() < 2{
+        return Err(());
     }
+    for t in &tokens{
+        let key = match t.get(0..1){
+            Some(v) => v,
+            None => return Err(())
+        };
+        let value = match t.get(1..){
+            Some(v) => match v.parse::<f64>(){
+                Ok(n) => n,
+                Err(_) => return Err(())
+            },
+            None => return Err(())
+        };
+        info!("key: {}, value: {}", key, value);
+        cmd.insert(key, value).unwrap();
+    }
+
+    Ok(())
 }
 
 pub struct Planner<'sx, 'dx, 'sy, 'dy, X, Y> {
