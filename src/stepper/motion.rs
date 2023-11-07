@@ -35,6 +35,20 @@ impl Position3D{
     pub fn get_z(&self) -> Position{
         self.z
     }
+
+    pub fn subtract(&self, position: Position3D) -> Position3D{
+        let x = position.get_x().to_mm() - self.get_x().to_mm();
+        let y = position.get_y().to_mm() - self.get_y().to_mm();
+        let z = position.get_z().to_mm() - self.get_z().to_mm();
+        Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z))
+    }
+
+    pub fn add(&self, position: Position3D) -> Position3D{
+        let x = position.get_x().to_mm() + self.get_x().to_mm();
+        let y = position.get_y().to_mm() + self.get_y().to_mm();
+        let z = position.get_z().to_mm() + self.get_z().to_mm();
+        Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z))
+    }
 }
 
 #[derive(Clone, Copy)]
