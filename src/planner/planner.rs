@@ -8,53 +8,6 @@ use futures::join;
 use {defmt_rtt as _, panic_probe as _};
 use defmt::*;
 
-pub enum GCommand{
-    G0{x: f64, y: f64, z: f64},
-    G1{x: f64, y: f64, z: f64, e: f64, f: f64},
-}
-
-pub fn parse_line(line: String<64>) -> Result<GCommand, ()>{
-    let tokens: Vec<String<8>, 16> = line.split(' ').map(String::from).collect();
-    // cmd is a command 
-    let mut cmd: LinearMap<&str, f64, 16> = LinearMap::new();
-    if tokens.len() < 2{
-        return Err(());
-    }
-    for t in &tokens{
-        let key = match t.get(0..1){
-            Some(v) => v,
-            None => return Err(())
-        };
-        let value = match t.get(1..){
-            Some(v) => match v.parse::<f64>(){
-                Ok(n) => n,
-                Err(_) => return Err(())
-            },
-            None => return Err(())
-        };
-        info!("key: {}, value: {}", key, value);
-        cmd.insert(key, value).unwrap();
-    }
-    let code = (*cmd.get("G").unwrap()).to_bits();
-    match code {
-        0 => {
-            let x = *cmd.get("X").unwrap();
-            let y = *cmd.get("Y").unwrap();    
-            let z = *cmd.get("Z").unwrap();
-            Ok(GCommand::G0{ x, y, z })
-        },
-        1 => {
-            let x = *cmd.get("X").unwrap();
-            let y = *cmd.get("Y").unwrap();    
-            let z = *cmd.get("Z").unwrap();
-            let e = *cmd.get("E").unwrap();
-            let f = *cmd.get("F").unwrap();
-            Ok(GCommand::G1{x, y, z, e, f})
-        },
-        _ => Err(())
-    }
-}
-
 pub struct Planner<'sx, 'dx, 'sy, 'dy, X, Y> {
     x_stepper: Stepper<'sx, 'dx, X>,
     y_stepper: Stepper<'sy, 'dy, Y>,

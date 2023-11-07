@@ -20,7 +20,10 @@ use stepper::a4988::{Stepper, dps_from_radius};
 use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, Length};
 
 mod planner;
-use planner::planner::{Planner, parse_line};
+use planner::planner::{Planner};
+
+mod parser;
+use parser::parser::parse_line;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -59,10 +62,10 @@ async fn main(_spawner: Spawner) {
     loop {
         match uart.blocking_read(&mut buf){
             Ok(_) => {
-                let line: String<64> = String::from(str::from_utf8(&buf).unwrap());
+                let line = str::from_utf8(&buf).unwrap();
                 match parse_line(line){
-                    Ok(cmd) => info!("valid command ready to be processed"), // TODO execute command
-                    Err(()) => info!("invalid line")
+                    Some(cmd) => info!("valid command ready to be processed"), // TODO execute command
+                    None => info!("invalid line")
                 };
             },
             Err(_) => info!("error reading from serial"),
