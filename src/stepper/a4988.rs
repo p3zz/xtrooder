@@ -1,4 +1,4 @@
-#[no_std]
+#![allow(dead_code)]
 
 use core::f64::consts::PI;
 
@@ -8,7 +8,7 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
 use embassy_time::{Timer, Duration};
 use micromath::F32Ext;
-use crate::stepper::motion::{Length, Position1D, Speed};
+use crate::stepper::motion::{Length, Position, Speed};
 
 use defmt::*;
 use {defmt_rtt as _, panic_probe as _};
@@ -25,21 +25,23 @@ pub struct Stepper<'s, 'd, S>{
     distance_per_step: Length,
     speed: Speed,
     // mm
-    position: Position1D,
+    position: Position,
     direction: StepperDirection
 }
 
 impl <'s, 'd, S> Stepper <'s, 'd, S>
 where S: CaptureCompare16bitInstance,
 {
-    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, speed: Speed, steps_per_revolution: u64, distance_per_step: Length) -> Stepper<'s, 'd, S>{
+    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, steps_per_revolution: u64, radius: Length) -> Stepper<'s, 'd, S>{
+        let distance_per_step = dps_from_radius(radius, steps_per_revolution);
+        let speed = Speed::from_mmps(0.0).unwrap();
         Stepper{
             step,
             dir,
             steps_per_revolution,
             speed,
             distance_per_step,
-            position: Position1D::from_mm(0.0),
+            position: Position::from_mm(0.0),
             direction: StepperDirection::Clockwise
         }
     }
@@ -75,11 +77,11 @@ where S: CaptureCompare16bitInstance,
             StepperDirection::Clockwise => distance.to_mm(),
             StepperDirection::CounterClockwise => -distance.to_mm()
         };
-        self.position = Position1D::from_mm(self.position.to_mm() + distance);
+        self.position = Position::from_mm(self.position.to_mm() + distance);
         info!("current position: {} mm", self.position.to_mm());        
     }
 
-    pub async fn move_to(&mut self, dst: Position1D){
+    pub async fn move_to(&mut self, dst: Position){
         let delta = dst.to_mm() - self.position.to_mm();
         let direction = if delta.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
         self.set_direction(direction);
@@ -87,7 +89,7 @@ where S: CaptureCompare16bitInstance,
         self.move_for(distance.unwrap()).await;
     }
 
-    pub fn get_position(&self) -> Position1D{
+    pub fn get_position(&self) -> Position{
         self.position
     }
 

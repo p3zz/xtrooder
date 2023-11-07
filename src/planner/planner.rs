@@ -1,12 +1,11 @@
-#![no_std]
+#![allow(dead_code)]
+
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
-use heapless::{String, Vec, LinearMap};
 use crate::stepper::a4988::{Stepper, StepperDirection};
-use crate::stepper::motion::{Position1D, Position3D, Speed, Length};
+use crate::stepper::motion::{Position, Position3D, Speed, Length};
 use micromath::F32Ext;
 use futures::join;
 use {defmt_rtt as _, panic_probe as _};
-use defmt::*;
 
 pub struct Planner<'sx, 'dx, 'sy, 'dy, X, Y> {
     x_stepper: Stepper<'sx, 'dx, X>,
@@ -20,7 +19,7 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance{
     }
 
     pub async fn move_to(&mut self, dst: Position3D, speed: Speed){
-        let src = Position3D::new(self.x_stepper.get_position(), self.y_stepper.get_position(), Position1D::from_mm(0.0));
+        let src = Position3D::new(self.x_stepper.get_position(), self.y_stepper.get_position(), Position::from_mm(0.0));
         let x_delta = dst.get_x().to_mm() - src.get_x().to_mm();
         let y_delta = dst.get_y().to_mm() - src.get_y().to_mm();
     

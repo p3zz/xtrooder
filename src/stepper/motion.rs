@@ -1,12 +1,12 @@
-#[no_std]
+#![allow(dead_code)]
 
 #[derive(Clone, Copy)]
-pub struct Position1D{
+pub struct Position{
     value: f64
 }
-impl Position1D{
-    pub fn from_mm(value: f64) -> Position1D{
-        Position1D { value }
+impl Position{
+    pub fn from_mm(value: f64) -> Position{
+        Position { value }
     }
 
     pub fn to_mm(self) -> f64 {
@@ -16,23 +16,23 @@ impl Position1D{
 
 #[derive(Clone, Copy)]
 pub struct Position3D {
-    x: Position1D,
-    y: Position1D,
-    z: Position1D,
+    x: Position,
+    y: Position,
+    z: Position,
 }
 impl Position3D{
-    pub fn new(x: Position1D, y: Position1D, z: Position1D) -> Position3D{
+    pub fn new(x: Position, y: Position, z: Position) -> Position3D{
         Position3D { x, y, z }
     }
-    pub fn get_x(&self) -> Position1D{
+    pub fn get_x(&self) -> Position{
         self.x
     }
 
-    pub fn get_y(&self) -> Position1D{
+    pub fn get_y(&self) -> Position{
         self.y
     }
 
-    pub fn get_z(&self) -> Position1D{
+    pub fn get_z(&self) -> Position{
         self.z
     }
 }

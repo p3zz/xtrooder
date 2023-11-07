@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use heapless::{Vec, LinearMap};
 
 pub enum GCommand{

@@ -25,3 +25,4 @@ cargo run path/to/bin
 - https://docs.rs/defmt-rtt/latest/defmt_rtt/
 - https://embassy.dev/
 - https://www.st.com/resource/en/user_manual/um2407-stm32h7-nucleo144-boards-mb1364-stmicroelectronics.pdf
+- https://ferrous-systems.com/blog/test-embedded-app/

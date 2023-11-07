@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
@@ -17,7 +19,7 @@ use core::str;
 
 mod stepper;
 use stepper::a4988::{Stepper, dps_from_radius};
-use stepper::motion::{Speed as StepperSpeed, Position3D, Position1D, Length};
+use stepper::motion::{Speed as StepperSpeed, Position3D, Position, Length};
 
 mod planner;
 use planner::planner::{Planner};
@@ -37,6 +39,9 @@ async fn main(_spawner: Spawner) {
     // let mut red = Output::new(p.PA0, Level::Low, Speed::Medium).degrade();
     // let mut green = Output::new(p.PA6, Level::Low, Speed::Medium).degrade();
 
+    const STEPS_PER_REVOLUTION: u64 = 200;
+    let pulley_radius: Length = Length::from_mm(5.0).unwrap();
+
     let mut red_pwm = SimplePwm::new(p.TIM3, Some(PwmPin::new_ch1(p.PA6)),
         None, None, None, hz(1));
     let red_max = red_pwm.get_max_duty();
@@ -44,7 +49,7 @@ async fn main(_spawner: Spawner) {
 
     let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let red_stepper = Stepper::new(red_pwm, red_dir.degrade(), StepperSpeed::from_mmps(1.0).unwrap(), 200, dps_from_radius(Length::from_mm(5.0).unwrap(), 200));
+    let red_stepper = Stepper::new(red_pwm, red_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
@@ -53,7 +58,7 @@ async fn main(_spawner: Spawner) {
 
     let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
 
-    let green_stepper = Stepper::new(green_pwm, green_dir.degrade(), StepperSpeed::from_mmps(1.0).unwrap(), 200, dps_from_radius(Length::from_mm(5.0).unwrap(), 200));
+    let green_stepper = Stepper::new(green_pwm, green_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut planner = Planner::new(red_stepper, green_stepper);
     let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
