@@ -39,8 +39,16 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         motion::linear_move_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await;
     }
 
+    pub async fn linear_move_xze(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position){
+        motion::linear_move_2d_e(&mut self.x_stepper, &mut self.z_stepper, &mut self.e_stepper, dest, e_dst, feedrate).await
+    }
+
     pub async fn linear_move_yz(&mut self, dest: Position2D, feedrate: Speed){
         motion::linear_move_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await;
+    }
+
+    pub async fn linear_move_yze(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position){
+        motion::linear_move_2d_e(&mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper, dest, e_dst, feedrate).await
     }
     
 
