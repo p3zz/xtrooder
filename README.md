@@ -1,6 +1,10 @@
+## Setup
+```bash
+rustup override set nightly-2023-06-28
+```
 ## Build
 ```bash
-cargo build --release
+cargo build
 ```
 ## Flash & Run
 Flashing is performed through probe-run.
@@ -11,12 +15,7 @@ cargo install probe-run
 
 Then, flash your binary
 ```bash
-cargo run --bin path/to/bin
-```
-or 
-
-```bash
-cargo run path/to/bin
+cargo run
 ```
 
 ## Reference
