@@ -2,10 +2,10 @@
 
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use crate::stepper::a4988::Stepper;
-use crate::stepper::units::{Speed, Position2D};
-
+use crate::stepper::units::{Speed, Position2D, Position};
 use super::motion;
-use {defmt_rtt as _, panic_probe as _};
+
+use futures::join;
 
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
@@ -28,6 +28,11 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
 
     pub async fn linear_move_xy(&mut self, dest: Position2D, feedrate: Speed){
         motion::linear_move_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
+    }
+
+
+    pub async fn linear_move_xye(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position){
+        motion::linear_move_2d_e(&mut self.x_stepper, &mut self.y_stepper, &mut self.e_stepper, dest, e_dst, feedrate).await
     }
 
     pub async fn linear_move_xz(&mut self, dest: Position2D, feedrate: Speed){

@@ -18,6 +18,21 @@ pub async fn linear_move_2d<'sa, 'da, 'sb, 'db, A: CaptureCompare16bitInstance, 
     join!(linear_move(stepper_a, dest.get_x(), a_feedrate), linear_move(stepper_b, dest.get_y(), b_feedrate));
 }
 
+pub async fn linear_move_2d_e
+<'sa, 'da, 'sb, 'db, 'se, 'de, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>
+(stepper_a: &mut Stepper<'sa, 'da, A>, stepper_b: &mut Stepper<'sb, 'db, B>, stepper_e: &mut Stepper<'se, 'de, E>, ab_dest: Position2D, e_dest: Position, feedrate: Speed){
+    let source = Position2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let delta =  source.subtract(ab_dest);
+    let distance = delta.get_magnitude();
+    let time_taken = distance.to_mm() / feedrate.to_mmps();
+    let e_delta = e_dest.subtract(stepper_e.get_position());
+    let e_speed = Speed::from_mmps(e_delta.to_mm() / time_taken).unwrap();
+    join!(
+        linear_move_2d(stepper_a, stepper_b, ab_dest, feedrate),
+        linear_move(stepper_e, e_dest, e_speed)
+    );
+}
+
 pub async fn linear_move<'s, 'd, T: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, 'd, T>, dest: Position, feedrate: Speed){
     let delta = dest.subtract(stepper.get_position());
     let direction = if delta.to_mm().is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};

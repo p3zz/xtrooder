@@ -47,6 +47,11 @@ impl Position2D{
         (self.get_y().to_mm() as f32).atan2(self.get_x().to_mm() as f32)
     }
 
+    pub fn get_magnitude(&self) -> Length {
+        let magnitude = ((self.x.to_mm() * self.x.to_mm() + self.y.to_mm() * self.y.to_mm()) as f32).sqrt();
+        Length::from_mm(magnitude as f64).unwrap()
+    }
+
     pub fn angle(&self, position: Position2D) -> f32{
         let delta = self.subtract(position);
         (delta.get_y().to_mm() as f32).atan2(delta.get_x().to_mm() as f32)
