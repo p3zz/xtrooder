@@ -8,7 +8,7 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
 use embassy_time::{Timer, Duration};
 use micromath::F32Ext;
-use crate::stepper::motion::{Length, Position, Speed};
+use crate::stepper::units::{Length, Position, Speed};
 
 use defmt::*;
 use {defmt_rtt as _, panic_probe as _};

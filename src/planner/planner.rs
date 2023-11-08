@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
-use crate::stepper::a4988::{Stepper, StepperDirection};
-use crate::stepper::motion::{Position, Position3D, Speed, Length};
-use micromath::F32Ext;
-use futures::join;
+use crate::stepper::a4988::Stepper;
+use crate::stepper::units::{Speed, Position2D};
+
+use super::motion;
 use {defmt_rtt as _, panic_probe as _};
 
 // we need to have a triple(s, d, T) for every stepper
@@ -26,28 +26,17 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         Planner{x_stepper, y_stepper, z_stepper, e_stepper}
     }
 
-    pub async fn move_to(&mut self, x: Option<Position>, y: Option<Position>, z: Option<Position>, speed: Option<Speed>, extruder_dst: Option<Position>){
-        let src = Position3D::new(self.x_stepper.get_position(), self.y_stepper.get_position(), self.z_stepper.get_position());
-        let delta = dst.subtract(src);
-
-    
-        let th = (y_delta as f32).atan2(x_delta as f32);
-    
-        let x_speed = speed.to_mmps() as f32 * th.cos();
-        let x_direction = if x_speed.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
-    
-        self.x_stepper.set_speed(Speed::from_mmps(x_speed.abs() as f64).unwrap());
-        self.x_stepper.set_direction(x_direction);
-    
-        let y_speed = speed.to_mmps() as f32 * th.sin();
-        let y_direction = if y_speed.is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
-    
-        self.y_stepper.set_speed(Speed::from_mmps(y_speed.abs() as f64).unwrap());
-        self.y_stepper.set_direction(y_direction);
-    
-        let x_distance = Length::from_mm((x_delta as f32).abs() as f64).unwrap();
-        let y_distance = Length::from_mm((y_delta as f32).abs() as f64).unwrap(); 
-        join!(self.x_stepper.move_for(x_distance), self.y_stepper.move_for(y_distance));
+    pub async fn linear_move_xy(&mut self, dest: Position2D, feedrate: Speed){
+        motion::linear_move_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
     }
+
+    pub async fn linear_move_xz(&mut self, dest: Position2D, feedrate: Speed){
+        motion::linear_move_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await;
+    }
+
+    pub async fn linear_move_yz(&mut self, dest: Position2D, feedrate: Speed){
+        motion::linear_move_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await;
+    }
+    
 
 }

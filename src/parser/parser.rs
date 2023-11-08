@@ -3,6 +3,7 @@
 use heapless::{Vec, LinearMap};
 
 pub enum GCommand{
+    // https://marlinfw.org/docs/gcode/G000-G001.html
     G0{x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>},
     G1{x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>},
 }
