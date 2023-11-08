@@ -4,7 +4,9 @@ use micromath::F32Ext;
 use futures::join;
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 
-pub async fn linear_move_2d<'sa, 'da, 'sb, 'db, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>(stepper_a: &mut Stepper<'sa, 'da, A>, stepper_b: &mut Stepper<'sb, 'db, B>, dest: Position2D, feedrate: Speed){
+pub async fn linear_move_2d
+<'sa, 'da, 'sb, 'db, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>
+(stepper_a: &mut Stepper<'sa, 'da, A>, stepper_b: &mut Stepper<'sb, 'db, B>, dest: Position2D, feedrate: Speed){
     let src = Position2D::new(stepper_a.get_position(), stepper_b.get_position());
     let th = src.angle(dest);
 
@@ -33,7 +35,9 @@ pub async fn linear_move_2d_e
     );
 }
 
-pub async fn linear_move<'s, 'd, T: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, 'd, T>, dest: Position, feedrate: Speed){
+pub async fn linear_move
+<'s, 'd, T: CaptureCompare16bitInstance>
+(stepper: &mut Stepper<'s, 'd, T>, dest: Position, feedrate: Speed){
     let delta = dest.subtract(stepper.get_position());
     let direction = if delta.to_mm().is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
     let distance = Length::from_mm((delta.to_mm() as f32).abs() as f64).unwrap();
