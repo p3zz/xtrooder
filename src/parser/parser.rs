@@ -2,6 +2,7 @@
 
 use heapless::{Vec, LinearMap};
 
+#[derive(PartialEq)]
 pub enum GCommand{
     // https://marlinfw.org/docs/gcode/G000-G001.html
     G0{x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>},
@@ -30,7 +31,7 @@ pub fn parse_line(line: &str) -> Option<GCommand>{
             None => None,
         }
     };
-    let code = retrieve_map_value("G")?.to_bits();
+    let code = retrieve_map_value("G")? as u64;
     match code {
         0 | 1 => {
             let x = retrieve_map_value("X");

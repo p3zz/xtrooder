@@ -13,6 +13,7 @@ use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use {defmt_rtt as _, panic_probe as _};
+use defmt::assert;
 use embassy_stm32::usart::{Uart, Config};
 use heapless::String;
 use core::str;
@@ -26,14 +27,24 @@ use planner::planner::{Planner};
 
 mod parser;
 use parser::parser::parse_line;
+use parser::test::test;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
 
+const TEST: bool = true;
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    info!("Hello World!");
+    if TEST {
+        info!("Testing");
+        test();
+        info!("Test finished succesfully");
+        return;
+    }
+
+    info!("Hello main");
 
     // let p = embassy_stm32::init(Default::default());
     // let mut red = Output::new(p.PA0, Level::Low, Speed::Medium).degrade();
