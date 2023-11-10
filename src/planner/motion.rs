@@ -38,10 +38,6 @@ pub async fn linear_move_2d_e
 pub async fn linear_move
 <'s, 'd, T: CaptureCompare16bitInstance>
 (stepper: &mut Stepper<'s, 'd, T>, dest: Position, feedrate: Speed){
-    let delta = dest.subtract(stepper.get_position());
-    let direction = if delta.to_mm().is_sign_negative() {StepperDirection::CounterClockwise} else {StepperDirection::Clockwise};
-    let distance = Length::from_mm((delta.to_mm() as f32).abs() as f64).unwrap();
     stepper.set_speed(feedrate);
-    stepper.set_direction(direction);
-    stepper.move_for(distance).await
+    stepper.move_to(dest).await
 }

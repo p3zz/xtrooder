@@ -41,7 +41,7 @@ async fn main(_spawner: Spawner) {
     if TEST {
         info!("Testing");
         parser_test();
-        stepper_test();
+        stepper_test().await;
         info!("Test finished succesfully");
         return;
     }
