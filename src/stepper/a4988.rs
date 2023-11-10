@@ -20,10 +20,15 @@ pub enum StepperDirection{
 }
 
 pub struct Stepper<'s, 'd, S>{
+    // properties that won't change
     step: SimplePwm<'s, S>,
     dir: Output<'d, AnyPin>,
     steps_per_revolution: u64,
+
+    // properties that have to be computed and won't change
     distance_per_step: Length,
+    
+    // properties that have to be computed and kept updated during the execution
     position: Position,
     direction: StepperDirection,
     step_duration: Duration,
