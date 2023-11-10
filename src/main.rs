@@ -19,7 +19,7 @@ use heapless::String;
 use core::str;
 
 mod stepper;
-use stepper::a4988::{Stepper, dps_from_radius};
+use stepper::a4988::{Stepper};
 use stepper::units::{Speed as StepperSpeed, Position3D, Position, Length};
 
 mod planner;
@@ -27,7 +27,8 @@ use planner::planner::{Planner};
 
 mod parser;
 use parser::parser::parse_line;
-use parser::test::test;
+use parser::test::test as parser_test;
+use stepper::test::test as stepper_test;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -39,7 +40,8 @@ const TEST: bool = true;
 async fn main(_spawner: Spawner) {
     if TEST {
         info!("Testing");
-        test();
+        parser_test();
+        stepper_test();
         info!("Test finished succesfully");
         return;
     }

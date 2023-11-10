@@ -1,9 +1,7 @@
 #![allow(dead_code)]
 
-use core::f64::consts::PI;
 
 use embassy_stm32::gpio::{Output, AnyPin};
-use embassy_stm32::pac::sai::vals::Freq;
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
@@ -12,6 +10,8 @@ use micromath::F32Ext;
 use crate::stepper::units::{Length, Position, Speed};
 
 use defmt::*;
+
+use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
 pub enum StepperDirection{
@@ -24,10 +24,8 @@ pub struct Stepper<'s, 'd, S>{
     step: SimplePwm<'s, S>,
     dir: Output<'d, AnyPin>,
     steps_per_revolution: u64,
-
-    // properties that have to be computed and won't change
     distance_per_step: Length,
-    
+
     // properties that have to be computed and kept updated during the execution
     position: Position,
     direction: StepperDirection,
@@ -37,8 +35,8 @@ pub struct Stepper<'s, 'd, S>{
 impl <'s, 'd, S> Stepper <'s, 'd, S>
 where S: CaptureCompare16bitInstance,
 {
-    pub fn new(step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, steps_per_revolution: u64, radius: Length) -> Stepper<'s, 'd, S>{
-        let distance_per_step = dps_from_radius(radius, steps_per_revolution);
+    pub fn new(mut step: SimplePwm<'s, S>, dir: Output<'d, AnyPin>, steps_per_revolution: u64, distance_per_step: Length) -> Stepper<'s, 'd, S>{
+        step.set_duty(Channel::Ch1, step.get_max_duty() / 2);
         Stepper{
             step,
             dir,
@@ -106,33 +104,12 @@ where S: CaptureCompare16bitInstance,
         self.position
     }
 
+    pub fn reset(&mut self) -> (){
+        self.position = Position::from_mm(0.0);
+        self.direction = StepperDirection::Clockwise;
+        self.step_duration = compute_step_duration(self.steps_per_revolution, self.distance_per_step, Speed::from_mmps(0.0).unwrap());
+    }
+
     
 
-}
-
-// get distance per step from pulley's radius
-// used for X/Y axis
-fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
-    let p = 2.0 * r.to_mm() * PI;
-    Length::from_mm(p / (steps_per_revolution as f64)).unwrap()
-}
-
-// get distance per step from bar's pitch
-// used for Z axis
-pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u64) -> Length {
-    Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64)).unwrap()
-}
-
-// compute the step duration, known as the time taken to perform a single step (active + inactive time)
-// spr -> step per revolution
-// dps -> distance per step
-fn compute_step_duration(spr: u64, dps: Length, speed: Speed) -> Duration {
-    // distance per revolution
-    let distance_per_revolution = Length::from_mm(spr as f64 * dps.to_mm()).unwrap();
-    let revolution_per_second = speed.to_mmps() / distance_per_revolution.to_mm();
-    let second_per_revolution = 1.0 / revolution_per_second;
-    let second_per_step = second_per_revolution / (spr as f64);
-    let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
-    // we have to take into account also the time the stepper in inactive, so multiply the us per 2
-    Duration::from_micros(usecond_per_step * 2)
 }
