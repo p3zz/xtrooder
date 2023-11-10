@@ -3,6 +3,7 @@
 use core::f64::consts::PI;
 
 use embassy_stm32::gpio::{Output, AnyPin};
+use embassy_stm32::pac::sai::vals::Freq;
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::time::hz;
@@ -24,9 +25,9 @@ pub struct Stepper<'s, 'd, S>{
     steps_per_revolution: u64,
     distance_per_step: Length,
     speed: Speed,
-    // mm
     position: Position,
-    direction: StepperDirection
+    direction: StepperDirection,
+    step_delay: Duration
 }
 
 impl <'s, 'd, S> Stepper <'s, 'd, S>
@@ -42,12 +43,14 @@ where S: CaptureCompare16bitInstance,
             speed,
             distance_per_step,
             position: Position::from_mm(0.0),
-            direction: StepperDirection::Clockwise
+            direction: StepperDirection::Clockwise,
+            step_delay: compute_step_delay(steps_per_revolution, distance_per_step, speed)
         }
     }
 
     pub fn set_speed(&mut self, speed: Speed) -> (){
         self.speed = speed;
+        self.step_delay = compute_step_delay(self.steps_per_revolution, self.distance_per_step, self.speed);
     }
 
     pub fn set_direction(&mut self, direction: StepperDirection) -> (){
@@ -64,21 +67,34 @@ where S: CaptureCompare16bitInstance,
         if distance.to_mm() < self.distance_per_step.to_mm() {
             return;
         }
-        let step_delay = self.compute_step_delay();
+        // compute the number of steps we need to perform
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
-        // for every step we need to wait step_delay at high then step_delay at low, so 2 step_delay per step
-        let duration = Duration::from_micros(2 * step_delay.as_micros() * steps_n);
+
+        /*
+        compute the duration of the move.
+        In order to perform a single step, we need to set the step pin to HIGH
+        for step_delay, then reset it to LOW for step_delay
+         */ 
+        let duration = Duration::from_micros(2 * steps_n * self.step_delay.as_micros());
+
+        /*
+        compute the frequency in which the pwm must run.
+        pwm frequency: count of PWM interval periods per second
+        PWM period: duration of one complete cycle or the total amount of active and inactive time combined
+         */ 
+        let freq = hz(((1.0 / self.step_delay.as_micros() as f64) * 1_000_000.0) as u32);
+        
+        // execute the pwm
         self.step.enable(Channel::Ch1);
-        let freq = hz(((1.0 / step_delay.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
         Timer::after(duration).await;
         self.step.disable(Channel::Ch1);
+        
         let distance = match self.direction{
             StepperDirection::Clockwise => distance.to_mm(),
             StepperDirection::CounterClockwise => -distance.to_mm()
         };
         self.position = Position::from_mm(self.position.to_mm() + distance);
-        info!("current position: {} mm", self.position.to_mm());        
     }
 
     pub async fn move_to(&mut self, dst: Position){
@@ -93,21 +109,13 @@ where S: CaptureCompare16bitInstance,
         self.position
     }
 
-    // TODO try to simplify this algorithm
-    fn compute_step_delay(&self) -> Duration {
-        let round_length = Length::from_mm(self.steps_per_revolution as f64 * self.distance_per_step.to_mm());
-        let round_per_second = self.speed.to_mmps() / round_length.unwrap().to_mm();
-        let second_per_round = 1.0 / round_per_second;
-        let second_per_step = second_per_round / (self.steps_per_revolution as f64);
-        let microsps = (second_per_step * 1_000_000.0) as u64;
-        Duration::from_micros(microsps)
-    }
+    
 
 }
 
 // get distance per step from pulley's radius
 // used for X/Y axis
-pub fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
+fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
     let p = 2.0 * r.to_mm() * PI;
     Length::from_mm(p / (steps_per_revolution as f64)).unwrap()
 }
@@ -116,4 +124,17 @@ pub fn dps_from_radius(r: Length, steps_per_revolution: u64) -> Length {
 // used for Z axis
 pub fn dps_from_pitch(pitch: Length, steps_per_revolution: u64) -> Length {
     Length::from_mm(pitch.to_mm() / (steps_per_revolution as f64)).unwrap()
+}
+
+// compute the step delay, known as the time taken to perform a single step (active + inactive time)
+// spr -> step per revolution
+// dps -> distance per step
+fn compute_step_delay(spr: u64, dps: Length, speed: Speed) -> Duration {
+    // distance per revolution
+    let distance_per_revolution = Length::from_mm(spr as f64 * dps.to_mm()).unwrap();
+    let revolution_per_second = speed.to_mmps() / distance_per_revolution.to_mm();
+    let second_per_revolution = 1.0 / revolution_per_second;
+    let second_per_step = second_per_revolution / (spr as f64);
+    let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
+    Duration::from_micros(usecond_per_step)
 }
