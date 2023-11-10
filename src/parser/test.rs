@@ -7,14 +7,14 @@ fn test_parse_line_g0_complete(){
     let line = "G0 X10.1 Y9.0 Z1.0 E2.0 F1200";
     let command = parse_line(line);
     assert!(command.is_some());
-    assert!(command.unwrap() == GCommand::G0 { x: Some(10.1), y: Some(9.0), z: Some(1.0), e: Some(2.0), f: Some(1200_f64) });
+    assert!(command.unwrap() == GCommand::G0 { x: Some(10.1), y: Some(9.0), z: Some(1.0), f: Some(1200_f64) });
 }
 
 fn test_parse_line_g0_incomplete(){
     let line = "G0 X10.1 F1200";
     let command = parse_line(line);
     assert!(command.is_some());
-    assert!(command.unwrap() == GCommand::G0 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+    assert!(command.unwrap() == GCommand::G0 { x: Some(10.1), y: None, z: None, f: Some(1200_f64) });
 }
 
 fn test_parse_line_g0_invalid(){
