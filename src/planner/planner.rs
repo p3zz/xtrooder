@@ -4,13 +4,14 @@ use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use heapless::spsc::Queue;
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
-use crate::stepper::units::{Speed, Position2D, Position};
+use crate::stepper::units::{Speed, Position2D, Position, Position3D};
 use super::motion;
 
 use futures::join;
 
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
+    feedrate: Speed,
     command_queue: Queue<GCommand, 16>,
     running: bool,
     x_stepper: Stepper<'sx, 'dx, X>,
@@ -27,7 +28,15 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         z_stepper: Stepper<'sz, 'dz, Z>,
         e_stepper: Stepper<'se, 'de, E>
     ) -> Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E>{
-        Planner{x_stepper, y_stepper, z_stepper, e_stepper, command_queue: Queue::new(), running: false}
+        Planner{
+            x_stepper,
+            y_stepper,
+            z_stepper,
+            e_stepper,
+            command_queue: Queue::new(),
+            running: false,
+            feedrate: Speed::from_mmps(0.0).unwrap()
+        }
     }
 
     pub fn add_command(&mut self, command: GCommand) -> Result<(), GCommand>{
@@ -42,16 +51,24 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
     }
 
     pub async fn g0(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, f: Option<f64>){
+        let feedrate = match f{
+            Some(speed) => Speed::from_mmps(speed).unwrap(),
+            None => self.feedrate
+        };
         match (x,y,z){
-            (None, None, None) => todo!(),
-            (None, None, Some(z)) => todo!(),
-            (None, Some(_), None) => todo!(),
-            (None, Some(_), Some(_)) => todo!(),
-            (Some(_), None, None) => todo!(),
-            (Some(_), None, Some(_)) => todo!(),
-            (Some(_), Some(_), None) => todo!(),
-            (Some(_), Some(_), Some(_)) => todo!(),
+            (None, None, None) => (),
+            (None, None, Some(z)) => self.linear_move_z(Position::from_mm(z), feedrate).await,
+            (None, Some(y), None) => self.linear_move_y(Position::from_mm(y), feedrate).await,
+            (Some(x), None, None) => self.linear_move_x(Position::from_mm(x), feedrate).await,
+            (None, Some(y), Some(z)) => self.linear_move_yz(Position2D::new(Position::from_mm(y), Position::from_mm(z)), feedrate).await,
+            (Some(x), None, Some(z)) => self.linear_move_xz(Position2D::new(Position::from_mm(x), Position::from_mm(z)), feedrate).await,
+            (Some(x), Some(y), None) => self.linear_move_xy(Position2D::new(Position::from_mm(x), Position::from_mm(y)), feedrate).await,
+            (Some(x), Some(y), Some(z)) => self.linear_move_xyz(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), feedrate).await,
         }
+    }
+
+    pub async fn g1(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>){
+        todo!();
     }
 
     pub async fn start(&mut self){
@@ -106,6 +123,14 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
 
     pub async fn linear_move_yze(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position){
         motion::linear_move_2d_e(&mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper, dest, e_dst, feedrate).await
+    }
+
+    pub async fn linear_move_xyz(&mut self, dest: Position3D, feedrate: Speed){
+        todo!()
+    }
+
+    pub async fn linear_move_xyze(&mut self, dest: Position3D, feedrate: Speed, e_dst: Position){
+        todo!()
     }
     
 
