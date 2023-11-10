@@ -58,15 +58,15 @@ impl Position2D{
     }
 
     pub fn subtract(&self, position: Position2D) -> Position2D{
-        let delta_x = position.get_x().to_mm() - self.get_x().to_mm();
-        let delta_y = position.get_y().to_mm() - self.get_y().to_mm();
-        Position2D::new(Position::from_mm(delta_x), Position::from_mm(delta_y))
+        let x = position.get_x().subtract(self.get_x());
+        let y = position.get_y().subtract(self.get_y());
+        Position2D::new(x, y)
     }
 
     pub fn add(&self, position: Position2D) -> Position2D{
-        let delta_x = position.get_x().to_mm() + self.get_x().to_mm();
-        let delta_y = position.get_y().to_mm() + self.get_y().to_mm();
-        Position2D::new(Position::from_mm(delta_x), Position::from_mm(delta_y))
+        let x = position.get_x().add(self.get_x());
+        let y = position.get_y().add(self.get_y());
+        Position2D::new(x, y)
     }
 }
 
@@ -94,17 +94,17 @@ impl Position3D{
     }
 
     pub fn subtract(&self, position: Position3D) -> Position3D{
-        let x = position.get_x().to_mm() - self.get_x().to_mm();
-        let y = position.get_y().to_mm() - self.get_y().to_mm();
-        let z = position.get_z().to_mm() - self.get_z().to_mm();
-        Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z))
+        let x = position.get_x().subtract(self.get_x());
+        let y = position.get_y().subtract(self.get_y());
+        let z = position.get_z().subtract(self.get_z());
+        Position3D::new(x, y, z)
     }
 
     pub fn add(&self, position: Position3D) -> Position3D{
-        let x = position.get_x().to_mm() + self.get_x().to_mm();
-        let y = position.get_y().to_mm() + self.get_y().to_mm();
-        let z = position.get_z().to_mm() + self.get_z().to_mm();
-        Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z))
+        let x = position.get_x().add(self.get_x());
+        let y = position.get_y().add(self.get_y());
+        let z = position.get_z().add(self.get_z());
+        Position3D::new(x, y, z)
     }
 }
 
