@@ -28,6 +28,7 @@ mod parser;
 use parser::parser::parse_line;
 use parser::test::test as parser_test;
 use stepper::test::test as stepper_test;
+use planner::test::test as planner_test;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -41,6 +42,7 @@ async fn main(_spawner: Spawner) {
         info!("Testing");
         parser_test();
         stepper_test().await;
+        planner_test();
         info!("Test finished succesfully");
         return;
     }
