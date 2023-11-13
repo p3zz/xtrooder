@@ -246,11 +246,11 @@ where
     }
 
     pub async fn linear_move_x(&mut self, dest: Position, feedrate: Speed) {
-        motion::linear_move(&mut self.x_stepper, dest, feedrate).await
+        motion::linear_move_to(&mut self.x_stepper, dest, feedrate).await
     }
 
     pub async fn linear_move_xe(&mut self, dest: Position, e_dest: Position, feedrate: Speed) {
-        motion::linear_move_e(
+        motion::linear_move_to_e(
             &mut self.x_stepper,
             &mut self.e_stepper,
             dest,
@@ -261,11 +261,11 @@ where
     }
 
     pub async fn linear_move_y(&mut self, dest: Position, feedrate: Speed) {
-        motion::linear_move(&mut self.y_stepper, dest, feedrate).await
+        motion::linear_move_to(&mut self.y_stepper, dest, feedrate).await
     }
 
     pub async fn linear_move_ye(&mut self, dest: Position, e_dest: Position, feedrate: Speed) {
-        motion::linear_move_e(
+        motion::linear_move_to_e(
             &mut self.y_stepper,
             &mut self.e_stepper,
             dest,
@@ -276,11 +276,11 @@ where
     }
 
     pub async fn linear_move_z(&mut self, dest: Position, feedrate: Speed) {
-        motion::linear_move(&mut self.z_stepper, dest, feedrate).await
+        motion::linear_move_to(&mut self.z_stepper, dest, feedrate).await
     }
 
     pub async fn linear_move_ze(&mut self, dest: Position, e_dest: Position, feedrate: Speed) {
-        motion::linear_move_e(
+        motion::linear_move_to_e(
             &mut self.z_stepper,
             &mut self.e_stepper,
             dest,
@@ -291,11 +291,11 @@ where
     }
 
     pub async fn linear_move_xy(&mut self, dest: Position2D, feedrate: Speed) {
-        motion::linear_move_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
+        motion::linear_move_to_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
     }
 
     pub async fn linear_move_xye(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position) {
-        motion::linear_move_2d_e(
+        motion::linear_move_to_2d_e(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.e_stepper,
@@ -307,11 +307,11 @@ where
     }
 
     pub async fn linear_move_xz(&mut self, dest: Position2D, feedrate: Speed) {
-        motion::linear_move_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await;
+        motion::linear_move_to_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await;
     }
 
     pub async fn linear_move_xze(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position) {
-        motion::linear_move_2d_e(
+        motion::linear_move_to_2d_e(
             &mut self.x_stepper,
             &mut self.z_stepper,
             &mut self.e_stepper,
@@ -323,11 +323,11 @@ where
     }
 
     pub async fn linear_move_yz(&mut self, dest: Position2D, feedrate: Speed) {
-        motion::linear_move_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await;
+        motion::linear_move_to_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await;
     }
 
     pub async fn linear_move_yze(&mut self, dest: Position2D, feedrate: Speed, e_dst: Position) {
-        motion::linear_move_2d_e(
+        motion::linear_move_to_2d_e(
             &mut self.y_stepper,
             &mut self.z_stepper,
             &mut self.e_stepper,
