@@ -39,5 +39,19 @@ pub async fn linear_move
 <'s, 'd, T: CaptureCompare16bitInstance>
 (stepper: &mut Stepper<'s, 'd, T>, dest: Position, feedrate: Speed){
     stepper.set_speed(feedrate);
-    stepper.move_to(dest).await
+    stepper.move_to(dest).await;
+}
+
+pub async fn linear_move_e
+<'sa, 'da, 'se, 'de, A: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>
+(stepper_a: &mut Stepper<'sa, 'da, A>, stepper_e: &mut Stepper<'se, 'de, E>, dest: Position, e_dest: Position, feedrate: Speed){
+    // compute the time the stepper a takes to go from its position to the destination, at the given speed, then compute
+    // the speed for the extruder stepper 
+    let a_distance =  dest.subtract(stepper_a.get_position());
+    let a_time = a_distance.to_mm() / feedrate.to_mmps();
+
+    let e_distance = e_dest.subtract(stepper_e.get_position());
+    let e_speed = Speed::from_mmps(e_distance.to_mm() / a_time).unwrap();
+
+    join!(linear_move(stepper_a, dest, feedrate), linear_move(stepper_e, e_dest, e_speed));
 }

@@ -68,7 +68,26 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
     }
 
     pub async fn g1(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>){
-        todo!();
+        let e_dest = match e {
+            Some(e_dest) => Position::from_mm(e_dest),
+            None => return self.g0(x, y, z, f).await,
+        };
+
+        self.feedrate = match f {
+            Some(speed) => Speed::from_mmps(speed).unwrap(),
+            None => self.feedrate
+        };
+
+        match (x,y,z){
+            (None, None, None) => (),
+            (None, None, Some(z)) => self.linear_move_ze(Position::from_mm(z), e_dest, self.feedrate).await,
+            (None, Some(y), None) => self.linear_move_ye(Position::from_mm(y), e_dest, self.feedrate).await,
+            (Some(x), None, None) => self.linear_move_xe(Position::from_mm(x), e_dest, self.feedrate).await,
+            (None, Some(y), Some(z)) => self.linear_move_yze(Position2D::new(Position::from_mm(y), Position::from_mm(z)), self.feedrate, e_dest ).await,
+            (Some(x), None, Some(z)) => self.linear_move_xze(Position2D::new(Position::from_mm(x), Position::from_mm(z)), self.feedrate, e_dest).await,
+            (Some(x), Some(y), None) => self.linear_move_xye(Position2D::new(Position::from_mm(x), Position::from_mm(y)), self.feedrate, e_dest).await,
+            (Some(x), Some(y), Some(z)) => self.linear_move_xyze(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), self.feedrate, e_dest).await,
+        }
     }
 
     pub async fn start(&mut self){
@@ -93,12 +112,24 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         motion::linear_move(&mut self.x_stepper, dest, feedrate).await
     }
 
+    pub async fn linear_move_xe(&mut self, dest: Position, e_dest: Position, feedrate: Speed){
+        motion::linear_move_e(&mut self.x_stepper, &mut self.e_stepper, dest, e_dest, feedrate).await
+    }
+
     pub async fn linear_move_y(&mut self, dest: Position, feedrate: Speed){
         motion::linear_move(&mut self.y_stepper, dest, feedrate).await
     }
 
+    pub async fn linear_move_ye(&mut self, dest: Position, e_dest: Position, feedrate: Speed){
+        motion::linear_move_e(&mut self.y_stepper, &mut self.e_stepper, dest, e_dest, feedrate).await
+    }
+
     pub async fn linear_move_z(&mut self, dest: Position, feedrate: Speed){
         motion::linear_move(&mut self.z_stepper, dest, feedrate).await
+    }
+
+    pub async fn linear_move_ze(&mut self, dest: Position, e_dest: Position, feedrate: Speed){
+        motion::linear_move_e(&mut self.z_stepper, &mut self.e_stepper, dest, e_dest, feedrate).await
     }
 
     pub async fn linear_move_xy(&mut self, dest: Position2D, feedrate: Speed){
