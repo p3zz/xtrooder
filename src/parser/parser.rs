@@ -9,6 +9,8 @@ pub enum GCommand{
     G1{x: Option<f64>, y: Option<f64>, z: Option<f64>, e: Option<f64>, f: Option<f64>},
     G20,
     G21,
+    G90,
+    G91,
 }
 
 pub fn parse_line(line: &str) -> Option<GCommand>{
@@ -56,6 +58,12 @@ pub fn parse_line(line: &str) -> Option<GCommand>{
         21 => {
             Some(GCommand::G21)
         },
+        90 => {
+            Some(GCommand::G90)
+        },
+        91 => {
+            Some(GCommand::G91)
+        }
         _ => None
     }
 }

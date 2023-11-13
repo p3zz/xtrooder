@@ -10,10 +10,16 @@ use super::motion;
 
 use futures::join;
 
+pub enum Positioning {
+    Relative,
+    Absolute
+}
+
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
     feedrate: Speed,
     unit: Unit,
+    positioning: Positioning,
     command_queue: Queue<GCommand, 16>,
     running: bool,
     x_stepper: Stepper<'sx, 'dx, X>,
@@ -38,7 +44,8 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
             command_queue: Queue::new(),
             running: false,
             feedrate: Speed::from_mmps(0.0).unwrap(),
-            unit: Unit::Millimeter
+            unit: Unit::Millimeter,
+            positioning: Positioning::Absolute
         }
     }
 
@@ -50,13 +57,27 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         match command{
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
             GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await,
-            GCommand::G20 => self.set_unit(Unit::Inch),
-            GCommand::G21 => self.set_unit(Unit::Millimeter),
+            GCommand::G20 => self.g20(),
+            GCommand::G21 => self.g21(),
+            GCommand::G90 => self.g90(),
+            GCommand::G91 => self.g91(),
         }
     }
 
-    fn set_unit(&mut self, unit: Unit){
-        self.unit = unit
+    fn g20(&mut self){
+        self.unit = Unit::Inch;
+    }
+
+    fn g21(&mut self){
+        self.unit = Unit::Inch;
+    }
+
+    fn g90(&mut self){
+        self.positioning = Positioning::Absolute;
+    }
+
+    fn g91(&mut self){
+        self.positioning = Positioning::Relative;
     }
 
     pub async fn g0(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, f: Option<f64>){
