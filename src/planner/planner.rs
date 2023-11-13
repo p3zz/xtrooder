@@ -51,19 +51,19 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
     }
 
     pub async fn g0(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, f: Option<f64>){
-        let feedrate = match f{
+        self.feedrate = match f {
             Some(speed) => Speed::from_mmps(speed).unwrap(),
             None => self.feedrate
         };
         match (x,y,z){
             (None, None, None) => (),
-            (None, None, Some(z)) => self.linear_move_z(Position::from_mm(z), feedrate).await,
-            (None, Some(y), None) => self.linear_move_y(Position::from_mm(y), feedrate).await,
-            (Some(x), None, None) => self.linear_move_x(Position::from_mm(x), feedrate).await,
-            (None, Some(y), Some(z)) => self.linear_move_yz(Position2D::new(Position::from_mm(y), Position::from_mm(z)), feedrate).await,
-            (Some(x), None, Some(z)) => self.linear_move_xz(Position2D::new(Position::from_mm(x), Position::from_mm(z)), feedrate).await,
-            (Some(x), Some(y), None) => self.linear_move_xy(Position2D::new(Position::from_mm(x), Position::from_mm(y)), feedrate).await,
-            (Some(x), Some(y), Some(z)) => self.linear_move_xyz(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), feedrate).await,
+            (None, None, Some(z)) => self.linear_move_z(Position::from_mm(z), self.feedrate).await,
+            (None, Some(y), None) => self.linear_move_y(Position::from_mm(y), self.feedrate).await,
+            (Some(x), None, None) => self.linear_move_x(Position::from_mm(x), self.feedrate).await,
+            (None, Some(y), Some(z)) => self.linear_move_yz(Position2D::new(Position::from_mm(y), Position::from_mm(z)), self.feedrate).await,
+            (Some(x), None, Some(z)) => self.linear_move_xz(Position2D::new(Position::from_mm(x), Position::from_mm(z)), self.feedrate).await,
+            (Some(x), Some(y), None) => self.linear_move_xy(Position2D::new(Position::from_mm(x), Position::from_mm(y)), self.feedrate).await,
+            (Some(x), Some(y), Some(z)) => self.linear_move_xyz(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), self.feedrate).await,
         }
     }
 
