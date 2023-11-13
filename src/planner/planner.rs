@@ -27,10 +27,12 @@ pub struct Planner<'s, X, Y, Z, E> {
     z_stepper: Stepper<'s, Z>,
     e_stepper: Stepper<'s, E>,
 }
-impl<'s, X, Y, Z, E>
-    Planner<'s, X, Y, Z, E>
+impl<'s, X, Y, Z, E> Planner<'s, X, Y, Z, E>
 where
-    X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance,
+    X: CaptureCompare16bitInstance,
+    Y: CaptureCompare16bitInstance,
+    Z: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
 {
     pub fn new(
         x_stepper: Stepper<'s, X>,

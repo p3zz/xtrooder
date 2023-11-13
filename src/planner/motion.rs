@@ -4,11 +4,7 @@ use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use futures::join;
 use micromath::F32Ext;
 
-pub async fn linear_move_2d<
-    's,
-    A: CaptureCompare16bitInstance,
-    B: CaptureCompare16bitInstance,
->(
+pub async fn linear_move_2d<'s, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     dest: Position2D,
@@ -64,11 +60,7 @@ pub async fn linear_move<'s, S: CaptureCompare16bitInstance>(
     stepper.move_to(dest).await;
 }
 
-pub async fn linear_move_e<
-    's,
-    A: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
->(
+pub async fn linear_move_e<'s, A: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_e: &mut Stepper<'s, E>,
     dest: Position,
