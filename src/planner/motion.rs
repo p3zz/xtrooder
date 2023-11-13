@@ -5,15 +5,12 @@ use futures::join;
 use micromath::F32Ext;
 
 pub async fn linear_move_2d<
-    'sa,
-    'da,
-    'sb,
-    'db,
+    's,
     A: CaptureCompare16bitInstance,
     B: CaptureCompare16bitInstance,
 >(
-    stepper_a: &mut Stepper<'sa, 'da, A>,
-    stepper_b: &mut Stepper<'sb, 'db, B>,
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
     dest: Position2D,
     feedrate: Speed,
 ) {
@@ -34,19 +31,14 @@ pub async fn linear_move_2d<
 }
 
 pub async fn linear_move_2d_e<
-    'sa,
-    'da,
-    'sb,
-    'db,
-    'se,
-    'de,
+    's,
     A: CaptureCompare16bitInstance,
     B: CaptureCompare16bitInstance,
     E: CaptureCompare16bitInstance,
 >(
-    stepper_a: &mut Stepper<'sa, 'da, A>,
-    stepper_b: &mut Stepper<'sb, 'db, B>,
-    stepper_e: &mut Stepper<'se, 'de, E>,
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_e: &mut Stepper<'s, E>,
     ab_dest: Position2D,
     e_dest: Position,
     feedrate: Speed,
@@ -63,8 +55,8 @@ pub async fn linear_move_2d_e<
     );
 }
 
-pub async fn linear_move<'s, 'd, T: CaptureCompare16bitInstance>(
-    stepper: &mut Stepper<'s, 'd, T>,
+pub async fn linear_move<'s, S: CaptureCompare16bitInstance>(
+    stepper: &mut Stepper<'s, S>,
     dest: Position,
     feedrate: Speed,
 ) {
@@ -73,15 +65,12 @@ pub async fn linear_move<'s, 'd, T: CaptureCompare16bitInstance>(
 }
 
 pub async fn linear_move_e<
-    'sa,
-    'da,
-    'se,
-    'de,
+    's,
     A: CaptureCompare16bitInstance,
     E: CaptureCompare16bitInstance,
 >(
-    stepper_a: &mut Stepper<'sa, 'da, A>,
-    stepper_e: &mut Stepper<'se, 'de, E>,
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_e: &mut Stepper<'s, E>,
     dest: Position,
     e_dest: Position,
     feedrate: Speed,

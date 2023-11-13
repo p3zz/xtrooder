@@ -11,7 +11,7 @@ use crate::stepper::units::{Length, Speed as StepperSpeed};
 
 use super::{a4988::Stepper, math::dps_from_radius};
 
-async fn test_stepper_1<'s, 'd, T: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, 'd, T>) {
+async fn test_stepper_1<'s, S: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, S>) {
     stepper.reset();
     stepper.set_direction(super::a4988::StepperDirection::Clockwise);
     stepper.set_speed(StepperSpeed::from_mmps(10.0).unwrap());

@@ -47,32 +47,49 @@ async fn main(_spawner: Spawner) {
 
     info!("Hello main");
 
-    // let p = embassy_stm32::init(Default::default());
-    // let mut red = Output::new(p.PA0, Level::Low, Speed::Medium).degrade();
-    // let mut green = Output::new(p.PA6, Level::Low, Speed::Medium).degrade();
+    let p = embassy_stm32::init(Default::default());
+    
+    const STEPS_PER_REVOLUTION: u64 = 200;
+    let pulley_radius: Length = Length::from_mm(5.0).unwrap();
 
-    // const STEPS_PER_REVOLUTION: u64 = 200;
-    // let pulley_radius: Length = Length::from_mm(5.0).unwrap();
+    // setup X stepper
 
-    // let mut red_pwm = SimplePwm::new(p.TIM3, Some(PwmPin::new_ch1(p.PA6)),
-    //     None, None, None, hz(1));
-    // let red_max = red_pwm.get_max_duty();
-    // red_pwm.set_duty(Channel::Ch1, red_max/2);
+    let mut x_step = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
+        None, None, None, hz(1));
+    
 
-    // let red_dir = Output::new(p.PB0, Level::Low, Speed::Low);
+    let x_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    // let red_stepper = Stepper::new(red_pwm, red_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let x_stepper = Stepper::new(x_step, x_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
-    // let mut green_pwm = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
-    //     None, None, None, hz(1));
-    // let green_max = green_pwm.get_max_duty();
-    // green_pwm.set_duty(Channel::Ch1, green_max/2);
+    // setup Y stepper
 
-    // let green_dir = Output::new(p.PB14, Level::Low, Speed::Low);
+    let mut y_step = SimplePwm::new(p.TIM15, Some(PwmPin::new_ch1(p.PA2)),
+        None, None, None, hz(1));
+    
+    let y_dir = Output::new(p.PB1, Level::Low, Speed::Low);
 
-    // let green_stepper = Stepper::new(green_pwm, green_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let y_stepper = Stepper::new(y_step, y_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
-    // let mut planner = Planner::new(red_stepper, green_stepper);
+    // // setup Z stepper
+
+    let mut z_step = SimplePwm::new(p.TIM3, Some(PwmPin::new_ch1(p.PA6)),
+        None, None, None, hz(1));
+    
+    let z_dir = Output::new(p.PB2, Level::Low, Speed::Low);
+
+    let z_stepper = Stepper::new(z_step, z_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+
+    // // setup E stepper
+    
+    let mut e_step = SimplePwm::new(p.TIM14, Some(PwmPin::new_ch1(p.PA7)),
+        None, None, None, hz(1));
+    
+    let e_dir = Output::new(p.PB3, Level::Low, Speed::Low);
+
+    let e_stepper = Stepper::new(e_step, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+
+    let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
     // let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
 
     // let mut buf = [0u8; 16];

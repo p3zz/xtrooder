@@ -18,10 +18,10 @@ pub enum StepperDirection {
     CounterClockwise,
 }
 
-pub struct Stepper<'s, 'd, S> {
+pub struct Stepper<'s, S> {
     // properties that won't change
     step: SimplePwm<'s, S>,
-    dir: Output<'d, AnyPin>,
+    dir: Output<'s, AnyPin>,
     steps_per_revolution: u64,
     distance_per_step: Length,
 
@@ -31,16 +31,16 @@ pub struct Stepper<'s, 'd, S> {
     step_duration: Duration,
 }
 
-impl<'s, 'd, S> Stepper<'s, 'd, S>
+impl<'s, S> Stepper<'s, S>
 where
     S: CaptureCompare16bitInstance,
 {
     pub fn new(
         mut step: SimplePwm<'s, S>,
-        dir: Output<'d, AnyPin>,
+        dir: Output<'s, AnyPin>,
         steps_per_revolution: u64,
         distance_per_step: Length,
-    ) -> Stepper<'s, 'd, S> {
+    ) -> Stepper<'s, S> {
         step.set_duty(Channel::Ch1, step.get_max_duty() / 2);
         Stepper {
             step,

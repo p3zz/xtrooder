@@ -16,31 +16,28 @@ pub enum Positioning {
 }
 
 // we need to have a triple(s, d, T) for every stepper
-pub struct Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
+pub struct Planner<'s, X, Y, Z, E> {
     feedrate: Speed,
     unit: Unit,
     positioning: Positioning,
     command_queue: Queue<GCommand, 16>,
     running: bool,
-    x_stepper: Stepper<'sx, 'dx, X>,
-    y_stepper: Stepper<'sy, 'dy, Y>,
-    z_stepper: Stepper<'sz, 'dz, Z>,
-    e_stepper: Stepper<'se, 'de, E>,
+    x_stepper: Stepper<'s, X>,
+    y_stepper: Stepper<'s, Y>,
+    z_stepper: Stepper<'s, Z>,
+    e_stepper: Stepper<'s, E>,
 }
-impl<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E>
-    Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E>
+impl<'s, X, Y, Z, E>
+    Planner<'s, X, Y, Z, E>
 where
-    X: CaptureCompare16bitInstance,
-    Y: CaptureCompare16bitInstance,
-    Z: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
+    X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance,
 {
     pub fn new(
-        x_stepper: Stepper<'sx, 'dx, X>,
-        y_stepper: Stepper<'sy, 'dy, Y>,
-        z_stepper: Stepper<'sz, 'dz, Z>,
-        e_stepper: Stepper<'se, 'de, E>,
-    ) -> Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
+        x_stepper: Stepper<'s, X>,
+        y_stepper: Stepper<'s, Y>,
+        z_stepper: Stepper<'s, Z>,
+        e_stepper: Stepper<'s, E>,
+    ) -> Planner<'s, X, Y, Z, E> {
         Planner {
             x_stepper,
             y_stepper,
