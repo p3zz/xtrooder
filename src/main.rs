@@ -54,7 +54,7 @@ async fn main(_spawner: Spawner) {
 
     // setup X stepper
 
-    let mut x_step = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
+    let x_step = SimplePwm::new(p.TIM5, Some(PwmPin::new_ch1(p.PA0)),
         None, None, None, hz(1));
     
 
@@ -64,7 +64,7 @@ async fn main(_spawner: Spawner) {
 
     // setup Y stepper
 
-    let mut y_step = SimplePwm::new(p.TIM15, Some(PwmPin::new_ch1(p.PA2)),
+    let y_step = SimplePwm::new(p.TIM15, Some(PwmPin::new_ch1(p.PA2)),
         None, None, None, hz(1));
     
     let y_dir = Output::new(p.PB1, Level::Low, Speed::Low);
@@ -73,7 +73,7 @@ async fn main(_spawner: Spawner) {
 
     // // setup Z stepper
 
-    let mut z_step = SimplePwm::new(p.TIM3, Some(PwmPin::new_ch1(p.PA6)),
+    let z_step = SimplePwm::new(p.TIM3, Some(PwmPin::new_ch1(p.PA6)),
         None, None, None, hz(1));
     
     let z_dir = Output::new(p.PB2, Level::Low, Speed::Low);
@@ -82,7 +82,7 @@ async fn main(_spawner: Spawner) {
 
     // // setup E stepper
     
-    let mut e_step = SimplePwm::new(p.TIM14, Some(PwmPin::new_ch1(p.PA7)),
+    let e_step = SimplePwm::new(p.TIM14, Some(PwmPin::new_ch1(p.PA7)),
         None, None, None, hz(1));
     
     let e_dir = Output::new(p.PB3, Level::Low, Speed::Low);
@@ -90,20 +90,20 @@ async fn main(_spawner: Spawner) {
     let e_stepper = Stepper::new(e_step, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
-    // let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
+    let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
 
-    // let mut buf = [0u8; 16];
-    // loop {
-    //     match uart.blocking_read(&mut buf){
-    //         Ok(_) => {
-    //             let line = str::from_utf8(&buf).unwrap();
-    //             match parse_line(line){
-    //                 Some(cmd) => info!("valid command ready to be processed"), // TODO execute command
-    //                 None => info!("invalid line")
-    //             };
-    //         },
-    //         Err(_) => info!("error reading from serial"),
-    //     };
+    let mut buf = [0u8; 16];
+    loop {
+        match uart.blocking_read(&mut buf){
+            Ok(_) => {
+                let line = str::from_utf8(&buf).unwrap();
+                match parse_line(line){
+                    Some(cmd) => info!("valid command ready to be processed"), // TODO execute command
+                    None => info!("invalid line")
+                };
+            },
+            Err(_) => info!("error reading from serial"),
+        };
 
     // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
     // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
