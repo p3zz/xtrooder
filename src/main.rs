@@ -108,5 +108,5 @@ async fn main(_spawner: Spawner) {
     // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
     // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
     // planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
-    // }
+    }
 }
