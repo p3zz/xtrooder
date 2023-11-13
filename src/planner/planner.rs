@@ -4,6 +4,7 @@ use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use heapless::spsc::Queue;
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
+use crate::stepper::units::Unit;
 use crate::stepper::units::{Speed, Position2D, Position, Position3D};
 use super::motion;
 
@@ -12,6 +13,7 @@ use futures::join;
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'sx, 'dx, 'sy, 'dy, 'sz, 'dz, 'se, 'de, X, Y, Z, E> {
     feedrate: Speed,
+    unit: Unit,
     command_queue: Queue<GCommand, 16>,
     running: bool,
     x_stepper: Stepper<'sx, 'dx, X>,
@@ -35,7 +37,8 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
             e_stepper,
             command_queue: Queue::new(),
             running: false,
-            feedrate: Speed::from_mmps(0.0).unwrap()
+            feedrate: Speed::from_mmps(0.0).unwrap(),
+            unit: Unit::Millimeter
         }
     }
 
@@ -46,8 +49,14 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
     pub async fn execute(&mut self, command: GCommand){
         match command{
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
-            GCommand::G1 { x, y, z, e, f } => todo!(),
+            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await,
+            GCommand::G20 => self.set_unit(Unit::Inch),
+            GCommand::G21 => self.set_unit(Unit::Millimeter),
         }
+    }
+
+    fn set_unit(&mut self, unit: Unit){
+        self.unit = unit
     }
 
     pub async fn g0(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, f: Option<f64>){
@@ -57,13 +66,13 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
         };
         match (x,y,z){
             (None, None, None) => (),
-            (None, None, Some(z)) => self.linear_move_z(Position::from_mm(z), self.feedrate).await,
-            (None, Some(y), None) => self.linear_move_y(Position::from_mm(y), self.feedrate).await,
-            (Some(x), None, None) => self.linear_move_x(Position::from_mm(x), self.feedrate).await,
-            (None, Some(y), Some(z)) => self.linear_move_yz(Position2D::new(Position::from_mm(y), Position::from_mm(z)), self.feedrate).await,
-            (Some(x), None, Some(z)) => self.linear_move_xz(Position2D::new(Position::from_mm(x), Position::from_mm(z)), self.feedrate).await,
-            (Some(x), Some(y), None) => self.linear_move_xy(Position2D::new(Position::from_mm(x), Position::from_mm(y)), self.feedrate).await,
-            (Some(x), Some(y), Some(z)) => self.linear_move_xyz(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), self.feedrate).await,
+            (None, None, Some(z)) => self.linear_move_z(Position::from_unit(z, self.unit), self.feedrate).await,
+            (None, Some(y), None) => self.linear_move_y(Position::from_unit(y, self.unit), self.feedrate).await,
+            (Some(x), None, None) => self.linear_move_x(Position::from_unit(x, self.unit), self.feedrate).await,
+            (None, Some(y), Some(z)) => self.linear_move_yz(Position2D::new(Position::from_unit(y, self.unit), Position::from_unit(z, self.unit)), self.feedrate).await,
+            (Some(x), None, Some(z)) => self.linear_move_xz(Position2D::new(Position::from_unit(x, self.unit), Position::from_unit(z, self.unit)), self.feedrate).await,
+            (Some(x), Some(y), None) => self.linear_move_xy(Position2D::new(Position::from_unit(x, self.unit), Position::from_unit(y, self.unit)), self.feedrate).await,
+            (Some(x), Some(y), Some(z)) => self.linear_move_xyz(Position3D::new(Position::from_unit(x, self.unit), Position::from_unit(y, self.unit), Position::from_unit(z, self.unit)), self.feedrate).await,
         }
     }
 
@@ -80,13 +89,13 @@ where X: CaptureCompare16bitInstance, Y: CaptureCompare16bitInstance, Z: Capture
 
         match (x,y,z){
             (None, None, None) => (),
-            (None, None, Some(z)) => self.linear_move_ze(Position::from_mm(z), e_dest, self.feedrate).await,
-            (None, Some(y), None) => self.linear_move_ye(Position::from_mm(y), e_dest, self.feedrate).await,
-            (Some(x), None, None) => self.linear_move_xe(Position::from_mm(x), e_dest, self.feedrate).await,
-            (None, Some(y), Some(z)) => self.linear_move_yze(Position2D::new(Position::from_mm(y), Position::from_mm(z)), self.feedrate, e_dest ).await,
-            (Some(x), None, Some(z)) => self.linear_move_xze(Position2D::new(Position::from_mm(x), Position::from_mm(z)), self.feedrate, e_dest).await,
-            (Some(x), Some(y), None) => self.linear_move_xye(Position2D::new(Position::from_mm(x), Position::from_mm(y)), self.feedrate, e_dest).await,
-            (Some(x), Some(y), Some(z)) => self.linear_move_xyze(Position3D::new(Position::from_mm(x), Position::from_mm(y), Position::from_mm(z)), self.feedrate, e_dest).await,
+            (None, None, Some(z)) => self.linear_move_ze(Position::from_unit(z, self.unit), e_dest, self.feedrate).await,
+            (None, Some(y), None) => self.linear_move_ye(Position::from_unit(y, self.unit), e_dest, self.feedrate).await,
+            (Some(x), None, None) => self.linear_move_xe(Position::from_unit(x, self.unit), e_dest, self.feedrate).await,
+            (None, Some(y), Some(z)) => self.linear_move_yze(Position2D::new(Position::from_unit(y, self.unit), Position::from_unit(z, self.unit)), self.feedrate, e_dest ).await,
+            (Some(x), None, Some(z)) => self.linear_move_xze(Position2D::new(Position::from_unit(x, self.unit), Position::from_unit(z, self.unit)), self.feedrate, e_dest).await,
+            (Some(x), Some(y), None) => self.linear_move_xye(Position2D::new(Position::from_unit(x, self.unit), Position::from_unit(y, self.unit)), self.feedrate, e_dest).await,
+            (Some(x), Some(y), Some(z)) => self.linear_move_xyze(Position3D::new(Position::from_unit(x, self.unit), Position::from_unit(y, self.unit), Position::from_unit(z, self.unit)), self.feedrate, e_dest).await,
         }
     }
 
