@@ -1,29 +1,28 @@
 #![allow(dead_code)]
-
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
+use core::str;
+use defmt::assert;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::{bind_interrupts, usart, peripherals};
 use embassy_stm32::dma::NoDma;
-use embassy_stm32::gpio::{Output, Level, Speed};
+use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
-use {defmt_rtt as _, panic_probe as _};
-use defmt::assert;
-use embassy_stm32::usart::{Uart, Config};
+use embassy_stm32::usart::{Config, Uart};
+use embassy_stm32::{bind_interrupts, peripherals, usart};
 use heapless::String;
-use core::str;
+use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
-use stepper::a4988::{Stepper};
-use stepper::units::{Speed as StepperSpeed, Position3D, Position, Length};
+use stepper::a4988::Stepper;
+use stepper::units::{Length, Position, Position3D, Speed as StepperSpeed};
 
 mod planner;
-use planner::planner::{Planner};
+use planner::planner::Planner;
 
 mod parser;
 use parser::parser::parse_line;
@@ -75,7 +74,7 @@ async fn main(_spawner: Spawner) {
 
     // let mut planner = Planner::new(red_stepper, green_stepper);
     // let mut uart = Uart::new(p.USART3, p.PD9, p.PD8, Irqs, NoDma, NoDma, Config::default());
-    
+
     // let mut buf = [0u8; 16];
     // loop {
     //     match uart.blocking_read(&mut buf){
@@ -88,9 +87,9 @@ async fn main(_spawner: Spawner) {
     //         },
     //         Err(_) => info!("error reading from serial"),
     //     };
-        
-        // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        // planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
+
+    // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
+    // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
+    // planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
     // }
 }
