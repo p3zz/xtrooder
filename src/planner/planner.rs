@@ -20,8 +20,6 @@ pub struct Planner<'s, X, Y, Z, E> {
     feedrate: Speed,
     unit: Unit,
     positioning: Positioning,
-    command_queue: Queue<GCommand, 16>,
-    running: bool,
     x_stepper: Stepper<'s, X>,
     y_stepper: Stepper<'s, Y>,
     z_stepper: Stepper<'s, Z>,
@@ -45,16 +43,10 @@ where
             y_stepper,
             z_stepper,
             e_stepper,
-            command_queue: Queue::new(),
-            running: false,
             feedrate: Speed::from_mmps(0.0).unwrap(),
             unit: Unit::Millimeter,
             positioning: Positioning::Absolute,
         }
-    }
-
-    pub fn add_command(&mut self, command: GCommand) -> Result<(), GCommand> {
-        self.command_queue.enqueue(command)
     }
 
     pub async fn execute(&mut self, command: GCommand) {
@@ -224,24 +216,6 @@ where
                 )
                 .await
             }
-        }
-    }
-
-    pub async fn start(&mut self) {
-        self.running = true;
-        self.process().await
-    }
-
-    pub async fn stop(&mut self) {
-        self.running = false;
-    }
-
-    async fn process(&mut self) {
-        while self.running {
-            match self.command_queue.dequeue() {
-                Some(cmd) => self.execute(cmd).await,
-                None => (),
-            };
         }
     }
 

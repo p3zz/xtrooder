@@ -2,7 +2,7 @@
 
 use heapless::{LinearMap, Vec};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum GCommand {
     // https://marlinfw.org/docs/gcode/G000-G001.html
     G0 {

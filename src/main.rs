@@ -4,20 +4,25 @@
 #![feature(type_alias_impl_trait)]
 
 use core::str;
-use defmt::assert;
 use defmt::*;
-use embassy_executor::Spawner;
+use embassy_executor::{Spawner, Executor};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
+use embassy_stm32::peripherals::{TIM5, TIM15, TIM3, TIM14, USART3, PD9, PD8, DMA1_CH0};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use embassy_stm32::usart::{Config, Uart};
 use embassy_stm32::{bind_interrupts, peripherals, usart};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::mutex::{Mutex, MutexGuard};
+use embassy_sync::signal::Signal;
 use heapless::String;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
+use heapless::spsc::Queue;
+use static_cell::StaticCell;
 use stepper::a4988::Stepper;
 use stepper::units::{Length, Position, Position3D, Speed as StepperSpeed};
 
@@ -25,7 +30,7 @@ mod planner;
 use planner::planner::Planner;
 
 mod parser;
-use parser::parser::parse_line;
+use parser::parser::{parse_line, GCommand};
 use parser::test::test as parser_test;
 use stepper::test::test as stepper_test;
 use planner::test::test as planner_test;
@@ -34,7 +39,41 @@ bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
 
-const TEST: bool = true;
+static TEST: bool = false;
+static COMMAND_QUEUE: Mutex<CriticalSectionRawMutex, Queue<GCommand, 16>> = Mutex::new(Queue::new());
+
+#[embassy_executor::task]
+async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0){
+    let mut uart = Uart::new(
+        peri,
+        rx,
+        tx,
+        Irqs,
+        NoDma,
+        dma_rx,
+        Config::default(),
+    );
+
+    let mut buf = [0u8; 16];
+
+    loop {
+        let mut q = COMMAND_QUEUE.lock().await;
+        if q.is_full() {
+            continue;
+        }
+        match uart.read(&mut buf).await {
+            Ok(_) => {
+                let line = str::from_utf8(&buf).unwrap();
+                info!("{}", line);
+                match parse_line(line) {
+                    Some(cmd) => q.enqueue(cmd).unwrap(),
+                    None => info!("invalid line"),
+                };
+            },
+            Err(_) => (),
+        };
+    }
+}
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -115,31 +154,21 @@ async fn main(_spawner: Spawner) {
     let e_stepper = Stepper::new(e_step, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
-    let mut uart = Uart::new(
-        p.USART3,
-        p.PD9,
-        p.PD8,
-        Irqs,
-        NoDma,
-        NoDma,
-        Config::default(),
-    );
 
-    let mut buf = [0u8; 16];
+    _spawner.spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0)).unwrap();
+
     loop {
-        match uart.blocking_read(&mut buf) {
-            Ok(_) => {
-                let line = str::from_utf8(&buf).unwrap();
-                match parse_line(line) {
-                    Some(cmd) => info!("valid command ready to be processed"), // TODO execute command
-                    None => info!("invalid line"),
-                };
-            }
-            Err(_) => info!("error reading from serial"),
-        };
+        let mut c: Option<GCommand> = None;
+        // we need to unlock the mutex earlier than the loop scope so the read_input task can
+        // fill the queue in background while the command is being executed
+        {
+            let mut q = COMMAND_QUEUE.lock().await;
+            c = q.dequeue();
+        } // mutex is freed here
 
-        // planner.move_to(Position3D::new(Position1D::from_mm(10.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        // planner.move_to(Position3D::new(Position1D::from_mm(-5.0),Position1D::from_mm(20.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(5.0).unwrap()).await;
-        // planner.move_to(Position3D::new(Position1D::from_mm(15.0),Position1D::from_mm(0.0),Position1D::from_mm(0.0)), StepperSpeed::from_mmps(10.0).unwrap()).await;
+        match c {
+            Some(cmd) => planner.execute(cmd).await,
+            None => (),
+        };
     }
 }
