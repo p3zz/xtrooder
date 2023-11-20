@@ -13,7 +13,11 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper.move_to(dest).await;
 }
 
-pub async fn linear_move_to_e<'s, A: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>(
+pub async fn linear_move_to_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_e: &mut Stepper<'s, E>,
     dest: Position,
@@ -34,7 +38,11 @@ pub async fn linear_move_to_e<'s, A: CaptureCompare16bitInstance, E: CaptureComp
     );
 }
 
-pub async fn linear_move_to_2d<'s, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>(
+pub async fn linear_move_to_2d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     dest: Position2D,
@@ -90,8 +98,11 @@ pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     linear_move_to(stepper, dest, feedrate).await;
 }
 
-pub async fn linear_move_for_e
-<'s, A: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>(
+pub async fn linear_move_for_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_e: &mut Stepper<'s, E>,
     distance: Position,
@@ -102,7 +113,11 @@ pub async fn linear_move_for_e
     linear_move_to_e(stepper_a, stepper_e, dest, e_dest, feedrate).await;
 }
 
-pub async fn linear_move_for_2d<'s, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>(
+pub async fn linear_move_for_2d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     distance: Position2D,
@@ -110,7 +125,13 @@ pub async fn linear_move_for_2d<'s, A: CaptureCompare16bitInstance, B: CaptureCo
 ) {
     let dest_a = stepper_a.get_position().add(distance.get_x());
     let dest_b = stepper_b.get_position().add(distance.get_y());
-    linear_move_to_2d(stepper_a, stepper_b, Position2D::new(dest_a, dest_b), feedrate).await;
+    linear_move_to_2d(
+        stepper_a,
+        stepper_b,
+        Position2D::new(dest_a, dest_b),
+        feedrate,
+    )
+    .await;
 }
 
 pub async fn linear_move_for_2d_e<

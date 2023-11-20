@@ -5,10 +5,10 @@
 
 use core::str;
 use defmt::*;
-use embassy_executor::{Spawner, Executor};
+use embassy_executor::{Executor, Spawner};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
-use embassy_stm32::peripherals::{TIM5, TIM15, TIM3, TIM14, USART3, PD9, PD8, DMA1_CH0};
+use embassy_stm32::peripherals::{DMA1_CH0, PD8, PD9, TIM14, TIM15, TIM3, TIM5, USART3};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
@@ -32,27 +32,20 @@ use planner::planner::Planner;
 mod parser;
 use parser::parser::{parse_line, GCommand};
 use parser::test::test as parser_test;
-use stepper::test::test as stepper_test;
 use planner::test::test as planner_test;
+use stepper::test::test as stepper_test;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
 
 static TEST: bool = false;
-static COMMAND_QUEUE: Mutex<CriticalSectionRawMutex, Queue<GCommand, 16>> = Mutex::new(Queue::new());
+static COMMAND_QUEUE: Mutex<CriticalSectionRawMutex, Queue<GCommand, 16>> =
+    Mutex::new(Queue::new());
 
 #[embassy_executor::task]
-async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0){
-    let mut uart = Uart::new(
-        peri,
-        rx,
-        tx,
-        Irqs,
-        NoDma,
-        dma_rx,
-        Config::default(),
-    );
+async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
+    let mut uart = Uart::new(peri, rx, tx, Irqs, NoDma, dma_rx, Config::default());
 
     let mut buf = [0u8; 16];
 
@@ -69,7 +62,7 @@ async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0){
                     Some(cmd) => q.enqueue(cmd).unwrap(),
                     None => info!("invalid line"),
                 };
-            },
+            }
             Err(_) => (),
         };
     }
@@ -155,7 +148,9 @@ async fn main(_spawner: Spawner) {
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
-    _spawner.spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0)).unwrap();
+    _spawner
+        .spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))
+        .unwrap();
 
     loop {
         let mut c: Option<GCommand> = None;
