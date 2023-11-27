@@ -2,31 +2,9 @@ use embassy_stm32::adc::{Adc, SampleTime, Resolution, Instance, AdcPin};
 use embassy_stm32::gpio::Pin;
 use micromath::F32Ext;
 
+use crate::stepper::units::Temperature;
+
 use {defmt_rtt as _, panic_probe as _};
-
-#[derive(Clone, Copy)]
-struct Temperature{
-    // unit: C (celsius)
-    value: f64
-}
-
-impl Temperature{
-    pub fn from_celsius(value: f64) -> Temperature{
-        Temperature { value }
-    }
-
-    pub fn from_kelvin(value: f64) -> Temperature{
-        Temperature { value: value - 273.15 } 
-    }
-
-    pub fn to_kelvin(&self) -> f64 {
-        return self.value + 273.15
-    }
-
-    pub fn to_celsius(&self) -> f64 {
-        return self.value
-    }
-}
 
 /*
 ADC value = R / (R + R0) * Vcc * resolution / Varef
