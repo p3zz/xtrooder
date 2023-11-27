@@ -35,6 +35,8 @@ use parser::test::test as parser_test;
 use planner::test::test as planner_test;
 use stepper::test::test as stepper_test;
 
+mod hotend;
+
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
