@@ -3,7 +3,7 @@
 use super::motion;
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
-use crate::stepper::units::Unit;
+use crate::stepper::units::LengthUnit;
 use crate::stepper::units::{Position, Position2D, Position3D, Speed};
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use heapless::spsc::Queue;
@@ -18,7 +18,7 @@ pub enum Positioning {
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'s, X, Y, Z, E> {
     feedrate: Speed,
-    unit: Unit,
+    unit: LengthUnit,
     positioning: Positioning,
     x_stepper: Stepper<'s, X>,
     y_stepper: Stepper<'s, Y>,
@@ -44,7 +44,7 @@ where
             z_stepper,
             e_stepper,
             feedrate: Speed::from_mmps(0.0).unwrap(),
-            unit: Unit::Millimeter,
+            unit: LengthUnit::Millimeter,
             positioning: Positioning::Absolute,
         }
     }
@@ -61,11 +61,11 @@ where
     }
 
     fn g20(&mut self) {
-        self.unit = Unit::Inch;
+        self.unit = LengthUnit::Inch;
     }
 
     fn g21(&mut self) {
-        self.unit = Unit::Inch;
+        self.unit = LengthUnit::Inch;
     }
 
     fn g90(&mut self) {

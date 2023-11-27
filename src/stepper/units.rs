@@ -3,7 +3,7 @@
 use micromath::F32Ext;
 
 #[derive(Clone, Copy)]
-pub enum Unit {
+pub enum LengthUnit {
     Millimeter,
     Inch,
 }
@@ -24,10 +24,10 @@ impl Position {
         }
     }
 
-    pub fn from_unit(value: f64, unit: Unit) -> Position {
+    pub fn from_unit(value: f64, unit: LengthUnit) -> Position {
         match unit {
-            Unit::Millimeter => Position::from_mm(value),
-            Unit::Inch => Position::from_inches(value),
+            LengthUnit::Millimeter => Position::from_mm(value),
+            LengthUnit::Inch => Position::from_inches(value),
         }
     }
 
