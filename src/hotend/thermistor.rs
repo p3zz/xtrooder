@@ -12,7 +12,7 @@ Vcc: voltage reference of the board
 Varef: voltage of the thermistor
 */
 
-struct Thermistor<'a, T, P>
+pub struct Thermistor<'a, T, P>
 where
     T: Instance,
     P: AdcPin<T> + Pin,
