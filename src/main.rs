@@ -6,6 +6,7 @@
 use core::str;
 use defmt::*;
 use embassy_executor::{Executor, Spawner};
+use embassy_stm32::adc::{Adc, Resolution};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::peripherals::{DMA1_CH0, PD8, PD9, TIM14, TIM15, TIM3, TIM5, USART3};
@@ -17,6 +18,7 @@ use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::signal::Signal;
+use embassy_time::Delay;
 use heapless::String;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -36,6 +38,11 @@ use planner::test::test as planner_test;
 use stepper::test::test as stepper_test;
 
 mod hotend;
+use hotend::thermistor::Thermistor;
+use hotend::heater::Heater;
+use hotend::controller::Hotend;
+
+use crate::stepper::units::Temperature;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -70,6 +77,11 @@ async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
     }
 }
 
+#[embassy_executor::task]
+async fn hotend_handler() {
+    
+}
+
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     if TEST {
@@ -89,8 +101,7 @@ async fn main(_spawner: Spawner) {
     let pulley_radius: Length = Length::from_mm(5.0).unwrap();
 
     // setup X stepper
-
-    let x_step = SimplePwm::new(
+    let mut x_step = SimplePwm::new(
         p.TIM5,
         Some(PwmPin::new_ch1(p.PA0)),
         None,
@@ -101,11 +112,11 @@ async fn main(_spawner: Spawner) {
 
     let x_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let x_stepper = Stepper::new(x_step, x_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let x_stepper = Stepper::new(x_step, Channel::Ch1, x_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     // setup Y stepper
 
-    let y_step = SimplePwm::new(
+    let mut y_step = SimplePwm::new(
         p.TIM15,
         Some(PwmPin::new_ch1(p.PA2)),
         None,
@@ -116,7 +127,7 @@ async fn main(_spawner: Spawner) {
 
     let y_dir = Output::new(p.PB1, Level::Low, Speed::Low);
 
-    let y_stepper = Stepper::new(y_step, y_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let y_stepper = Stepper::new(y_step, Channel::Ch1, y_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     // // setup Z stepper
 
@@ -131,7 +142,7 @@ async fn main(_spawner: Spawner) {
 
     let z_dir = Output::new(p.PB2, Level::Low, Speed::Low);
 
-    let z_stepper = Stepper::new(z_step, z_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let z_stepper = Stepper::new(z_step, Channel::Ch1, z_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     // // setup E stepper
 
@@ -146,9 +157,23 @@ async fn main(_spawner: Spawner) {
 
     let e_dir = Output::new(p.PB3, Level::Low, Speed::Low);
 
-    let e_stepper = Stepper::new(e_step, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
+    let e_stepper = Stepper::new(e_step, Channel::Ch1, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
+
+    // let hotend_thermistor_adc = Adc::new(p.ADC1, &mut Delay);
+    // let hotend_thermistor = Thermistor::new(hotend_thermistor_adc, p.PA1, Resolution::SixteenBit, 10_000.0, Temperature::from_kelvin(3950.0));
+    
+    // let heater_out = SimplePwm::new(
+    //     p.TIM1,
+    //     None,
+    //     None,
+    //     None,
+    //     None,
+    //     hz(1),
+    // );
+
+    // let hotend_heater = Heater::new(heater_out);
 
     _spawner
         .spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))

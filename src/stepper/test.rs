@@ -3,6 +3,7 @@ use embassy_stm32::{
     pwm::{
         simple_pwm::{PwmPin, SimplePwm},
         CaptureCompare16bitInstance,
+        Channel
     },
     time::hz,
 };
@@ -25,7 +26,7 @@ pub async fn test() {
 
     let p = embassy_stm32::init(Default::default());
 
-    let step = SimplePwm::new(
+    let mut step = SimplePwm::new(
         p.TIM3,
         Some(PwmPin::new_ch1(p.PA6)),
         None,
@@ -38,6 +39,7 @@ pub async fn test() {
 
     let mut stepper = Stepper::new(
         step,
+        Channel::Ch1,
         direction.degrade(),
         steps_per_revolution,
         distance_per_step,

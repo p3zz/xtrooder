@@ -21,6 +21,7 @@ pub enum StepperDirection {
 pub struct Stepper<'s, S> {
     // properties that won't change
     step: SimplePwm<'s, S>,
+    step_ch: Channel,
     dir: Output<'s, AnyPin>,
     steps_per_revolution: u64,
     distance_per_step: Length,
@@ -37,13 +38,15 @@ where
 {
     pub fn new(
         mut step: SimplePwm<'s, S>,
+        step_ch: Channel,
         dir: Output<'s, AnyPin>,
         steps_per_revolution: u64,
         distance_per_step: Length,
     ) -> Stepper<'s, S> {
-        step.set_duty(Channel::Ch1, step.get_max_duty() / 2);
+        step.set_duty(step_ch, step.get_max_duty() / 2);
         Stepper {
             step,
+            step_ch,
             dir,
             steps_per_revolution,
             distance_per_step,
@@ -90,9 +93,9 @@ where
         let duration = Duration::from_micros(steps_n * self.step_duration.as_micros());
 
         // move
-        self.step.enable(Channel::Ch1);
+        self.step.enable(self.step_ch);
         Timer::after(duration).await;
-        self.step.disable(Channel::Ch1);
+        self.step.disable(self.step_ch);
 
         // update the position of the stepper
         let distance = match self.direction {
