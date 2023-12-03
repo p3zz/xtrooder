@@ -22,18 +22,18 @@ where
     H: CaptureCompare16bitInstance,
 {
     pub fn new(heater: Heater<'l, H>, thermistor: Thermistor<'l, I, P>) -> Hotend<'l, H, I, P>{
-        let pid = Controller::new(80.0, 0.20, 0.0, 0.0);
+        let pid = Controller::new(0.0, 0.20, 0.0, 0.0);
         Hotend { heater, thermistor, pid }
     }
 
-    fn set_target(&mut self, target: f64){
-        self.pid.set_target(target);
+    fn set_target_temperature(&mut self, temperature: f64){
+        self.pid.set_target(temperature);
     }
 
     fn update(&mut self, dt: Duration){
         let tmp = self.thermistor.read_temperature();
         let new_value = self.pid.update_elapsed(tmp.to_celsius(), dt);
-        // TODO set heater value
+        self.heater.set_value(new_value)
     }
 
 }
