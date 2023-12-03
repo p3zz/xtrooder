@@ -53,7 +53,7 @@ static COMMAND_QUEUE: Mutex<CriticalSectionRawMutex, Queue<GCommand, 16>> =
     Mutex::new(Queue::new());
 
 #[embassy_executor::task]
-async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
+async fn input_handler(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
     let mut uart = Uart::new(peri, rx, tx, Irqs, NoDma, dma_rx, Config::default());
 
     let mut buf = [0u8; 16];
@@ -183,7 +183,7 @@ async fn main(_spawner: Spawner) {
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
     _spawner
-        .spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))
+        .spawn(input_handler(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))
         .unwrap();
 
     loop {
