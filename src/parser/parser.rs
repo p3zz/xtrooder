@@ -22,6 +22,9 @@ pub enum GCommand {
     G21,
     G90,
     G91,
+    M104{
+        s: Option<f64>
+    }
 }
 
 pub fn parse_line(line: &str) -> Option<GCommand> {
@@ -40,33 +43,63 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
         };
         cmd.insert(key, value).unwrap();
     }
-    let retrieve_map_value = |key: &str| -> Option<f64> {
-        match cmd.get(key) {
-            Some(value) => Some(*value),
-            None => None,
+
+    parse(cmd)
+
+}
+
+fn retrieve_map_value(cmd: &LinearMap<&str, f64, 16>, key: &str) -> Option<f64> {
+    match cmd.get(key) {
+        Some(value) => Some(*value),
+        None => None,
+    }
+}
+
+fn parse(cmd: LinearMap<&str, f64, 16>) -> Option<GCommand>{
+    let mut code = retrieve_map_value(&cmd, "G");
+    if code.is_some(){
+        return parse_g(code.unwrap() as u64, &cmd);
+    }else{
+        code = retrieve_map_value(&cmd, "M");
+        if code.is_some(){
+            return parse_m(code.unwrap() as u64, &cmd);
+        }else{
+            return None
         }
-    };
-    let code = retrieve_map_value("G")? as u64;
+    }
+}
+
+fn parse_g(code: u64, map: &LinearMap<&str, f64, 16>) -> Option<GCommand>{
     match code {
         0 => {
-            let x = retrieve_map_value("X");
-            let y = retrieve_map_value("Y");
-            let z = retrieve_map_value("Z");
-            let f = retrieve_map_value("F");
+            let x = retrieve_map_value(map, "X");
+            let y = retrieve_map_value(map, "Y");
+            let z = retrieve_map_value(map, "Z");
+            let f = retrieve_map_value(map, "F");
             Some(GCommand::G0 { x, y, z, f })
         }
         1 => {
-            let x = retrieve_map_value("X");
-            let y = retrieve_map_value("Y");
-            let z = retrieve_map_value("Z");
-            let e = retrieve_map_value("E");
-            let f = retrieve_map_value("F");
+            let x = retrieve_map_value(map, "X");
+            let y = retrieve_map_value(map, "Y");
+            let z = retrieve_map_value(map, "Z");
+            let e = retrieve_map_value(map, "E");
+            let f = retrieve_map_value(map, "F");
             Some(GCommand::G1 { x, y, z, e, f })
         }
         20 => Some(GCommand::G20),
         21 => Some(GCommand::G21),
         90 => Some(GCommand::G90),
         91 => Some(GCommand::G91),
+        _ => None,
+    }
+}
+
+fn parse_m(code: u64, map: &LinearMap<&str, f64, 16>) -> Option<GCommand>{
+    match code {
+        104 => {
+            let s = retrieve_map_value(map, "S");
+            Some(GCommand::M104 {s})
+        }
         _ => None,
     }
 }
