@@ -27,3 +27,4 @@ cargo run
 - https://ferrous-systems.com/blog/test-embedded-app/
 - https://learn.adafruit.com/thermistor/using-a-thermistor
 - https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
+- https://dev.to/apollolabsbin/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
