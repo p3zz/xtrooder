@@ -186,6 +186,10 @@ async fn main(_spawner: Spawner) {
         .spawn(input_handler(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))
         .unwrap();
 
+    _spawner
+        .spawn(hotend_handler(p.ADC1, p.PA1, p.TIM1, p.PA10))
+        .unwrap(); 
+
     loop {
         let mut c: Option<GCommand> = None;
         // we need to unlock the mutex earlier than the loop scope so the read_input task can
