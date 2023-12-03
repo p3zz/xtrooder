@@ -1,5 +1,7 @@
+use core::time::Duration as CoreDuration;
+
 use embassy_stm32::{pwm::CaptureCompare16bitInstance, adc::{AdcPin, Instance}, gpio::Pin};
-use core::time::Duration;
+use embassy_time::Duration;
 use pid_lite::Controller;
 
 use super::{heater::Heater, thermistor::Thermistor};
@@ -26,13 +28,13 @@ where
         Hotend { heater, thermistor, pid }
     }
 
-    fn set_target_temperature(&mut self, temperature: f64){
+    pub fn set_target_temperature(&mut self, temperature: f64){
         self.pid.set_target(temperature);
     }
 
-    fn update(&mut self, dt: Duration){
+    pub fn update(&mut self, dt: Duration){
         let tmp = self.thermistor.read_temperature();
-        let new_value = self.pid.update_elapsed(tmp.to_celsius(), dt);
+        let new_value = self.pid.update_elapsed(tmp.to_celsius(), CoreDuration::from_millis(dt.as_millis()));
         self.heater.set_value(new_value)
     }
 

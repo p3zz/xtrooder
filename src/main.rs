@@ -9,7 +9,7 @@ use embassy_executor::{Executor, Spawner};
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
-use embassy_stm32::peripherals::{DMA1_CH0, PD8, PD9, TIM14, TIM15, TIM3, TIM5, USART3};
+use embassy_stm32::peripherals::{DMA1_CH0, PD8, PD9, TIM14, TIM15, TIM3, TIM5, USART3, ADC1, PA1, TIM1, PA10};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
@@ -18,7 +18,7 @@ use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::signal::Signal;
-use embassy_time::Delay;
+use embassy_time::{Duration, Delay, Timer};
 use heapless::String;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -58,28 +58,49 @@ async fn read_input(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
 
     let mut buf = [0u8; 16];
 
+    let poll_interval = Duration::from_millis(50);
+
     loop {
         let mut q = COMMAND_QUEUE.lock().await;
-        if q.is_full() {
-            continue;
+        if !q.is_full() {
+            match uart.read(&mut buf).await {
+                Ok(_) => {
+                    let line = str::from_utf8(&buf).unwrap();
+                    info!("{}", line);
+                    match parse_line(line) {
+                        Some(cmd) => q.enqueue(cmd).unwrap(),
+                        None => info!("invalid line"),
+                    };
+                }
+                Err(_) => (),
+            };
         }
-        match uart.read(&mut buf).await {
-            Ok(_) => {
-                let line = str::from_utf8(&buf).unwrap();
-                info!("{}", line);
-                match parse_line(line) {
-                    Some(cmd) => q.enqueue(cmd).unwrap(),
-                    None => info!("invalid line"),
-                };
-            }
-            Err(_) => (),
-        };
+        Timer::after(poll_interval).await;
     }
 }
 
 #[embassy_executor::task]
-async fn hotend_handler() {
+async fn hotend_handler(adc: ADC1, read_pin: PA1, heater_tim: TIM1, heater_pin: PA10) {
+    let hotend_thermistor_adc = Adc::new(adc, &mut Delay);
+    let hotend_thermistor = Thermistor::new(hotend_thermistor_adc, read_pin, Resolution::SixteenBit, 10_000.0, Temperature::from_kelvin(3950.0));
     
+    let heater_out = SimplePwm::new(
+        heater_tim,
+        None,
+        None,
+        Some(PwmPin::new_ch3(heater_pin)),
+        None,
+        hz(1),
+    );
+
+    let hotend_heater = Heater::new(heater_out, Channel::Ch3);
+    let mut hotend = Hotend::new(hotend_heater, hotend_thermistor);
+
+    let dt = Duration::from_millis(500);
+    loop {
+        hotend.update(dt);
+        Timer::after(dt).await;
+    }
 }
 
 #[embassy_executor::main]
@@ -160,20 +181,6 @@ async fn main(_spawner: Spawner) {
     let e_stepper = Stepper::new(e_step, Channel::Ch1, e_dir.degrade(), STEPS_PER_REVOLUTION, pulley_radius);
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
-
-    // let hotend_thermistor_adc = Adc::new(p.ADC1, &mut Delay);
-    // let hotend_thermistor = Thermistor::new(hotend_thermistor_adc, p.PA1, Resolution::SixteenBit, 10_000.0, Temperature::from_kelvin(3950.0));
-    
-    // let heater_out = SimplePwm::new(
-    //     p.TIM1,
-    //     None,
-    //     None,
-    //     None,
-    //     None,
-    //     hz(1),
-    // );
-
-    // let hotend_heater = Heater::new(heater_out);
 
     _spawner
         .spawn(read_input(p.USART3, p.PD9, p.PD8, p.DMA1_CH0))
