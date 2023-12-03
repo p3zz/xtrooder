@@ -6,9 +6,6 @@ use crate::stepper::a4988::Stepper;
 use crate::stepper::units::LengthUnit;
 use crate::stepper::units::{Position, Position2D, Position3D, Speed};
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
-use heapless::spsc::Queue;
-
-use futures::join;
 
 pub enum Positioning {
     Relative,
@@ -57,6 +54,7 @@ where
             GCommand::G21 => self.g21(),
             GCommand::G90 => self.g90(),
             GCommand::G91 => self.g91(),
+            GCommand::M104 { s } => todo!(),
         }
     }
 
