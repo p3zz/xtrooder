@@ -188,7 +188,9 @@ async fn main(_spawner: Spawner) {
 
     _spawner
         .spawn(hotend_handler(p.ADC1, p.PA1, p.TIM1, p.PA10))
-        .unwrap(); 
+        .unwrap();
+
+    let dt = Duration::from_millis(50);
 
     loop {
         let mut c: Option<GCommand> = None;
@@ -203,5 +205,7 @@ async fn main(_spawner: Spawner) {
             Some(cmd) => planner.execute(cmd).await,
             None => (),
         };
+
+        Timer::after(dt).await;
     }
 }
