@@ -22,14 +22,14 @@ pub enum GCommand {
     G21,
     G90,
     G91,
-    M104{
-        s: Option<f64>
-    }
+    M104 {
+        s: Option<f64>,
+    },
 }
 
-enum GCommandType{
+enum GCommandType {
     G,
-    M
+    M,
 }
 
 pub fn parse_line(line: &str) -> Option<GCommand> {
@@ -50,7 +50,7 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
     }
 
     let (t, code) = get_command_type(&cmd)?;
-    match (t, code){
+    match (t, code) {
         (GCommandType::G, 0) => {
             let x = retrieve_map_value(&cmd, "X");
             let y = retrieve_map_value(&cmd, "Y");
@@ -72,11 +72,10 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
         (GCommandType::G, 91) => Some(GCommand::G91),
         (GCommandType::M, 104) => {
             let s = retrieve_map_value(&cmd, "S");
-            Some(GCommand::M104 {s})
-        },
+            Some(GCommand::M104 { s })
+        }
         _ => None,
     }
-
 }
 
 fn retrieve_map_value(cmd: &LinearMap<&str, f64, 16>, key: &str) -> Option<f64> {
@@ -86,12 +85,12 @@ fn retrieve_map_value(cmd: &LinearMap<&str, f64, 16>, key: &str) -> Option<f64> 
     }
 }
 
-fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64)>{
-    match retrieve_map_value(&cmd, "G"){
+fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64)> {
+    match retrieve_map_value(&cmd, "G") {
         Some(code) => return Some((GCommandType::G, code as u64)),
-        None => match retrieve_map_value(&cmd, "M"){
+        None => match retrieve_map_value(&cmd, "M") {
             Some(code) => return Some((GCommandType::M, code as u64)),
-            None => None
-        }
+            None => None,
+        },
     }
 }

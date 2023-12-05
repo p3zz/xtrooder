@@ -2,8 +2,7 @@ use embassy_stm32::{
     gpio::{Level, Output, Speed},
     pwm::{
         simple_pwm::{PwmPin, SimplePwm},
-        CaptureCompare16bitInstance,
-        Channel
+        CaptureCompare16bitInstance, Channel,
     },
     time::hz,
 };

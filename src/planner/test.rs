@@ -3,8 +3,7 @@ use embassy_stm32::{
     gpio::{Level, Output, Speed},
     pwm::{
         simple_pwm::{PwmPin, SimplePwm},
-        CaptureCompare16bitInstance,
-        Channel
+        CaptureCompare16bitInstance, Channel,
     },
     time::hz,
 };
@@ -33,6 +32,12 @@ pub fn test() {
 
     let x_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
-    let mut x_stepper = Stepper::new(x_step, Channel::Ch1, x_dir.degrade(), 200, Length::from_mm(5.0).unwrap());
+    let mut x_stepper = Stepper::new(
+        x_step,
+        Channel::Ch1,
+        x_dir.degrade(),
+        200,
+        Length::from_mm(5.0).unwrap(),
+    );
     test_linear_move_to(&mut x_stepper);
 }
