@@ -17,7 +17,7 @@ use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use embassy_stm32::usart::{Config, Uart};
 use embassy_stm32::{bind_interrupts, peripherals, usart};
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::blocking_mutex::raw::{ThreadModeRawMutex};
 use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Duration, Timer};
@@ -51,8 +51,12 @@ bind_interrupts!(struct Irqs {
 });
 
 static TEST: bool = false;
-static COMMAND_QUEUE: Mutex<CriticalSectionRawMutex, Queue<GCommand, 16>> =
+static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 16>> =
     Mutex::new(Queue::new());
+
+static TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<f64>> =
+    Mutex::new(None);
+
 
 #[embassy_executor::task]
 async fn input_handler(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
@@ -106,6 +110,12 @@ async fn hotend_handler(adc: ADC1, read_pin: PA1, heater_tim: TIM1, heater_pin: 
 
     let dt = Duration::from_millis(500);
     loop {
+        let mut tmp = TARGET_TEMPERATURE.lock().await;
+        match *tmp {
+            Some(t) => hotend.set_target_temperature(t),
+            None => (),
+        }
+        *tmp = None;
         hotend.update(dt);
         Timer::after(dt).await;
     }
@@ -234,7 +244,15 @@ async fn main(_spawner: Spawner) {
         } // mutex is freed here
 
         match c {
-            Some(cmd) => planner.execute(cmd).await,
+            Some(cmd) => {
+                match cmd{
+                    GCommand::M104{s} => {
+                        let mut tmp = TARGET_TEMPERATURE.lock().await;
+                        *tmp = s;
+                    },
+                    _ => planner.execute(cmd).await
+                }
+            },
             None => (),
         };
 
