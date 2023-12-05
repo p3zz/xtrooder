@@ -25,7 +25,7 @@ pub async fn test() {
 
     let p = embassy_stm32::init(Default::default());
 
-    let mut step = SimplePwm::new(
+    let step = SimplePwm::new(
         p.TIM3,
         Some(PwmPin::new_ch1(p.PA6)),
         None,

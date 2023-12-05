@@ -1,5 +1,5 @@
-use crate::stepper::a4988::{Stepper, StepperDirection};
-use crate::stepper::units::{Length, Position, Position2D, Speed};
+use crate::stepper::a4988::Stepper;
+use crate::stepper::units::{Position, Position2D, Speed};
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use futures::join;
 use micromath::F32Ext;

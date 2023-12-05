@@ -5,30 +5,27 @@
 
 use core::str;
 use defmt::*;
-use embassy_executor::{Executor, Spawner};
+use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::peripherals::{
-    ADC1, DMA1_CH0, PA1, PA10, PD8, PD9, TIM1, TIM14, TIM15, TIM3, TIM5, USART3,
+    ADC1, DMA1_CH0, PA1, PA10, PD8, PD9, TIM1,USART3,
 };
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use embassy_stm32::usart::{Config, Uart};
 use embassy_stm32::{bind_interrupts, peripherals, usart};
-use embassy_sync::blocking_mutex::raw::{ThreadModeRawMutex};
-use embassy_sync::mutex::{Mutex, MutexGuard};
-use embassy_sync::signal::Signal;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_time::{Delay, Duration, Timer};
-use heapless::String;
 use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
 use heapless::spsc::Queue;
-use static_cell::StaticCell;
 use stepper::a4988::Stepper;
-use stepper::units::{Length, Position, Position3D, Speed as StepperSpeed};
+use stepper::units::Length;
 
 mod planner;
 use planner::planner::Planner;
@@ -140,7 +137,7 @@ async fn main(_spawner: Spawner) {
     let pulley_radius: Length = Length::from_mm(5.0).unwrap();
 
     // setup X stepper
-    let mut x_step = SimplePwm::new(
+    let x_step = SimplePwm::new(
         p.TIM5,
         Some(PwmPin::new_ch1(p.PA0)),
         None,
@@ -161,7 +158,7 @@ async fn main(_spawner: Spawner) {
 
     // setup Y stepper
 
-    let mut y_step = SimplePwm::new(
+    let y_step = SimplePwm::new(
         p.TIM15,
         Some(PwmPin::new_ch1(p.PA2)),
         None,

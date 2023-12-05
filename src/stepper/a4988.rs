@@ -8,8 +8,6 @@ use embassy_stm32::time::hz;
 use embassy_time::{Duration, Timer};
 use micromath::F32Ext;
 
-use defmt::*;
-
 use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
