@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
 use super::motion;
+use crate::math::vector::{Unit, Vector, Vector2D, Vector3D};
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
-use crate::math::vector::{Vector, Vector2D, Vector3D, Unit};
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 
 pub enum Positioning {
@@ -49,8 +49,26 @@ where
         match command {
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
             GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await,
-            GCommand::G2 { x, y, z, e, f, i, j, r } => todo!(),
-            GCommand::G3 { x, y, z, e, f, i, j, r } => todo!(),
+            GCommand::G2 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => todo!(),
+            GCommand::G3 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => todo!(),
             GCommand::G20 => self.g20(),
             GCommand::G21 => self.g21(),
             GCommand::G90 => self.g90(),

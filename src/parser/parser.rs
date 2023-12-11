@@ -77,7 +77,7 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
             let z = retrieve_map_value(&cmd, "Z");
             let f = retrieve_map_value(&cmd, "F");
             Some(GCommand::G0 { x, y, z, f })
-        },
+        }
         (GCommandType::G, 1) => {
             let x = retrieve_map_value(&cmd, "X");
             let y = retrieve_map_value(&cmd, "Y");
@@ -85,7 +85,7 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
             let e = retrieve_map_value(&cmd, "E");
             let f = retrieve_map_value(&cmd, "F");
             Some(GCommand::G1 { x, y, z, e, f })
-        },
+        }
         (GCommandType::G, 2) | (GCommandType::G, 3) => {
             let x = retrieve_map_value(&cmd, "X");
             let y = retrieve_map_value(&cmd, "Y");
@@ -95,10 +95,28 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
             let i = retrieve_map_value(&cmd, "I");
             let j = retrieve_map_value(&cmd, "J");
             let r = retrieve_map_value(&cmd, "R");
-            if code == 2{
-                Some(GCommand::G2 { x, y, z, e, f, i, j, r })
-            }else{
-                Some(GCommand::G3 { x, y, z, e, f, i, j, r })
+            if code == 2 {
+                Some(GCommand::G2 {
+                    x,
+                    y,
+                    z,
+                    e,
+                    f,
+                    i,
+                    j,
+                    r,
+                })
+            } else {
+                Some(GCommand::G3 {
+                    x,
+                    y,
+                    z,
+                    e,
+                    f,
+                    i,
+                    j,
+                    r,
+                })
             }
         }
         (GCommandType::G, 20) => Some(GCommand::G20),

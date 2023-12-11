@@ -1,4 +1,4 @@
-use super::{computable::Computable, angle::Angle};
+use super::{angle::Angle, computable::Computable};
 use micromath::F32Ext;
 
 #[derive(Clone, Copy)]
@@ -41,10 +41,9 @@ impl Vector {
     pub fn div(&self, other: Vector) -> Vector {
         Vector::from_mm(self.to_mm() / other.to_mm())
     }
-
 }
 
-impl Computable<Vector> for Vector{
+impl Computable<Vector> for Vector {
     fn add(&self, other: Vector) -> Vector {
         Vector::from_mm(self.to_mm() + other.to_mm())
     }
@@ -80,7 +79,7 @@ impl Vector2D {
         let x = self.get_x().mul(self.x);
         let y = self.get_y().mul(self.y);
         let mag_sq = x.add(y);
-        let mag = (mag_sq.to_mm() as f32).sqrt() as f64; 
+        let mag = (mag_sq.to_mm() as f32).sqrt() as f64;
         Vector::from_mm(mag)
     }
 
@@ -98,10 +97,9 @@ impl Vector2D {
         let y = self.get_y().mul(vector.get_y());
         x.mul(y)
     }
-
 }
 
-impl Computable<Vector2D> for Vector2D{
+impl Computable<Vector2D> for Vector2D {
     fn add(&self, other: Vector2D) -> Vector2D {
         let x = other.get_x().add(self.get_x());
         let y = other.get_y().add(self.get_y());
@@ -136,10 +134,9 @@ impl Vector3D {
     pub fn get_z(&self) -> Vector {
         self.z
     }
-
 }
 
-impl Computable<Vector3D> for Vector3D{
+impl Computable<Vector3D> for Vector3D {
     fn add(&self, other: Vector3D) -> Vector3D {
         let x = other.get_x().add(self.get_x());
         let y = other.get_y().add(self.get_y());

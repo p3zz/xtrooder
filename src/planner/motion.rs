@@ -1,6 +1,6 @@
-use crate::stepper::a4988::Stepper;
 use crate::math::computable::Computable;
 use crate::math::vector::{Vector, Vector2D};
+use crate::stepper::a4988::Stepper;
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use futures::join;
 use micromath::F32Ext;
@@ -63,7 +63,6 @@ pub async fn linear_move_to_2d<
 
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, ab_speed).await;
 }
-
 
 pub async fn linear_move_to_2d_raw<
     's,
@@ -142,13 +141,7 @@ pub async fn linear_move_for_2d<
 ) {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let dest = source.add(distance);
-    linear_move_to_2d_raw(
-        stepper_a,
-        stepper_b,
-        dest,
-        speed,
-    )
-    .await;
+    linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed).await;
 }
 
 pub async fn linear_move_for_2d_e<

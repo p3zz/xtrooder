@@ -53,7 +53,7 @@ where
             step_duration: compute_step_duration(
                 steps_per_revolution,
                 distance_per_step,
-                Vector::from_mm(0.0)
+                Vector::from_mm(0.0),
             ),
         }
     }
@@ -125,7 +125,7 @@ where
         self.step_duration = compute_step_duration(
             self.steps_per_revolution,
             self.distance_per_step,
-            Vector::from_mm(0.0)
+            Vector::from_mm(0.0),
         );
     }
 }

@@ -25,10 +25,9 @@ impl Angle {
     pub fn to_degrees(&self) -> f64 {
         self.value * 180.0 / PI
     }
-
 }
 
-impl Computable<Angle> for Angle{
+impl Computable<Angle> for Angle {
     fn add(&self, other: Angle) -> Angle {
         Angle::from_radians(self.to_radians() + other.to_radians())
     }

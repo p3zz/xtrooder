@@ -9,9 +9,7 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
-use embassy_stm32::peripherals::{
-    ADC1, DMA1_CH0, PA1, PA10, PD8, PD9, TIM1,USART3,
-};
+use embassy_stm32::peripherals::{ADC1, DMA1_CH0, PA1, PA10, PD8, PD9, TIM1, USART3};
 use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
@@ -51,12 +49,9 @@ bind_interrupts!(struct Irqs {
 });
 
 static TEST: bool = false;
-static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 16>> =
-    Mutex::new(Queue::new());
+static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 16>> = Mutex::new(Queue::new());
 
-static TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<f64>> =
-    Mutex::new(None);
-
+static TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<f64>> = Mutex::new(None);
 
 #[embassy_executor::task]
 async fn input_handler(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
@@ -244,14 +239,12 @@ async fn main(_spawner: Spawner) {
         } // mutex is freed here
 
         match c {
-            Some(cmd) => {
-                match cmd{
-                    GCommand::M104{s} => {
-                        let mut tmp = TARGET_TEMPERATURE.lock().await;
-                        *tmp = s;
-                    },
-                    _ => planner.execute(cmd).await
+            Some(cmd) => match cmd {
+                GCommand::M104 { s } => {
+                    let mut tmp = TARGET_TEMPERATURE.lock().await;
+                    *tmp = s;
                 }
+                _ => planner.execute(cmd).await,
             },
             None => (),
         };
