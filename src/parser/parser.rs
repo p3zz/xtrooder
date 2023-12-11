@@ -18,6 +18,26 @@ pub enum GCommand {
         e: Option<f64>,
         f: Option<f64>,
     },
+    G2 {
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        e: Option<f64>,
+        f: Option<f64>,
+        i: Option<f64>,
+        j: Option<f64>,
+        r: Option<f64>,
+    },
+    G3 {
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        e: Option<f64>,
+        f: Option<f64>,
+        i: Option<f64>,
+        j: Option<f64>,
+        r: Option<f64>,
+    },
     G20,
     G21,
     G90,
@@ -57,7 +77,7 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
             let z = retrieve_map_value(&cmd, "Z");
             let f = retrieve_map_value(&cmd, "F");
             Some(GCommand::G0 { x, y, z, f })
-        }
+        },
         (GCommandType::G, 1) => {
             let x = retrieve_map_value(&cmd, "X");
             let y = retrieve_map_value(&cmd, "Y");
@@ -65,6 +85,21 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
             let e = retrieve_map_value(&cmd, "E");
             let f = retrieve_map_value(&cmd, "F");
             Some(GCommand::G1 { x, y, z, e, f })
+        },
+        (GCommandType::G, 2) | (GCommandType::G, 3) => {
+            let x = retrieve_map_value(&cmd, "X");
+            let y = retrieve_map_value(&cmd, "Y");
+            let z = retrieve_map_value(&cmd, "Z");
+            let e = retrieve_map_value(&cmd, "E");
+            let f = retrieve_map_value(&cmd, "F");
+            let i = retrieve_map_value(&cmd, "I");
+            let j = retrieve_map_value(&cmd, "J");
+            let r = retrieve_map_value(&cmd, "R");
+            if code == 2{
+                Some(GCommand::G2 { x, y, z, e, f, i, j, r })
+            }else{
+                Some(GCommand::G3 { x, y, z, e, f, i, j, r })
+            }
         }
         (GCommandType::G, 20) => Some(GCommand::G20),
         (GCommandType::G, 21) => Some(GCommand::G21),

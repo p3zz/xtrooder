@@ -50,6 +50,8 @@ where
         match command {
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
             GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await,
+            GCommand::G2 { x, y, z, e, f, i, j, r } => todo!(),
+            GCommand::G3 { x, y, z, e, f, i, j, r } => todo!(),
             GCommand::G20 => self.g20(),
             GCommand::G21 => self.g21(),
             GCommand::G90 => self.g90(),

@@ -13,6 +13,20 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper.move_to(dest).await;
 }
 
+pub async fn arc_move_to_2d<
+'s,
+A: CaptureCompare16bitInstance,
+B: CaptureCompare16bitInstance
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    dest: Position2D,
+    center: Position2D,
+    feedrate: Speed
+) {
+
+}
+
 pub async fn linear_move_to_e<
     's,
     A: CaptureCompare16bitInstance,
@@ -49,13 +63,14 @@ pub async fn linear_move_to_2d<
     feedrate: Speed,
 ) {
     let src = Position2D::new(stepper_a.get_position(), stepper_b.get_position());
+    // FIXME don't know if the computation of the angle is correct
     let th = src.angle(dest);
 
     // compute the velocity out of the speed and its angle
-    let a_f = feedrate.to_mmps() as f32 * th.cos();
+    let a_f = feedrate.to_mmps() as f32 * (th.to_radius() as f32).cos();
     let a_feedrate = Speed::from_mmps(a_f.abs() as f64).unwrap();
 
-    let b_f = feedrate.to_mmps() as f32 * th.sin();
+    let b_f = feedrate.to_mmps() as f32 * (th.to_radius() as f32).sin();
     let b_feedrate = Speed::from_mmps(b_f.abs() as f64).unwrap();
 
     join!(

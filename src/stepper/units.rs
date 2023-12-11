@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use micromath::F32Ext;
+use core::f64::consts::PI;
 
 #[derive(Clone, Copy)]
 pub enum LengthUnit {
@@ -63,8 +64,9 @@ impl Position2D {
         self.y
     }
 
-    pub fn get_angle(&self) -> f32 {
-        (self.get_y().to_mm() as f32).atan2(self.get_x().to_mm() as f32)
+    pub fn get_angle(&self) -> Angle {
+        let value = (self.get_y().to_mm() as f32).atan2(self.get_x().to_mm() as f32) as f64;
+        Angle { value }
     }
 
     pub fn get_magnitude(&self) -> Length {
@@ -73,9 +75,10 @@ impl Position2D {
         Length::from_mm(magnitude as f64).unwrap()
     }
 
-    pub fn angle(&self, position: Position2D) -> f32 {
+    pub fn angle(&self, position: Position2D) -> Angle {
         let delta = self.subtract(position);
-        (delta.get_y().to_mm() as f32).atan2(delta.get_x().to_mm() as f32)
+        let value = (delta.get_y().to_mm() as f32).atan2(delta.get_x().to_mm() as f32) as f64;
+        Angle { value }
     }
 
     pub fn subtract(&self, position: Position2D) -> Position2D {
@@ -191,3 +194,30 @@ impl Temperature {
         return self.value;
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct Angle {
+    // radians
+    value: f64,
+}
+
+impl Angle {
+    pub fn from_radians(value: f64) -> Angle {
+        Angle { value }
+    }
+
+    pub fn from_degrees(angle: f64) -> Angle {
+        let value = angle * PI / 180.0;
+        Angle { value }
+    }
+
+    pub fn to_radius(&self) -> f64 {
+        self.value
+    }
+
+    pub fn to_degrees(&self) -> f64 {
+        self.value * 180.0 / PI
+    }
+
+}
+
