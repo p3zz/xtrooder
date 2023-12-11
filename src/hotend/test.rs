@@ -1,7 +1,7 @@
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_time::Delay;
 
-use crate::stepper::units::Temperature;
+use crate::math::temperature::Temperature;
 
 use super::thermistor::Thermistor;
 

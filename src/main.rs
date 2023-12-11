@@ -25,7 +25,6 @@ use {defmt_rtt as _, panic_probe as _};
 mod stepper;
 use heapless::spsc::Queue;
 use stepper::a4988::Stepper;
-use stepper::units::Length;
 
 mod planner;
 use planner::planner::Planner;
@@ -33,15 +32,19 @@ use planner::planner::Planner;
 mod parser;
 use parser::parser::{parse_line, GCommand};
 use parser::test::test as parser_test;
-use planner::test::test as planner_test;
-use stepper::test::test as stepper_test;
+// use planner::test::test as planner_test;
+// use stepper::test::test as stepper_test;
 
 mod hotend;
 use hotend::controller::Hotend;
 use hotend::heater::Heater;
 use hotend::thermistor::Thermistor;
 
-use crate::stepper::units::Temperature;
+mod math;
+use math::temperature::Temperature;
+
+use crate::math::vector::Vector;
+// use math::length::Length;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -123,8 +126,8 @@ async fn main(_spawner: Spawner) {
     if TEST {
         info!("Testing");
         parser_test();
-        stepper_test().await;
-        planner_test();
+        // stepper_test().await;
+        // planner_test();
         info!("Test finished succesfully");
         return;
     }
@@ -134,7 +137,7 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
 
     const STEPS_PER_REVOLUTION: u64 = 200;
-    let pulley_radius: Length = Length::from_mm(5.0).unwrap();
+    let pulley_radius = Vector::from_mm(5.0);
 
     // setup X stepper
     let x_step = SimplePwm::new(

@@ -2,7 +2,7 @@ use embassy_stm32::adc::{Adc, AdcPin, Instance, Resolution, SampleTime};
 use embassy_stm32::gpio::Pin;
 use micromath::F32Ext;
 
-use crate::stepper::units::Temperature;
+use crate::math::temperature::Temperature;
 
 use {defmt_rtt as _, panic_probe as _};
 

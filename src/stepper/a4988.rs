@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::stepper::units::{Length, Position, Speed};
+use crate::math::vector::Vector;
 use embassy_stm32::gpio::{AnyPin, Output};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
@@ -22,10 +22,10 @@ pub struct Stepper<'s, S> {
     step_ch: Channel,
     dir: Output<'s, AnyPin>,
     steps_per_revolution: u64,
-    distance_per_step: Length,
+    distance_per_step: Vector,
 
     // properties that have to be computed and kept updated during the execution
-    position: Position,
+    position: Vector,
     direction: StepperDirection,
     step_duration: Duration,
 }
@@ -39,7 +39,7 @@ where
         step_ch: Channel,
         dir: Output<'s, AnyPin>,
         steps_per_revolution: u64,
-        distance_per_step: Length,
+        distance_per_step: Vector,
     ) -> Stepper<'s, S> {
         step.set_duty(step_ch, step.get_max_duty() / 2);
         Stepper {
@@ -48,12 +48,12 @@ where
             dir,
             steps_per_revolution,
             distance_per_step,
-            position: Position::from_mm(0.0),
+            position: Vector::from_mm(0.0),
             direction: StepperDirection::Clockwise,
             step_duration: compute_step_duration(
                 steps_per_revolution,
                 distance_per_step,
-                Speed::from_mmps(0.0).unwrap(),
+                Vector::from_mm(0.0)
             ),
         }
     }
@@ -63,7 +63,7 @@ where
     pwm frequency: count of PWM interval periods per second
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
-    pub fn set_speed(&mut self, speed: Speed) -> () {
+    pub fn set_speed(&mut self, speed: Vector) -> () {
         self.step_duration =
             compute_step_duration(self.steps_per_revolution, self.distance_per_step, speed);
         let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
@@ -80,7 +80,7 @@ where
 
     // the stepping is implemented through a pwm, where the duty is 50% (in order to have high/low pin for the same amount of time),
     // and the frequency is computed using the time for a step to be executed (step duration)
-    pub async fn move_for(&mut self, distance: Length) {
+    async fn move_for(&mut self, distance: Vector) {
         if distance.to_mm() < self.distance_per_step.to_mm() {
             return;
         }
@@ -100,10 +100,10 @@ where
             StepperDirection::Clockwise => distance.to_mm(),
             StepperDirection::CounterClockwise => -distance.to_mm(),
         };
-        self.position = Position::from_mm(self.position.to_mm() + distance);
+        self.position = Vector::from_mm(self.position.to_mm() + distance);
     }
 
-    pub async fn move_to(&mut self, dst: Position) {
+    pub async fn move_to(&mut self, dst: Vector) {
         let delta = dst.to_mm() - self.position.to_mm();
         let direction = if delta.is_sign_negative() {
             StepperDirection::CounterClockwise
@@ -111,21 +111,21 @@ where
             StepperDirection::Clockwise
         };
         self.set_direction(direction);
-        let distance = Length::from_mm((delta as f32).abs() as f64);
-        self.move_for(distance.unwrap()).await;
+        let distance = Vector::from_mm((delta as f32).abs() as f64);
+        self.move_for(distance).await;
     }
 
-    pub fn get_position(&self) -> Position {
+    pub fn get_position(&self) -> Vector {
         self.position
     }
 
     pub fn reset(&mut self) -> () {
-        self.position = Position::from_mm(0.0);
+        self.position = Vector::from_mm(0.0);
         self.direction = StepperDirection::Clockwise;
         self.step_duration = compute_step_duration(
             self.steps_per_revolution,
             self.distance_per_step,
-            Speed::from_mmps(0.0).unwrap(),
+            Vector::from_mm(0.0)
         );
     }
 }
