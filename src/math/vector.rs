@@ -1,5 +1,4 @@
-use super::{angle::Angle, computable::Computable};
-use micromath::F32Ext;
+use super::{angle::{Angle, atan2, acos}, computable::Computable, common::sqrt};
 
 #[derive(Clone, Copy)]
 pub enum Unit {
@@ -71,15 +70,14 @@ impl Vector2D {
     }
 
     pub fn get_angle(&self) -> Angle {
-        let value = (self.get_y().to_mm() as f32).atan2(self.get_x().to_mm() as f32) as f64;
-        Angle::from_radians(value)
+        atan2(self.get_y().to_mm(), self.get_x().to_mm())
     }
 
     pub fn get_magnitude(&self) -> Vector {
         let x = self.get_x().mul(self.x);
         let y = self.get_y().mul(self.y);
         let mag_sq = x.add(y);
-        let mag = (mag_sq.to_mm() as f32).sqrt() as f64;
+        let mag = sqrt(mag_sq.to_mm());
         Vector::from_mm(mag)
     }
 
@@ -87,9 +85,7 @@ impl Vector2D {
     pub fn angle(&self, vector: Vector2D) -> Angle {
         let n = self.dot(vector);
         let d = self.get_magnitude().mul(vector.get_magnitude());
-        let res = (n.div(d).to_mm() as f32).asin();
-        let value = res.asin() as f64;
-        Angle::from_radians(value)
+        acos(n.div(d).to_mm())
     }
 
     pub fn dot(&self, vector: Vector2D) -> Vector {
