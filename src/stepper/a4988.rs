@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::math::common::abs;
+use crate::math::computable::Computable;
 use crate::math::vector::Vector;
 use embassy_stm32::gpio::{AnyPin, Output};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
@@ -104,14 +106,14 @@ where
     }
 
     pub async fn move_to(&mut self, dst: Vector) {
-        let delta = dst.to_mm() - self.position.to_mm();
+        let delta = dst.sub(self.position).to_mm();
         let direction = if delta.is_sign_negative() {
             StepperDirection::CounterClockwise
         } else {
             StepperDirection::Clockwise
         };
         self.set_direction(direction);
-        let distance = Vector::from_mm((delta as f32).abs() as f64);
+        let distance = Vector::from_mm(abs(delta));
         self.move_for(distance).await;
     }
 
