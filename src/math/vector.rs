@@ -93,6 +93,18 @@ impl Vector2D {
         let y = self.get_y().mul(vector.get_y());
         x.mul(y)
     }
+
+    pub fn mul(&self, vector: Vector) -> Vector2D {
+        let x = self.get_x().mul(vector);
+        let y = self.get_y().mul(vector);
+        Vector2D::new(x, y)
+    }
+
+    pub fn normalize(&self) -> Vector2D {
+        let mag = self.get_magnitude();
+        Vector2D::new(self.get_x().div(mag), self.get_y().div(mag))
+    }
+
 }
 
 impl Computable<Vector2D> for Vector2D {

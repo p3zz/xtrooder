@@ -139,12 +139,13 @@ where
     }
 
     pub fn reset(&mut self) -> () {
+        self.speed = Vector::from_mm(0.0);
         self.position = Vector::from_mm(0.0);
         self.direction = StepperDirection::Clockwise;
         self.step_duration = compute_step_duration(
             self.steps_per_revolution,
             self.distance_per_step,
-            Vector::from_mm(0.0),
+            self.speed,
         );
     }
 }

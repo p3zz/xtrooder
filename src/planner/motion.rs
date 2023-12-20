@@ -30,7 +30,7 @@ pub async fn linear_move_to_e<
     // compute the time the stepper a takes to go from its position to the destination, at the given speed, then compute
     // the speed for the extruder stepper
     let a_distance = a_dest.sub(stepper_a.get_position());
-    let a_time = abs(a_distance.to_mm() / a_speed.to_mm());
+    let a_time = abs(a_distance.div(a_speed).to_mm());
 
     let e_distance = e_dest.sub(stepper_e.get_position());
     let e_speed = Vector::from_mm(e_distance.to_mm() / a_time);
@@ -52,12 +52,9 @@ pub async fn linear_move_to_2d<
     speed: Vector,
 ) {
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let th = dest.sub(src).get_angle();
+    let direction = dest.sub(src).normalize();
 
-    let a_feedrate = Vector::from_mm(abs(speed.to_mm() * cos(th)));
-    let b_feedrate = Vector::from_mm(abs(speed.to_mm() * sin(th)));
-
-    let ab_speed = Vector2D::new(a_feedrate, b_feedrate);
+    let ab_speed = direction.mul(speed);
 
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, ab_speed).await;
 }
