@@ -13,6 +13,8 @@ use micromath::F32Ext;
 use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
+
+#[derive(Clone, Copy)]
 pub enum StepperDirection {
     Clockwise,
     CounterClockwise,
@@ -27,6 +29,7 @@ pub struct Stepper<'s, S> {
     distance_per_step: Vector,
 
     // properties that have to be computed and kept updated during the execution
+    speed: Vector,
     position: Vector,
     direction: StepperDirection,
     step_duration: Duration,
@@ -50,6 +53,7 @@ where
             dir,
             steps_per_revolution,
             distance_per_step,
+            speed: Vector::from_mm(0.0),
             position: Vector::from_mm(0.0),
             direction: StepperDirection::Clockwise,
             step_duration: compute_step_duration(
@@ -66,8 +70,9 @@ where
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
     pub fn set_speed(&mut self, speed: Vector) -> () {
+        self.speed = speed;
         self.step_duration =
-            compute_step_duration(self.steps_per_revolution, self.distance_per_step, speed);
+            compute_step_duration(self.steps_per_revolution, self.distance_per_step, self.speed);
         let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
     }
@@ -119,6 +124,18 @@ where
 
     pub fn get_position(&self) -> Vector {
         self.position
+    }
+
+    pub fn get_direction(&self) -> StepperDirection {
+        self.direction
+    }
+
+    pub fn get_speed(&self) -> Vector {
+        self.speed
+    }
+
+    pub async fn home(&mut self) {
+        self.move_to(Vector::from_mm(0.0)).await;
     }
 
     pub fn reset(&mut self) -> () {
