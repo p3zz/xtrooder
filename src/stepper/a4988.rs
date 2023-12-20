@@ -13,7 +13,6 @@ use micromath::F32Ext;
 use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
-
 #[derive(Clone, Copy)]
 pub enum StepperDirection {
     Clockwise,
@@ -71,8 +70,11 @@ where
     */
     pub fn set_speed(&mut self, speed: Vector) -> () {
         self.speed = speed;
-        self.step_duration =
-            compute_step_duration(self.steps_per_revolution, self.distance_per_step, self.speed);
+        self.step_duration = compute_step_duration(
+            self.steps_per_revolution,
+            self.distance_per_step,
+            self.speed,
+        );
         let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
     }

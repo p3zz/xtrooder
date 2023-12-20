@@ -1,6 +1,6 @@
+use super::computable::Computable;
 use core::f64::consts::PI;
 use micromath::F32Ext;
-use super::computable::Computable;
 
 #[derive(Clone, Copy)]
 pub struct Angle {

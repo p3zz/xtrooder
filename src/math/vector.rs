@@ -1,4 +1,8 @@
-use super::{angle::{Angle, atan2, acos}, computable::Computable, common::sqrt};
+use super::{
+    angle::{acos, atan2, Angle},
+    common::sqrt,
+    computable::Computable,
+};
 
 #[derive(Clone, Copy)]
 pub enum Unit {
@@ -104,7 +108,6 @@ impl Vector2D {
         let mag = self.get_magnitude();
         Vector2D::new(self.get_x().div(mag), self.get_y().div(mag))
     }
-
 }
 
 impl Computable<Vector2D> for Vector2D {

@@ -9,7 +9,14 @@ use embassy_stm32::{
 };
 use embassy_time::{driver::now, Duration};
 
-use crate::{stepper::a4988::{Stepper, StepperDirection}, math::{vector::{Vector, Vector2D}, common::StopWatch}, planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_e}};
+use crate::{
+    math::{
+        common::StopWatch,
+        vector::{Vector, Vector2D},
+    },
+    planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_e},
+    stepper::a4988::{Stepper, StepperDirection},
+};
 
 async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, S>) {
     let mut stopwatch = StopWatch::new();
@@ -18,7 +25,7 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 1500);
     assert_eq!(stepper.get_position().to_mm(), 15.0);
-    match stepper.get_direction(){
+    match stepper.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
@@ -27,49 +34,76 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 2000);
     assert_eq!(stepper.get_position().to_mm(), -5.00);
-    match stepper.get_direction(){
+    match stepper.get_direction() {
         StepperDirection::Clockwise => assert!(false),
         StepperDirection::CounterClockwise => assert!(true),
     };
 }
 
-async fn test_linear_move_to_e<'s, A: CaptureCompare16bitInstance, E: CaptureCompare16bitInstance>(stepper_a: &mut Stepper<'s, A>, stepper_e: &mut Stepper<'s, E>) {
+async fn test_linear_move_to_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_e: &mut Stepper<'s, E>,
+) {
     let mut stopwatch = StopWatch::new();
     stopwatch.start();
-    linear_move_to_e(stepper_a, stepper_e, Vector::from_mm(10.0), Vector::from_mm(5.0),Vector::from_mm(10.0)).await;
+    linear_move_to_e(
+        stepper_a,
+        stepper_e,
+        Vector::from_mm(10.0),
+        Vector::from_mm(5.0),
+        Vector::from_mm(10.0),
+    )
+    .await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 1000);
 
     assert_eq!(stepper_a.get_position().to_mm(), 10.0);
     assert_eq!(stepper_a.get_speed().to_mm(), 10.0);
-    match stepper_a.get_direction(){
+    match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
 
     assert_eq!(stepper_e.get_position().to_mm(), 5.0);
     assert_eq!(stepper_a.get_speed().to_mm(), 5.0);
-    match stepper_a.get_direction(){
+    match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
 }
 
-async fn test_linear_move_to_2d<'s, A: CaptureCompare16bitInstance, B: CaptureCompare16bitInstance>(stepper_a: &mut Stepper<'s, A>, stepper_b: &mut Stepper<'s, B>) {
+async fn test_linear_move_to_2d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+) {
     let mut stopwatch = StopWatch::new();
     stopwatch.start();
-    linear_move_to_2d(stepper_a, stepper_b, Vector2D::new(Vector::from_mm(15.0), Vector::from_mm(-20.0)), Vector::from_mm(10.0)).await;
+    linear_move_to_2d(
+        stepper_a,
+        stepper_b,
+        Vector2D::new(Vector::from_mm(15.0), Vector::from_mm(-20.0)),
+        Vector::from_mm(10.0),
+    )
+    .await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 2500);
     assert_eq!(stepper_a.get_position().to_mm(), 15.0);
     assert_eq!(stepper_a.get_speed().to_mm(), 6.0);
-    match stepper_a.get_direction(){
+    match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
     assert_eq!(stepper_b.get_position().to_mm(), -20.0);
     assert_eq!(stepper_a.get_speed().to_mm(), 7.95);
-    match stepper_a.get_direction(){
+    match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(false),
         StepperDirection::CounterClockwise => assert!(true),
     };
@@ -124,5 +158,4 @@ pub async fn test() {
     test_linear_move_to_2d(&mut a_stepper, &mut b_stepper).await;
     a_stepper.reset();
     b_stepper.reset();
-
 }
