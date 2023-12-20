@@ -1,3 +1,5 @@
+use crate::math::angle::{cos, sin};
+use crate::math::common::abs;
 use crate::math::computable::Computable;
 use crate::math::vector::{Vector, Vector2D};
 use crate::stepper::a4988::Stepper;
@@ -28,7 +30,7 @@ pub async fn linear_move_to_e<
     // compute the time the stepper a takes to go from its position to the destination, at the given speed, then compute
     // the speed for the extruder stepper
     let a_distance = a_dest.sub(stepper_a.get_position());
-    let a_time = ((a_distance.to_mm() / a_speed.to_mm()) as f32).abs() as f64;
+    let a_time = abs(a_distance.to_mm() / a_speed.to_mm());
 
     let e_distance = e_dest.sub(stepper_e.get_position());
     let e_speed = Vector::from_mm(e_distance.to_mm() / a_time);
@@ -52,11 +54,8 @@ pub async fn linear_move_to_2d<
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let th = dest.sub(src).get_angle();
 
-    let a_f = (speed.to_mm() as f32 * (th.to_radians() as f32).cos()).abs() as f64;
-    let a_feedrate = Vector::from_mm(a_f);
-
-    let b_f = (speed.to_mm() as f32 * (th.to_radians() as f32).sin()).abs() as f64;
-    let b_feedrate = Vector::from_mm(b_f);
+    let a_feedrate = Vector::from_mm(abs(speed.to_mm() * cos(th)));
+    let b_feedrate = Vector::from_mm(abs(speed.to_mm() * sin(th)));
 
     let ab_speed = Vector2D::new(a_feedrate, b_feedrate);
 
@@ -93,8 +92,7 @@ pub async fn linear_move_to_2d_e<
     ab_speed: Vector,
 ) {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let ab_distance = ab_dest.sub(ab_source);
-    let time_taken = ab_distance.get_magnitude().div(ab_speed);
+    let time_taken = ab_dest.sub(ab_source).get_magnitude().div(ab_speed);
     let e_delta = e_dest.sub(stepper_e.get_position());
     let e_speed = e_delta.div(time_taken);
     join!(
