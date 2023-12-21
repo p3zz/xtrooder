@@ -222,7 +222,7 @@ pub async fn test() {
     test_linear_move_to_2d(&mut a_stepper, &mut b_stepper).await;
     a_stepper.reset();
     b_stepper.reset();
-    test_linear_move_to_2d_e(&mut a_stepper, &mut b_stepper).await;
+    test_linear_move_to_2d_e(&mut a_stepper, &mut b_stepper, &mut c_stepper).await;
     a_stepper.reset();
     b_stepper.reset();
     c_stepper.reset();
