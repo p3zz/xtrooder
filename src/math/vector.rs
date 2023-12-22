@@ -78,10 +78,9 @@ impl Vector2D {
     }
 
     pub fn get_magnitude(&self) -> Vector {
-        let x = self.get_x().mul(self.x);
-        let y = self.get_y().mul(self.y);
-        let mag_sq = x.add(y);
-        let mag = sqrt(mag_sq.to_mm());
+        let x = self.get_x().mul(self.get_x());
+        let y = self.get_y().mul(self.get_y());
+        let mag = sqrt(x.add(y).to_mm());
         Vector::from_mm(mag)
     }
 
@@ -104,9 +103,15 @@ impl Vector2D {
         Vector2D::new(x, y)
     }
 
+    pub fn div(&self, vector: Vector) -> Vector2D {
+        let x = self.get_x().div(vector);
+        let y = self.get_y().div(vector);
+        Vector2D::new(x, y)
+    }
+
     pub fn normalize(&self) -> Vector2D {
         let mag = self.get_magnitude();
-        Vector2D::new(self.get_x().div(mag), self.get_y().div(mag))
+        self.div(mag)
     }
 }
 
