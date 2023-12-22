@@ -81,7 +81,7 @@ where
             return;
         }
         let duration = self.step_duration.unwrap().as_micros() as f64;
-        if duration == 0f64{
+        if duration == 0f64 {
             return;
         }
         let freq = hz(((1.0 / duration) * 1_000_000.0) as u32);

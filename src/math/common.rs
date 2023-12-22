@@ -1,10 +1,10 @@
+use defmt::{assert_eq, println};
 use embassy_time::{driver::now, Duration};
 use micromath::F32Ext;
-use defmt::{assert_eq, println};
 
 pub fn abs(value: f64) -> f64 {
     let mut v = value;
-    if value.is_sign_negative(){
+    if value.is_sign_negative() {
         v = -value;
     }
     v

@@ -16,10 +16,12 @@ pub fn dps_from_radius(r: Vector, steps_per_revolution: u64) -> Option<Vector> {
 // get distance per step from bar's pitch
 // used for Z axis
 pub fn dps_from_pitch(pitch: Vector, steps_per_revolution: u64) -> Option<Vector> {
-    if pitch.to_mm() == 0f64 || steps_per_revolution == 0{
+    if pitch.to_mm() == 0f64 || steps_per_revolution == 0 {
         return None;
     }
-    Some(Vector::from_mm(pitch.to_mm() / (steps_per_revolution as f64)))
+    Some(Vector::from_mm(
+        pitch.to_mm() / (steps_per_revolution as f64),
+    ))
 }
 
 // compute the step duration, known as the delay between two successive steps

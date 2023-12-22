@@ -11,10 +11,10 @@ use embassy_time::{driver::now, Duration};
 
 use crate::{
     math::{
-        common::{StopWatch, abs},
+        common::{abs, StopWatch},
         vector::{Vector, Vector2D},
     },
-    planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_e, linear_move_to_2d_e},
+    planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_2d_e, linear_move_to_e},
     stepper::a4988::{Stepper, StepperDirection},
 };
 
@@ -104,7 +104,7 @@ async fn test_linear_move_to_2d<
     .await;
     let duration = stopwatch.measure();
     let max_error = 0.05;
-    
+
     assert!(abs(2500.0 - duration.as_millis() as f64) < 2500.0 * max_error);
     assert!(abs(15.0 - stepper_a.get_position().to_mm() as f64) < 15.0 * max_error);
     assert!(abs(6.0 - stepper_a.get_speed().to_mm()) < 6.0 * max_error);
