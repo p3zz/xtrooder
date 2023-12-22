@@ -31,7 +31,7 @@ pub struct Stepper<'s, S> {
     speed: Vector,
     position: Vector,
     direction: StepperDirection,
-    step_duration: Duration,
+    step_duration: Option<Duration>,
 }
 
 impl<'s, S> Stepper<'s, S>
@@ -45,6 +45,8 @@ where
         steps_per_revolution: u64,
         distance_per_step: Vector,
     ) -> Stepper<'s, S> {
+        // the duty is 50% (in order to have high/low pin for the same amount of time)
+        // TODO do we really need to set the duty to 50%?
         step.set_duty(step_ch, step.get_max_duty() / 2);
         Stepper {
             step,
@@ -75,7 +77,14 @@ where
             self.distance_per_step,
             self.speed,
         );
-        let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
+        if self.step_duration.is_none() {
+            return;
+        }
+        let duration = self.step_duration.unwrap().as_micros() as f64;
+        if duration == 0f64{
+            return;
+        }
+        let freq = hz(((1.0 / duration) * 1_000_000.0) as u32);
         self.step.set_freq(freq);
     }
 
@@ -87,17 +96,20 @@ where
         };
     }
 
-    // the stepping is implemented through a pwm, where the duty is 50% (in order to have high/low pin for the same amount of time),
+    // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
     async fn move_for(&mut self, distance: Vector) {
         if distance.to_mm() < self.distance_per_step.to_mm() {
             return;
         }
         // compute the number of steps we need to perform
+        if self.distance_per_step.to_mm() == 0f64 || self.step_duration.is_none() {
+            return;
+        }
         let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
 
         // compute the duration of the move.
-        let duration = Duration::from_micros(steps_n * self.step_duration.as_micros());
+        let duration = Duration::from_micros(steps_n * self.step_duration.unwrap().as_micros());
 
         // move
         self.step.enable(self.step_ch);
