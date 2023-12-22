@@ -5,14 +5,14 @@ use crate::math::vector::{Vector, Vector2D};
 use crate::stepper::a4988::Stepper;
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use futures::join;
-use micromath::F32Ext;
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     dest: Vector,
     speed: Vector,
 ) {
-    stepper.set_speed(speed);
+    let s = Vector::from_mm(abs(speed.to_mm()));
+    stepper.set_speed(s);
     stepper.move_to(dest).await;
 }
 
