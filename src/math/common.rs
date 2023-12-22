@@ -1,8 +1,13 @@
 use embassy_time::{driver::now, Duration};
 use micromath::F32Ext;
+use defmt::{assert_eq, println};
 
 pub fn abs(value: f64) -> f64 {
-    (value as f32).abs() as f64
+    let mut v = value;
+    if value.is_sign_negative(){
+        v = -value;
+    }
+    v
 }
 
 pub fn sqrt(value: f64) -> f64 {
