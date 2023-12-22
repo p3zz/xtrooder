@@ -1,4 +1,3 @@
-use defmt::{assert_eq, println};
 use embassy_time::{driver::now, Duration};
 use micromath::F32Ext;
 

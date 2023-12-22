@@ -7,7 +7,6 @@ use embassy_stm32::{
     },
     time::hz,
 };
-use embassy_time::{driver::now, Duration};
 
 use crate::{
     math::{

@@ -1,4 +1,3 @@
-use crate::math::angle::{cos, sin};
 use crate::math::common::abs;
 use crate::math::computable::Computable;
 use crate::math::vector::{Vector, Vector2D};
