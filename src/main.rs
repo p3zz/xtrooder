@@ -26,6 +26,7 @@ use stepper::a4988::Stepper;
 
 mod planner;
 use planner::planner::Planner;
+use planner::test::test as planner_test;
 
 mod parser;
 use parser::parser::{parse_line, GCommand};
@@ -48,7 +49,7 @@ bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
 });
 
-static TEST: bool = false;
+static TEST: bool = true;
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 16>> = Mutex::new(Queue::new());
 
 static TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<f64>> = Mutex::new(None);
@@ -121,6 +122,7 @@ async fn main(_spawner: Spawner) {
     if TEST {
         info!("Testing");
         parser_test();
+        planner_test().await;
         // stepper_test().await;
         // planner_test();
         info!("Test finished succesfully");
