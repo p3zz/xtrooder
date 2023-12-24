@@ -19,10 +19,11 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Delay, Duration, Timer};
 use {defmt_rtt as _, panic_probe as _};
+use heapless::spsc::Queue;
 
 mod stepper;
-use heapless::spsc::Queue;
 use stepper::a4988::Stepper;
+use stepper::test::test as stepper_test;
 
 mod planner;
 use planner::planner::Planner;
@@ -123,8 +124,7 @@ async fn main(_spawner: Spawner) {
         info!("Testing");
         parser_test();
         planner_test().await;
-        // stepper_test().await;
-        // planner_test();
+        stepper_test();
         info!("Test finished succesfully");
         return;
     }
