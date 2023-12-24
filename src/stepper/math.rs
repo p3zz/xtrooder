@@ -30,14 +30,22 @@ pub fn dps_from_pitch(pitch: Vector, steps_per_revolution: u64) -> Option<Vector
 // dps -> distance per step
 // speed -> mm/s
 pub fn compute_step_duration(spr: u64, dps: Vector, speed: Vector) -> Option<Duration> {
-    // distance per revolution
-    if spr == 0 || dps.to_mm() == 0f64 || speed.to_mm() == 0f64 {
+    let rps = rps_from_mmps(spr, dps, speed)?;
+    if rps == 0f64 {
+        return None;
+    }
+    let second_per_revolution = 1.0 / rps;
+    let second_per_step = second_per_revolution / (spr as f64);
+    let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
+    Some(Duration::from_micros(usecond_per_step))
+}
+
+// revolutions/s from mm/s
+pub fn rps_from_mmps(spr: u64, dps: Vector, speed: Vector) -> Option<f64> {
+    if spr == 0 || dps.to_mm() == 0f64 {
         return None;
     }
     let distance_per_revolution = Vector::from_mm(spr as f64 * dps.to_mm());
     let revolution_per_second = speed.to_mm() / distance_per_revolution.to_mm();
-    let second_per_revolution = 1.0 / revolution_per_second;
-    let second_per_step = second_per_revolution / (spr as f64);
-    let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
-    Some(Duration::from_micros(usecond_per_step))
+    Some(revolution_per_second)
 }
