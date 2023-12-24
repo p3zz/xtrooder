@@ -161,7 +161,6 @@ async fn test_linear_move_to_2d_e<
     };
 
     assert!(abs(20.0 - stepper_e.get_position().to_mm()) < 20.0 * max_error);
-    println!("{}", stepper_e.get_speed().to_mm());
     assert!(abs(8.0 - stepper_e.get_speed().to_mm()) < 8.0 * max_error);
     match stepper_e.get_direction() {
         StepperDirection::Clockwise => assert!(true),
