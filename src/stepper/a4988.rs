@@ -2,7 +2,7 @@
 
 use crate::math::common::abs;
 use crate::math::computable::Computable;
-use crate::math::vector::Vector;
+use crate::math::vector::{Unit, Vector};
 use embassy_stm32::gpio::{AnyPin, Output};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
@@ -53,13 +53,13 @@ where
             dir,
             steps_per_revolution,
             distance_per_step,
-            speed: Vector::from_mm(0.0),
-            position: Vector::from_mm(0.0),
+            speed: Vector::new_1d(0.0, Unit::MillimeterPerSecond),
+            position: Vector::new_1d(0.0, Unit::Millimeter),
             direction: StepperDirection::Clockwise,
             step_duration: compute_step_duration(
                 steps_per_revolution,
                 distance_per_step,
-                Vector::from_mm(0.0),
+                Vector::new_1d(0.0, Unit::MillimeterPerSecond),
             ),
         }
     }
@@ -94,15 +94,18 @@ where
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
-    async fn move_for(&mut self, distance: Vector) {
-        if distance.to_mm() < self.distance_per_step.to_mm() {
+    async fn move_for(&mut self, distance: &Vector) {
+        let distance = distance.get_x().to_mm().unwrap();
+        let distance_per_step = self.distance_per_step.get_x().to_mm().unwrap();
+
+        if distance < distance_per_step {
             return;
         }
         // compute the number of steps we need to perform
-        if self.distance_per_step.to_mm() == 0f64 || self.step_duration.is_none() {
+        if distance_per_step == 0f64 || self.step_duration.is_none() {
             return;
         }
-        let steps_n = (distance.to_mm() / self.distance_per_step.to_mm()) as u64;
+        let steps_n = (distance / distance_per_step) as u64;
 
         // compute the duration of the move.
         let duration = Duration::from_micros(steps_n * self.step_duration.unwrap().as_micros());
@@ -114,22 +117,26 @@ where
 
         // update the position of the stepper
         let distance = match self.direction {
-            StepperDirection::Clockwise => distance.to_mm(),
-            StepperDirection::CounterClockwise => -distance.to_mm(),
+            StepperDirection::Clockwise => distance,
+            StepperDirection::CounterClockwise => -distance,
         };
-        self.position = Vector::from_mm(self.position.to_mm() + distance);
+        self.position = Vector::new_1d(self.position.get_x().to_mm().unwrap() + distance, self.position.get_unit());
     }
 
-    pub async fn move_to(&mut self, dst: Vector) {
-        let delta = dst.sub(self.position).to_mm();
+    pub async fn move_to(&mut self, dst: &Vector) {
+        let delta = dst.sub(&self.position);
+        if delta.is_none(){
+            return;
+        }
+        let delta = delta.unwrap().get_x().to_mm().unwrap();
         let direction = if delta.is_sign_negative() {
             StepperDirection::CounterClockwise
         } else {
             StepperDirection::Clockwise
         };
         self.set_direction(direction);
-        let distance = Vector::from_mm(abs(delta));
-        self.move_for(distance).await;
+        let distance = Vector::new_1d(abs(delta), dst.get_unit());
+        self.move_for(&distance).await;
     }
 
     pub fn get_position(&self) -> Vector {
@@ -145,12 +152,12 @@ where
     }
 
     pub async fn home(&mut self) {
-        self.move_to(Vector::from_mm(0.0)).await;
+        self.move_to(&Vector::new_1d(0.0, self.position.get_unit())).await;
     }
 
     pub fn reset(&mut self) -> () {
-        self.speed = Vector::from_mm(0.0);
-        self.position = Vector::from_mm(0.0);
+        self.speed = Vector::new_1d(0.0, self.position.get_unit());
+        self.position = Vector::new_1d(0.0, self.position.get_unit());
         self.direction = StepperDirection::Clockwise;
         self.step_duration = compute_step_duration(
             self.steps_per_revolution,
