@@ -1,25 +1,25 @@
 use embassy_time::Duration;
 
-use crate::math::vector::Vector;
+use crate::math::{distance::Distance, speed::Speed};
 use core::f64::consts::PI;
 
 // get distance per step from pulley's radius
 // used for X/Y axis
-pub fn dps_from_radius(r: Vector, steps_per_revolution: u64) -> Option<Vector> {
+pub fn dps_from_radius(r: Distance, steps_per_revolution: u64) -> Option<Distance> {
     if r.to_mm() == 0f64 || steps_per_revolution == 0 {
         return None;
     }
     let p = 2.0 * r.to_mm() * PI;
-    Some(Vector::from_mm(p / (steps_per_revolution as f64)))
+    Some(Distance::from_mm(p / (steps_per_revolution as f64)))
 }
 
 // get distance per step from bar's pitch
 // used for Z axis
-pub fn dps_from_pitch(pitch: Vector, steps_per_revolution: u64) -> Option<Vector> {
+pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Distance> {
     if pitch.to_mm() == 0f64 || steps_per_revolution == 0 {
         return None;
     }
-    Some(Vector::from_mm(
+    Some(Distance::from_mm(
         pitch.to_mm() / (steps_per_revolution as f64),
     ))
 }
@@ -29,23 +29,13 @@ pub fn dps_from_pitch(pitch: Vector, steps_per_revolution: u64) -> Option<Vector
 // spr -> step per revolution
 // dps -> distance per step
 // speed -> mm/s
-pub fn compute_step_duration(spr: u64, dps: Vector, speed: Vector) -> Option<Duration> {
-    let rps = rps_from_mmps(spr, dps, speed)?;
-    if rps == 0f64 {
+pub fn compute_step_duration(spr: u64, dps: Distance, speed: Speed) -> Option<Duration> {
+    let rps = speed.to_revolutions_per_second(spr, dps);
+    if rps == 0f64{
         return None;
     }
     let second_per_revolution = 1.0 / rps;
     let second_per_step = second_per_revolution / (spr as f64);
     let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
     Some(Duration::from_micros(usecond_per_step))
-}
-
-// revolutions/s from mm/s
-pub fn rps_from_mmps(spr: u64, dps: Vector, speed: Vector) -> Option<f64> {
-    if spr == 0 || dps.to_mm() == 0f64 {
-        return None;
-    }
-    let distance_per_revolution = Vector::from_mm(spr as f64 * dps.to_mm());
-    let revolution_per_second = speed.to_mm() / distance_per_revolution.to_mm();
-    Some(revolution_per_second)
 }

@@ -1,6 +1,7 @@
-use super::computable::Computable;
 use core::f64::consts::PI;
 use micromath::F32Ext;
+
+use super::measurable::Measurable;
 
 #[derive(Clone, Copy)]
 pub struct Angle {
@@ -27,14 +28,40 @@ impl Angle {
     }
 }
 
-impl Computable<Angle> for Angle {
-    fn add(&self, other: Angle) -> Angle {
+impl Measurable<Angle> for Angle {
+    
+    fn from_value(value: f64) -> Angle {
+        Angle{value}
+    }
+    
+    fn get_value(&self) -> f64 {
+        self.value
+    }
+
+    fn add(&self, other: &Angle) -> Angle {
         Angle::from_radians(self.to_radians() + other.to_radians())
     }
 
-    fn sub(&self, other: Angle) -> Angle {
+    fn sub(&self, other: &Angle) -> Angle {
         Angle::from_radians(self.to_radians() - other.to_radians())
     }
+    
+    fn mul(&self, other: &Angle) -> Angle {
+        Angle::from_radians(self.to_radians() * other.to_radians())
+    }
+    
+    fn div(&self, other: &Angle) -> Result<f64, ()> {
+        if other.to_radians() == 0f64{
+            Err(())
+        }else{
+            Ok(self.to_radians() / other.to_radians())
+        }
+    }
+    
+    fn sqr(&self) -> Angle {
+        self.mul(&self)
+    }
+    
 }
 
 pub fn cos(angle: Angle) -> f64 {
