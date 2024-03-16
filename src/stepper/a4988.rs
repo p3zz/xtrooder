@@ -26,6 +26,7 @@ pub struct Stepper<'s, S> {
     dir: Output<'s, AnyPin>,
     steps_per_revolution: u64,
     distance_per_step: Distance,
+    bounds: (Distance, Distance),
 
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
@@ -62,6 +63,7 @@ where
                 distance_per_step,
                 Speed::from_mm_per_second(0.0),
             ),
+            bounds: (Distance::from_mm(-200.0), Distance::from_mm(200.0))
         }
     }
 
@@ -96,41 +98,36 @@ where
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
-    async fn move_for(&mut self, distance: Distance) -> () {
+    async fn move_for(&mut self, distance: Distance) {
         if self.distance_per_step.to_mm() == 0f64 || distance.to_mm() < self.distance_per_step.to_mm() || self.step_duration.is_none() {
             return;
         }
         
-        let steps_n = distance.div(&self.distance_per_step);
-        if steps_n.is_err(){
+        let position_next = self.position.add(&distance);
+        if position_next.to_mm() < self.bounds.0.to_mm() || position_next.to_mm() > self.bounds.1.to_mm(){
             return;
         }
+
+        let direction = if distance.to_mm().is_sign_positive() { StepperDirection::Clockwise } else { StepperDirection::CounterClockwise }; 
+        self.set_direction(direction);
+
+        let steps_n = (abs(distance.to_mm()) / self.distance_per_step.to_mm()) as u64;
+
         // compute the duration of the move.
-        let duration = Duration::from_micros(steps_n.unwrap() as u64 * self.step_duration.unwrap().as_micros());
+        let duration = Duration::from_micros(steps_n * self.step_duration.unwrap().as_micros());
 
         // move
         self.step.enable(self.step_ch);
         Timer::after(duration).await;
         self.step.disable(self.step_ch);
 
-        // update the position of the stepper
-        let d = match self.direction {
-            StepperDirection::Clockwise => distance.to_mm(),
-            StepperDirection::CounterClockwise => -distance.to_mm()
-        };
-        self.position = Distance::from_mm(self.position.to_mm() + d);
+        self.position = position_next;
+
     }
 
     pub async fn move_to(&mut self, dst: Distance) {
         let delta = dst.sub(&self.position);
-        let direction = if delta.to_mm().is_sign_negative() {
-            StepperDirection::CounterClockwise
-        } else {
-            StepperDirection::Clockwise
-        };
-        self.set_direction(direction);
-        let distance = Distance::from_mm(abs(delta.to_mm()));
-        self.move_for(distance).await;
+        self.move_for(delta).await;
     }
 
     pub fn get_position(&self) -> Distance {

@@ -12,7 +12,8 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     dest: Distance,
     speed: Speed,
 ) {
-    stepper.set_speed(Speed::from_mm_per_second(speed.to_mm_per_second()));
+    let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
+    stepper.set_speed(s);
     stepper.move_to(dest).await;
 }
 

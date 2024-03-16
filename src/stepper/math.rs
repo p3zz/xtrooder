@@ -37,5 +37,5 @@ pub fn compute_step_duration(spr: u64, dps: Distance, speed: Speed) -> Option<Du
     let second_per_revolution = 1.0 / rps;
     let second_per_step = second_per_revolution / (spr as f64);
     let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
-    Some(Duration::from_micros(usecond_per_step))
+    Some(Duration::from_micros(usecond_per_step / 2))
 }
