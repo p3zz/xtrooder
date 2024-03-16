@@ -18,6 +18,8 @@ use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Delay, Duration, Timer};
+use crate::math::distance::Distance;
+
 use {defmt_rtt as _, panic_probe as _};
 use heapless::spsc::Queue;
 
@@ -42,9 +44,6 @@ use hotend::thermistor::Thermistor;
 
 mod math;
 use math::temperature::Temperature;
-
-use crate::math::vector::Vector;
-// use math::length::Length;
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<peripherals::USART3>;
@@ -134,7 +133,7 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(Default::default());
 
     const STEPS_PER_REVOLUTION: u64 = 200;
-    let pulley_radius = Vector::from_mm(5.0);
+    let pulley_radius = Distance::from_mm(5.0);
 
     // setup X stepper
     let x_step = SimplePwm::new(

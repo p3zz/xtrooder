@@ -96,7 +96,7 @@ where
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
-    async fn move_for(&mut self, distance: &Distance) -> () {
+    async fn move_for(&mut self, distance: Distance) -> () {
         if self.distance_per_step.to_mm() == 0f64 || distance.to_mm() < self.distance_per_step.to_mm() || self.step_duration.is_none() {
             return;
         }
@@ -121,7 +121,7 @@ where
         self.position = Distance::from_mm(self.position.to_mm() + d);
     }
 
-    pub async fn move_to(&mut self, dst: &Distance) {
+    pub async fn move_to(&mut self, dst: Distance) {
         let delta = dst.sub(&self.position);
         let direction = if delta.to_mm().is_sign_negative() {
             StepperDirection::CounterClockwise
@@ -130,23 +130,23 @@ where
         };
         self.set_direction(direction);
         let distance = Distance::from_mm(abs(delta.to_mm()));
-        self.move_for(&distance).await;
+        self.move_for(distance).await;
     }
 
-    pub fn get_position(&self) -> &Distance {
-        &self.position
+    pub fn get_position(&self) -> Distance {
+        self.position
     }
 
-    pub fn get_direction(&self) -> &StepperDirection {
-        &self.direction
+    pub fn get_direction(&self) -> StepperDirection {
+        self.direction
     }
 
-    pub fn get_speed(&self) -> &Speed {
-        &self.speed
+    pub fn get_speed(&self) -> Speed {
+        self.speed
     }
 
     pub async fn home(&mut self) {
-        self.move_to(&Distance::from_mm(0.0)).await;
+        self.move_to(Distance::from_mm(0.0)).await;
     }
 
     pub fn reset(&mut self) -> () {

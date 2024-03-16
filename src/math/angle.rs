@@ -10,13 +10,13 @@ pub struct Angle {
 }
 
 impl Angle {
-    pub fn from_radians(value: f64) -> Angle {
-        Angle { value }
+    pub fn from_radians(value: f64) -> Self {
+        Self { value }
     }
 
-    pub fn from_degrees(angle: f64) -> Angle {
+    pub fn from_degrees(angle: f64) -> Self {
         let value = angle * PI / 180.0;
-        Angle { value }
+        Self { value }
     }
 
     pub fn to_radians(&self) -> f64 {
@@ -28,29 +28,21 @@ impl Angle {
     }
 }
 
-impl Measurable<Angle> for Angle {
+impl Measurable for Angle {
     
-    fn from_value(value: f64) -> Angle {
-        Angle{value}
-    }
-    
-    fn get_value(&self) -> f64 {
-        self.value
+    fn add(&self, other: &Self) -> Self {
+        Self::from_radians(self.to_radians() + other.to_radians())
     }
 
-    fn add(&self, other: &Angle) -> Angle {
-        Angle::from_radians(self.to_radians() + other.to_radians())
-    }
-
-    fn sub(&self, other: &Angle) -> Angle {
-        Angle::from_radians(self.to_radians() - other.to_radians())
+    fn sub(&self, other: &Self) -> Self {
+        Self::from_radians(self.to_radians() - other.to_radians())
     }
     
-    fn mul(&self, other: &Angle) -> Angle {
-        Angle::from_radians(self.to_radians() * other.to_radians())
+    fn mul(&self, other: &Self) -> Self {
+        Self::from_radians(self.to_radians() * other.to_radians())
     }
     
-    fn div(&self, other: &Angle) -> Result<f64, ()> {
+    fn div(&self, other: &Self) -> Result<f64, ()> {
         if other.to_radians() == 0f64{
             Err(())
         }else{
@@ -58,8 +50,12 @@ impl Measurable<Angle> for Angle {
         }
     }
     
-    fn sqr(&self) -> Angle {
-        self.mul(&self)
+    fn to_raw(&self) -> f64 {
+        self.to_radians()
+    }
+    
+    fn from_raw(value: f64) -> Self {
+        Self::from_radians(value)
     }
     
 }

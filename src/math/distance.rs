@@ -1,22 +1,32 @@
 use super::measurable::Measurable;
 
+#[derive(Clone, Copy)]
 pub enum DistanceUnit{
     Millimeter,
     Inch
 }
 
+#[derive(Clone, Copy)]
 pub struct Distance{
     // mm
     value: f64
 }
 
 impl Distance{
-    pub fn from_mm(value: f64) -> Distance {
-        Distance{value}
+
+    pub fn from_unit(value: f64, unit: DistanceUnit) -> Self {
+        match unit{
+            DistanceUnit::Millimeter => Self::from_mm(value),
+            DistanceUnit::Inch => Self::from_inches(value),
+        }
     }
 
-    pub fn from_inches(value: f64) -> Distance {
-        Distance{value: value * 25.4}
+    pub fn from_mm(value: f64) -> Self {
+        Self{value}
+    }
+
+    pub fn from_inches(value: f64) -> Self {
+        Self{value: value * 25.4}
     }
 
     pub fn to_mm(&self) -> f64 {
@@ -28,32 +38,24 @@ impl Distance{
     }
 }
 
-impl Measurable<Distance> for Distance{
+impl Measurable for Distance{
     
-    fn from_value(value: f64) -> Distance {
-        Distance{value}
-    }
-
-    fn get_value(&self) -> f64 {
-        self.value
-    }
-    
-    fn add(&self, other: &Distance) -> Distance {
+    fn add(&self, other: &Self) -> Self {
         let value = self.to_mm() + other.to_mm();
-        Distance::from_mm(value)
+        Self::from_mm(value)
     }
     
-    fn sub(&self, other: &Distance) -> Distance {
+    fn sub(&self, other: &Self) -> Self {
         let value = self.to_mm() - other.to_mm();
-        Distance::from_mm(value)
+        Self::from_mm(value)
     }
 
-    fn mul(&self, other: &Distance) -> Distance {
+    fn mul(&self, other: &Self) -> Self {
         let value = self.to_mm() * other.to_mm();
-        Distance::from_mm(value)
+        Self::from_mm(value)
     }
 
-    fn div(&self, other: &Distance) -> Result<f64, ()> {
+    fn div(&self, other: &Self) -> Result<f64, ()> {
         if other.to_mm() == 0f64{
             Err(())
         }
@@ -62,8 +64,11 @@ impl Measurable<Distance> for Distance{
         }
     }
 
-    fn sqr(&self) -> Distance {
-        let value = self.to_mm() * self.to_mm();
-        Distance::from_mm(value)
+    fn to_raw(&self) -> f64 {
+        self.to_mm()
+    }
+    
+    fn from_raw(value: f64) -> Self {
+        Self::from_mm(value)
     }
 }

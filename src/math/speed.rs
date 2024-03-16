@@ -1,5 +1,6 @@
 use super::{distance::{Distance, DistanceUnit}, measurable::Measurable};
 
+#[derive(Clone, Copy)]
 pub struct Speed{
     // mm per second
     value: f64
@@ -7,24 +8,24 @@ pub struct Speed{
 
 impl Speed{
 
-    pub fn from_unit(value: f64, unit: DistanceUnit) -> Speed {
+    pub fn from_unit(value: f64, unit: DistanceUnit) -> Self {
         match unit{
-            DistanceUnit::Millimeter => Speed::from_mm_per_second(value),
-            DistanceUnit::Inch => Speed::from_inches_per_second(value),
+            DistanceUnit::Millimeter => Self::from_mm_per_second(value),
+            DistanceUnit::Inch => Self::from_inches_per_second(value),
         }
     }
 
-    pub fn from_mm_per_second(value: f64) -> Speed {
-        Speed{value}
+    pub fn from_mm_per_second(value: f64) -> Self {
+        Self{value}
     }
 
-    pub fn from_inches_per_second(value: f64) -> Speed {
-        Speed{value: value * 25.4}
+    pub fn from_inches_per_second(value: f64) -> Self {
+        Self{value: value * 25.4}
     }
 
-    pub fn from_revolutions_per_second(value: f64, steps_per_revolution: u64, distance_per_step: Distance) -> Speed {
+    pub fn from_revolutions_per_second(value: f64, steps_per_revolution: u64, distance_per_step: Distance) -> Self {
         let distance_per_revolution = Distance::from_mm(steps_per_revolution as f64 * distance_per_step.to_mm());
-        Speed{value: distance_per_revolution.to_mm() * value}
+        Self{value: distance_per_revolution.to_mm() * value}
     }
 
     pub fn to_mm_per_second(&self) -> f64 {
@@ -44,32 +45,24 @@ impl Speed{
     }
 }
 
-impl Measurable<Speed> for Speed{
+impl Measurable for Speed{
     
-    fn from_value(value: f64) -> Speed {
-        Speed{value}
-    }
-
-    fn get_value(&self) -> f64 {
-        self.value
-    }
-    
-    fn add(&self, other: &Speed) -> Speed {
+    fn add(&self, other: &Self) -> Self {
         let value = self.to_mm_per_second() + other.to_mm_per_second();
-        Speed::from_mm_per_second(value)
+        Self::from_mm_per_second(value)
     }
     
-    fn sub(&self, other: &Speed) -> Speed {
+    fn sub(&self, other: &Self) -> Self {
         let value = self.to_mm_per_second() - other.to_mm_per_second();
-        Speed::from_mm_per_second(value)
+        Self::from_mm_per_second(value)
     }
 
-    fn mul(&self, other: &Speed) -> Speed {
+    fn mul(&self, other: &Self) -> Self {
         let value = self.to_mm_per_second() * other.to_mm_per_second();
-        Speed::from_mm_per_second(value)
+        Self::from_mm_per_second(value)
     }
 
-    fn div(&self, other: &Speed) -> Result<f64, ()> {
+    fn div(&self, other: &Self) -> Result<f64, ()> {
         if other.to_mm_per_second() == 0f64{
             return Err(());
         }
@@ -77,8 +70,11 @@ impl Measurable<Speed> for Speed{
         Ok(value)
     }
 
-    fn sqr(&self) -> Speed {
-        let value = self.to_mm_per_second() * self.to_mm_per_second();
-        Speed::from_inches_per_second(value)
+    fn to_raw(&self) -> f64 {
+        self.to_mm_per_second()
+    }
+    
+    fn from_raw(value: f64) -> Self {
+        Self::from_mm_per_second(value)
     }
 }

@@ -1,6 +1,6 @@
 use defmt::{assert, assert_eq, println};
 use embassy_stm32::{
-    gpio::{Level, Output, Speed},
+    gpio::{Level, Output, Speed as PinSpeed},
     pwm::{
         simple_pwm::{PwmPin, SimplePwm},
         CaptureCompare16bitInstance, Channel,
@@ -10,8 +10,7 @@ use embassy_stm32::{
 
 use crate::{
     math::{
-        common::{abs, StopWatch},
-        vector::{Vector, Vector2D},
+        common::{abs, StopWatch}, distance::Distance, vector::Vector2D, speed::Speed as StepperSpeed
     },
     planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_2d_e, linear_move_to_e},
     stepper::a4988::{Stepper, StepperDirection},
@@ -27,7 +26,7 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
     println!("Test - Linear move to");
     let mut stopwatch = StopWatch::new();
     stopwatch.start();
-    linear_move_to(stepper, Vector::from_mm(15.0), Vector::from_mm(10.0)).await;
+    linear_move_to(stepper, Distance::from_mm(15.0), StepperSpeed::from_mm_per_second(10.0)).await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 1500);
     assert_eq!(stepper.get_position().to_mm(), 15.0);
@@ -36,7 +35,7 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
         StepperDirection::CounterClockwise => assert!(false),
     };
     stopwatch.start();
-    linear_move_to(stepper, Vector::from_mm(-5.0), Vector::from_mm(10.0)).await;
+    linear_move_to(stepper, Distance::from_mm(-5.0), StepperSpeed::from_mm_per_second(10.0)).await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 2000);
     assert_eq!(stepper.get_position().to_mm(), -5.00);
@@ -60,23 +59,23 @@ async fn test_linear_move_to_e<
     linear_move_to_e(
         stepper_a,
         stepper_e,
-        Vector::from_mm(10.0),
-        Vector::from_mm(5.0),
-        Vector::from_mm(10.0),
+        Distance::from_mm(10.0),
+        Distance::from_mm(5.0),
+        StepperSpeed::from_mm_per_second(10.0),
     )
     .await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 1000);
 
     assert_eq!(stepper_a.get_position().to_mm(), 10.0);
-    assert_eq!(stepper_a.get_speed().to_mm(), 10.0);
+    assert_eq!(stepper_a.get_speed().to_mm_per_second(), 10.0);
     match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
 
     assert_eq!(stepper_e.get_position().to_mm(), 5.0);
-    assert_eq!(stepper_e.get_speed().to_mm(), 5.0);
+    assert_eq!(stepper_e.get_speed().to_mm_per_second(), 5.0);
     match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
@@ -97,8 +96,8 @@ async fn test_linear_move_to_2d<
     linear_move_to_2d(
         stepper_a,
         stepper_b,
-        Vector2D::new(Vector::from_mm(15.0), Vector::from_mm(-20.0)),
-        Vector::from_mm(10.0),
+        Vector2D::new(Distance::from_mm(15.0), Distance::from_mm(-20.0)),
+        StepperSpeed::from_mm_per_second(10.0),
     )
     .await;
     let duration = stopwatch.measure();
@@ -106,14 +105,14 @@ async fn test_linear_move_to_2d<
 
     assert!(abs(2500.0 - duration.as_millis() as f64) < 2500.0 * max_error);
     assert!(abs(15.0 - stepper_a.get_position().to_mm() as f64) < 15.0 * max_error);
-    assert!(abs(6.0 - stepper_a.get_speed().to_mm()) < 6.0 * max_error);
+    assert!(abs(6.0 - stepper_a.get_speed().to_mm_per_second()) < 6.0 * max_error);
     match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
 
     assert!(abs(-20.0 - stepper_b.get_position().to_mm() as f64) < 20.0 * max_error);
-    assert!(abs(8.0 - stepper_b.get_speed().to_mm()) < 8.0 * max_error);
+    assert!(abs(8.0 - stepper_b.get_speed().to_mm_per_second()) < 8.0 * max_error);
     match stepper_b.get_direction() {
         StepperDirection::Clockwise => assert!(false),
         StepperDirection::CounterClockwise => assert!(true),
@@ -137,9 +136,9 @@ async fn test_linear_move_to_2d_e<
         stepper_a,
         stepper_b,
         stepper_e,
-        Vector2D::new(Vector::from_mm(15.0), Vector::from_mm(-20.0)),
-        Vector::from_mm(20.0),
-        Vector::from_mm(10.0),
+        Vector2D::new(Distance::from_mm(15.0), Distance::from_mm(-20.0)),
+        Distance::from_mm(20.0),
+        StepperSpeed::from_mm_per_second(10.0),
     )
     .await;
     let duration = stopwatch.measure();
@@ -147,21 +146,21 @@ async fn test_linear_move_to_2d_e<
 
     assert!(abs(2500.0 - duration.as_millis() as f64) < 2500.0 * max_error);
     assert!(abs(15.0 - stepper_a.get_position().to_mm() as f64) < 15.0 * max_error);
-    assert!(abs(6.0 - stepper_a.get_speed().to_mm()) < 6.0 * max_error);
+    assert!(abs(6.0 - stepper_a.get_speed().to_mm_per_second()) < 6.0 * max_error);
     match stepper_a.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
     };
 
     assert!(abs(-20.0 - stepper_b.get_position().to_mm() as f64) < 20.0 * max_error);
-    assert!(abs(8.0 - stepper_b.get_speed().to_mm()) < 8.0 * max_error);
+    assert!(abs(8.0 - stepper_b.get_speed().to_mm_per_second()) < 8.0 * max_error);
     match stepper_b.get_direction() {
         StepperDirection::Clockwise => assert!(false),
         StepperDirection::CounterClockwise => assert!(true),
     };
 
     assert!(abs(20.0 - stepper_e.get_position().to_mm()) < 20.0 * max_error);
-    assert!(abs(8.0 - stepper_e.get_speed().to_mm()) < 8.0 * max_error);
+    assert!(abs(8.0 - stepper_e.get_speed().to_mm_per_second()) < 8.0 * max_error);
     match stepper_e.get_direction() {
         StepperDirection::Clockwise => assert!(true),
         StepperDirection::CounterClockwise => assert!(false),
@@ -171,7 +170,7 @@ async fn test_linear_move_to_2d_e<
 pub async fn test() {
     println!("Planner test");
     let p = embassy_stm32::init(Default::default());
-    let distance_per_step = Vector::from_mm(0.5);
+    let distance_per_step = Distance::from_mm(0.5);
     let steps_per_revolution = 200;
 
     let a_step = SimplePwm::new(
@@ -183,7 +182,7 @@ pub async fn test() {
         hz(1),
     );
 
-    let a_dir = Output::new(p.PB0, Level::Low, Speed::Low);
+    let a_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
     let mut a_stepper = Stepper::new(
         a_step,
@@ -202,7 +201,7 @@ pub async fn test() {
         hz(1),
     );
 
-    let b_dir = Output::new(p.PB3, Level::Low, Speed::Low);
+    let b_dir = Output::new(p.PB3, Level::Low, PinSpeed::Low);
 
     let mut b_stepper = Stepper::new(
         b_step,
@@ -221,7 +220,7 @@ pub async fn test() {
         hz(1),
     );
 
-    let c_dir = Output::new(p.PB1, Level::Low, Speed::Low);
+    let c_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
 
     let mut c_stepper = Stepper::new(
         c_step,

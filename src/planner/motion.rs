@@ -1,7 +1,7 @@
 use crate::math::common::abs;
 use crate::math::measurable::Measurable;
 use crate::math::speed::Speed;
-use crate::math::vector::{Vector2D, Vector3D};
+use crate::math::vector::Vector2D;
 use crate::math::distance::Distance;
 use crate::stepper::a4988::Stepper;
 use embassy_stm32::pwm::CaptureCompare16bitInstance;
@@ -9,8 +9,8 @@ use futures::join;
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
-    dest: &Distance,
-    speed: &Speed,
+    dest: Distance,
+    speed: Speed,
 ) {
     stepper.set_speed(Speed::from_mm_per_second(speed.to_mm_per_second()));
     stepper.move_to(dest).await;
@@ -23,9 +23,9 @@ pub async fn linear_move_to_e<
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_e: &mut Stepper<'s, E>,
-    a_dest: &Distance,
-    e_dest: &Distance,
-    a_speed: &Speed,
+    a_dest: Distance,
+    e_dest: Distance,
+    a_speed: Speed,
 ) {
     // compute the time the stepper a takes to go from its position to the destination, at the given speed, then compute
     // the speed for the extruder stepper
@@ -33,11 +33,11 @@ pub async fn linear_move_to_e<
     let a_time = abs(a_distance.to_mm() / a_speed.to_mm_per_second());
 
     let e_distance = e_dest.sub(&stepper_e.get_position());
-    let e_speed = Speed::from_mm_per_second(e_distance / a_time);
+    let e_speed = Speed::from_mm_per_second(e_distance.to_mm() / a_time);
 
     join!(
         linear_move_to(stepper_a, a_dest, a_speed),
-        linear_move_to(stepper_e, e_dest, &e_speed)
+        linear_move_to(stepper_e, e_dest, e_speed)
     );
 }
 
@@ -48,7 +48,7 @@ pub async fn linear_move_to_2d<
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
-    dest: &Vector2D<Distance>,
+    dest: Vector2D<Distance>,
     speed: Speed,
 ) {
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
@@ -56,8 +56,8 @@ pub async fn linear_move_to_2d<
     if direction.is_err(){
         return;
     }
-    let ab_speed_x = direction.unwrap().get_x().to_mm() * speed.get_x().to_mm_per_second();
-    let ab_speed_y = direction.unwrap().get_y().to_mm() * speed.get_y().to_mm_per_second();
+    let ab_speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let ab_speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
     let ab_speed = Vector2D::new(ab_speed_x, ab_speed_y);
 
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, ab_speed).await;
@@ -70,8 +70,8 @@ pub async fn linear_move_to_2d_raw<
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
-    dest: &Vector2D<Distance>,
-    speed: &Vector2D<Speed>,
+    dest: Vector2D<Distance>,
+    speed: Vector2D<Speed>,
 ) {
     join!(
         linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
@@ -88,21 +88,15 @@ pub async fn linear_move_to_2d_e<
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     stepper_e: &mut Stepper<'s, E>,
-    ab_dest: &Vector2D<Distance>,
-    e_dest: &Distance,
-    ab_speed: &Vector2D<Speed>,
+    ab_dest: Vector2D<Distance>,
+    e_dest: Distance,
+    ab_speed: Speed
 ) {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let ab_distance = ab_dest.sub(&ab_source); 
-    let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.get_magnitude().to_mm_per_second();
-    if ab_time.is_err(){
-        return;
-    }
-    let e_delta = e_dest.sub(stepper_e.get_position());
-    let e_speed = e_delta.div(&ab_time.unwrap());
-    if e_speed.is_err(){
-        return;
-    }
+    let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.to_mm_per_second();
+    let e_delta = e_dest.sub(&stepper_e.get_position());
+    let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / ab_time);
     join!(
         linear_move_to_2d(stepper_a, stepper_b, ab_dest, ab_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
@@ -111,11 +105,11 @@ pub async fn linear_move_to_2d_e<
 
 pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
-    distance: &Distance,
-    speed: &Speed,
+    distance: Distance,
+    speed: Speed,
 ) {
-    let dest = stepper.get_position().add(distance);
-    linear_move_to(stepper, &dest, speed).await;
+    let dest = stepper.get_position().add(&distance);
+    linear_move_to(stepper, dest, speed).await;
 }
 
 pub async fn linear_move_for_e<
@@ -125,13 +119,13 @@ pub async fn linear_move_for_e<
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_e: &mut Stepper<'s, E>,
-    a_distance: &Distance,
-    e_distance: &Distance,
-    feedrate: &Speed,
+    a_distance: Distance,
+    e_distance: Distance,
+    feedrate: Speed,
 ) {
-    let a_dest = stepper_a.get_position().add(a_distance);
-    let e_dest = stepper_e.get_position().add(e_distance);
-    linear_move_to_e(stepper_a, stepper_e, &a_dest, &e_dest, feedrate).await;
+    let a_dest = stepper_a.get_position().add(&a_distance);
+    let e_dest = stepper_e.get_position().add(&e_distance);
+    linear_move_to_e(stepper_a, stepper_e, a_dest, e_dest, feedrate).await;
 }
 
 pub async fn linear_move_for_2d<
@@ -141,11 +135,11 @@ pub async fn linear_move_for_2d<
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
-    distance: &Vector2D<Distance>,
-    speed: &Vector2D<Speed>,
+    distance: Vector2D<Distance>,
+    speed: Vector2D<Speed>,
 ) {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let dest = source.add(distance);
+    let dest = source.add(&distance);
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed).await;
 }
 
@@ -158,12 +152,12 @@ pub async fn linear_move_for_2d_e<
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     stepper_e: &mut Stepper<'s, E>,
-    ab_distance: &Vector2D<Distance>,
-    e_distance: &Distance,
-    ab_speed: &Vector2D<Speed>,
+    ab_distance: Vector2D<Distance>,
+    e_distance: Distance,
+    ab_speed: Speed,
 ) {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let ab_dest = ab_source.add(ab_distance);
-    let e_dest = stepper_e.get_position().add(e_distance);
-    linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, &e_dest, ab_speed).await;
+    let ab_dest = ab_source.add(&ab_distance);
+    let e_dest = stepper_e.get_position().add(&e_distance);
+    linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await;
 }
