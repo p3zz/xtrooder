@@ -1,7 +1,6 @@
 use defmt::{assert, assert_eq, println};
 
-use crate::math::{common::abs, speed::Speed, distance::Distance};
-use super::math::{compute_step_duration};
+use crate::{math::{common::abs, distance::Distance, speed::Speed}, stepper::math::compute_step_duration};
 
 fn test_rps_from_mmps_1(){
     println!("Test - RPS from MMPS 1");

@@ -1,4 +1,4 @@
-use super::measurable::Measurable;
+use super::computable::Computable;
 
 #[derive(Clone, Copy)]
 pub enum DistanceUnit{
@@ -38,7 +38,7 @@ impl Distance{
     }
 }
 
-impl Measurable for Distance{
+impl Computable for Distance{
     
     fn add(&self, other: &Self) -> Self {
         let value = self.to_mm() + other.to_mm();

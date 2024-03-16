@@ -1,9 +1,9 @@
 use super::{
     angle::{acos, atan2, Angle},
-    common::sqrt, measurable::Measurable,
+    common::sqrt, computable::Computable,
 };
 
-impl Measurable for f64{
+impl Computable for f64{
     fn add(&self, other: &Self) -> Self {
         self + other
     }
@@ -36,7 +36,7 @@ pub struct Vector2D<M> {
 }
 
 impl <M> Vector2D<M>
-where M: Measurable + Clone + Copy {
+where M: Computable + Clone + Copy {
 
     pub fn new(x: M, y: M) -> Vector2D<M> {
         Vector2D { x, y }
@@ -98,7 +98,7 @@ pub struct Vector3D<M> {
 }
 
 impl <M> Vector3D<M>
-where M: Measurable + Clone + Copy {
+where M: Computable + Clone + Copy {
 
     pub fn new(x: M, y: M, z: M) -> Vector3D<M> {
         Vector3D { x, y, z }

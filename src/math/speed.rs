@@ -1,4 +1,4 @@
-use super::{distance::{Distance, DistanceUnit}, measurable::Measurable};
+use super::{distance::{Distance, DistanceUnit}, computable::Computable};
 
 #[derive(Clone, Copy)]
 pub struct Speed{
@@ -45,7 +45,7 @@ impl Speed{
     }
 }
 
-impl Measurable for Speed{
+impl Computable for Speed{
     
     fn add(&self, other: &Self) -> Self {
         let value = self.to_mm_per_second() + other.to_mm_per_second();

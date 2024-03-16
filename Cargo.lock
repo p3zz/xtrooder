@@ -300,34 +300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embassy-stm32h7-examples"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "critical-section",
- "defmt",
- "defmt-rtt",
- "embassy-executor",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time",
- "embedded-hal 0.2.7",
- "embedded-hal 1.0.0-alpha.11",
- "embedded-hal-async",
- "embedded-nal-async",
- "embedded-storage",
- "futures",
- "heapless",
- "micromath",
- "panic-probe",
- "pid-lite",
- "rand_core",
- "static_cell",
- "stm32-fmc",
-]
-
-[[package]]
 name = "embassy-sync"
 version = "0.2.0"
 source = "git+https://github.com/embassy-rs/embassy?rev=3382ca1a5429504c56c360e99ec09f4f641948a2#3382ca1a5429504c56c360e99ec09f4f641948a2"
@@ -685,6 +657,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
  "semver 1.0.18",
+]
+
+[[package]]
+name = "rusty-printer"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0-alpha.11",
+ "embedded-hal-async",
+ "embedded-nal-async",
+ "embedded-storage",
+ "futures",
+ "heapless",
+ "micromath",
+ "panic-probe",
+ "pid-lite",
+ "rand_core",
+ "static_cell",
+ "stm32-fmc",
 ]
 
 [[package]]

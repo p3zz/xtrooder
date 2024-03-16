@@ -1,5 +1,5 @@
 use crate::math::common::abs;
-use crate::math::measurable::Measurable;
+use crate::math::computable::Computable;
 use crate::math::speed::Speed;
 use crate::math::vector::Vector2D;
 use crate::math::distance::Distance;

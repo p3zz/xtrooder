@@ -1,7 +1,7 @@
 use core::f64::consts::PI;
 use micromath::F32Ext;
 
-use super::measurable::Measurable;
+use super::computable::Computable;
 
 #[derive(Clone, Copy)]
 pub struct Angle {
@@ -28,7 +28,7 @@ impl Angle {
     }
 }
 
-impl Measurable for Angle {
+impl Computable for Angle {
     
     fn add(&self, other: &Self) -> Self {
         Self::from_radians(self.to_radians() + other.to_radians())

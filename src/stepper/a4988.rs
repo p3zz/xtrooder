@@ -8,7 +8,7 @@ use embassy_stm32::pwm::simple_pwm::SimplePwm;
 use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::time::hz;
 use embassy_time::{Duration, Timer};
-use crate::math::measurable::Measurable;
+use crate::math::computable::Computable;
 
 use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
