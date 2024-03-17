@@ -4,9 +4,11 @@ use crate::math::common::abs;
 use crate::math::distance::Distance;
 use crate::math::speed::Speed;
 use embassy_stm32::gpio::{AnyPin, Output};
-use embassy_stm32::pwm::simple_pwm::SimplePwm;
-use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
+// use embassy_stm32::pwm::simple_pwm::SimplePwm;
+// use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
 use embassy_stm32::time::hz;
+use embassy_stm32::timer::simple_pwm::SimplePwm;
+use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Duration, Timer};
 use crate::math::computable::Computable;
 
@@ -23,7 +25,7 @@ pub struct Stepper<'s, S> {
     // properties that won't change
     step: SimplePwm<'s, S>,
     step_ch: Channel,
-    dir: Output<'s, AnyPin>,
+    dir: Output<'s>,
     steps_per_revolution: u64,
     distance_per_step: Distance,
     bounds: (Distance, Distance),
@@ -42,7 +44,7 @@ where
     pub fn new(
         mut step: SimplePwm<'s, S>,
         step_ch: Channel,
-        dir: Output<'s, AnyPin>,
+        dir: Output<'s>,
         steps_per_revolution: u64,
         distance_per_step: Distance,
     ) -> Stepper<'s, S> {
@@ -84,7 +86,7 @@ where
         }
         let duration = self.step_duration.unwrap().as_micros() as f64;
         let freq = hz(((1.0 / duration) * 1_000_000.0) as u32);
-        self.step.set_freq(freq);
+        self.step.set_frequency(freq);
     }
 
     // TODO remove set direction and keep only the stepper speed (can be positive or negative, in both cases update the direction pin)

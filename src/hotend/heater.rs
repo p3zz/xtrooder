@@ -1,4 +1,6 @@
-use embassy_stm32::pwm::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel};
+// use embassy_stm32::pwm::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel};
+
+use embassy_stm32::timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel};
 
 pub struct Heater<'s, S> {
     out: SimplePwm<'s, S>,

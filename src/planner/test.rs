@@ -1,11 +1,11 @@
 use defmt::{assert, assert_eq, println};
 use embassy_stm32::{
-    gpio::{Level, Output, Speed as PinSpeed},
-    pwm::{
-        simple_pwm::{PwmPin, SimplePwm},
-        CaptureCompare16bitInstance, Channel,
-    },
-    time::hz,
+    gpio::{Level, Output, OutputType, Speed as PinSpeed},
+    // pwm::{
+    //     simple_pwm::{PwmPin, SimplePwm},
+    //     CaptureCompare16bitInstance, Channel,
+    // },
+    time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, CaptureCompare16bitInstance, Channel, CountingMode},
 };
 
 use crate::{
@@ -175,11 +175,12 @@ pub async fn test() {
 
     let a_step = SimplePwm::new(
         p.TIM5,
-        Some(PwmPin::new_ch1(p.PA0)),
+        Some(PwmPin::new_ch1(p.PA0, OutputType::PushPull)),
         None,
         None,
         None,
         hz(1),
+        CountingMode::EdgeAlignedUp,
     );
 
     let a_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
@@ -187,18 +188,19 @@ pub async fn test() {
     let mut a_stepper = Stepper::new(
         a_step,
         Channel::Ch1,
-        a_dir.degrade(),
+        a_dir,
         steps_per_revolution,
         distance_per_step,
     );
 
     let b_step = SimplePwm::new(
         p.TIM14,
-        Some(PwmPin::new_ch1(p.PA7)),
+        Some(PwmPin::new_ch1(p.PA7, OutputType::PushPull)),
         None,
         None,
         None,
         hz(1),
+        CountingMode::EdgeAlignedUp,
     );
 
     let b_dir = Output::new(p.PB3, Level::Low, PinSpeed::Low);
@@ -206,18 +208,19 @@ pub async fn test() {
     let mut b_stepper = Stepper::new(
         b_step,
         Channel::Ch1,
-        b_dir.degrade(),
+        b_dir,
         steps_per_revolution,
         distance_per_step,
     );
 
     let c_step = SimplePwm::new(
         p.TIM15,
-        Some(PwmPin::new_ch1(p.PA2)),
+        Some(PwmPin::new_ch1(p.PA2, OutputType::PushPull)),
         None,
         None,
         None,
         hz(1),
+        CountingMode::EdgeAlignedUp,
     );
 
     let c_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
@@ -225,7 +228,7 @@ pub async fn test() {
     let mut c_stepper = Stepper::new(
         c_step,
         Channel::Ch1,
-        c_dir.degrade(),
+        c_dir,
         steps_per_revolution,
         distance_per_step,
     );

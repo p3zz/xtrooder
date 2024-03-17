@@ -11,7 +11,7 @@ fn test() {
     let mut t = Thermistor::new(
         adc,
         p.PA0,
-        Resolution::SixteenBit,
+        Resolution::BITS16,
         10_000.0,
         Temperature::from_kelvin(3950.0),
     );

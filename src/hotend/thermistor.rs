@@ -36,7 +36,7 @@ where
         r0: f64,
         b: Temperature,
     ) -> Thermistor<'a, T, P> {
-        adc.set_sample_time(SampleTime::Cycles32_5);
+        adc.set_sample_time(SampleTime::CYCLES32_5);
         adc.set_resolution(resolution);
         Thermistor {
             adc,
@@ -61,11 +61,12 @@ where
 
 fn get_steps(resolution: Resolution) -> f64 {
     match resolution {
-        Resolution::SixteenBit => 65536.0,
-        Resolution::FourteenBit => 16384.0,
-        Resolution::TwelveBit => 4096.0,
-        Resolution::TenBit => 1024.0,
-        Resolution::EightBit => 256.0,
+        Resolution::BITS16 => 65536.0,
+        Resolution::BITS14 => 16384.0,
+        Resolution::BITS12 => 4096.0,
+        Resolution::BITS10 => 1024.0,
+        Resolution::BITS8 => 256.0,
+        _ => 0.0
     }
 }
 

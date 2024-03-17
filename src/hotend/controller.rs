@@ -2,8 +2,8 @@ use core::time::Duration as CoreDuration;
 
 use embassy_stm32::{
     adc::{AdcPin, Instance},
-    gpio::Pin,
-    pwm::CaptureCompare16bitInstance,
+    gpio::Pin, timer::CaptureCompare16bitInstance,
+    // pwm::CaptureCompare16bitInstance,
 };
 use embassy_time::Duration;
 use pid_lite::Controller;

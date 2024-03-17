@@ -1,4 +1,5 @@
-use embassy_time::{driver::now, Duration};
+use embassy_time::{Duration, Instant};
+// use embassy_time::{driver::now, Duration};
 use micromath::F32Ext;
 
 pub fn abs(value: f64) -> f64 {
@@ -23,11 +24,11 @@ impl StopWatch {
     }
 
     pub fn start(&mut self) {
-        self.last_ticks = now();
+        self.last_ticks = Instant::now().as_ticks();
     }
 
     pub fn measure(&self) -> Duration {
-        let current_ticks = now();
+        let current_ticks = Instant::now().as_ticks();
         Duration::from_ticks(current_ticks - self.last_ticks)
     }
 }

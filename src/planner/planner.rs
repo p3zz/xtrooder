@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
+use embassy_stm32::timer::CaptureCompare16bitInstance;
+
 use super::motion;
 use crate::math::distance::{Distance, DistanceUnit};
 use crate::math::speed::Speed;
 use crate::math::vector::{Vector2D, Vector3D};
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
-use embassy_stm32::pwm::CaptureCompare16bitInstance;
+// use embassy_stm32::pwm::CaptureCompare16bitInstance;
 
 pub enum Positioning {
     Relative,
