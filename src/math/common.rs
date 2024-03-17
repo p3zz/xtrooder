@@ -1,5 +1,4 @@
 use embassy_time::{Duration, Instant};
-// use embassy_time::{driver::now, Duration};
 use micromath::F32Ext;
 
 pub fn abs(value: f64) -> f64 {

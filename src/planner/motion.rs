@@ -5,7 +5,6 @@ use crate::math::vector::Vector2D;
 use crate::math::distance::Distance;
 use crate::stepper::a4988::Stepper;
 use embassy_stm32::timer::CaptureCompare16bitInstance;
-// use embassy_stm32::pwm::CaptureCompare16bitInstance;
 use futures::join;
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(

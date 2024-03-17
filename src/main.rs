@@ -10,8 +10,6 @@ use embassy_stm32::adc::{Adc, Resolution};
 use embassy_stm32::dma::NoDma;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::peripherals::{ADC1, DMA1_CH0, PA1, PA10, PD8, PD9, TIM1, USART3};
-// use embassy_stm32::pwm::simple_pwm::{PwmPin, SimplePwm};
-// use embassy_stm32::pwm::Channel;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::Channel;

@@ -8,7 +8,6 @@ use crate::math::speed::Speed;
 use crate::math::vector::{Vector2D, Vector3D};
 use crate::parser::parser::GCommand;
 use crate::stepper::a4988::Stepper;
-// use embassy_stm32::pwm::CaptureCompare16bitInstance;
 
 pub enum Positioning {
     Relative,

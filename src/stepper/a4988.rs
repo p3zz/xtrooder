@@ -3,9 +3,7 @@
 use crate::math::common::abs;
 use crate::math::distance::Distance;
 use crate::math::speed::Speed;
-use embassy_stm32::gpio::{AnyPin, Output};
-// use embassy_stm32::pwm::simple_pwm::SimplePwm;
-// use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
+use embassy_stm32::gpio::Output;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};

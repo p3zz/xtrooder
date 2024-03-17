@@ -1,10 +1,6 @@
 use defmt::{assert, assert_eq, println};
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    // pwm::{
-    //     simple_pwm::{PwmPin, SimplePwm},
-    //     CaptureCompare16bitInstance, Channel,
-    // },
     time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, CaptureCompare16bitInstance, Channel, CountingMode},
 };
 
