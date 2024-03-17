@@ -1,8 +1,8 @@
-use crate::math::common::abs;
-use crate::math::computable::Computable;
-use crate::math::distance::Distance;
-use crate::math::speed::Speed;
-use crate::math::vector::Vector2D;
+use math::common::abs;
+use math::computable::Computable;
+use math::distance::Distance;
+use math::speed::Speed;
+use math::vector::Vector2D;
 use crate::stepper::a4988::Stepper;
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;

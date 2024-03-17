@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
-use crate::math::common::abs;
-use crate::math::computable::Computable;
-use crate::math::distance::Distance;
-use crate::math::speed::Speed;
+use math::common::abs;
+use math::computable::Computable;
+use math::distance::Distance;
+use math::speed::Speed;
 use embassy_stm32::gpio::Output;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Duration, Timer};
 
-use super::math::compute_step_duration;
+use math::common::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
 #[derive(Clone, Copy)]
@@ -32,7 +32,6 @@ pub struct Stepper<'s, S> {
     speed: Speed,
     position: Distance,
     direction: StepperDirection,
-    step_duration: Option<Duration>,
 }
 
 impl<'s, S> Stepper<'s, S>
@@ -58,11 +57,6 @@ where
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
             direction: StepperDirection::Clockwise,
-            step_duration: compute_step_duration(
-                steps_per_revolution,
-                distance_per_step,
-                Speed::from_mm_per_second(0.0),
-            ),
             bounds: (Distance::from_mm(-200.0), Distance::from_mm(200.0)),
         }
     }
@@ -74,35 +68,21 @@ where
     */
     pub fn set_speed(&mut self, speed: Speed) -> () {
         self.speed = speed;
-        self.step_duration = compute_step_duration(
-            self.steps_per_revolution,
-            self.distance_per_step,
-            self.speed,
-        );
-        if self.step_duration.is_none() {
-            return;
-        }
-        let duration = self.step_duration.unwrap().as_micros() as f64;
-        let freq = hz(((1.0 / duration) * 1_000_000.0) as u32);
-        self.step.set_frequency(freq);
-    }
-
-    // TODO remove set direction and keep only the stepper speed (can be positive or negative, in both cases update the direction pin)
-    pub fn set_direction(&mut self, direction: StepperDirection) -> () {
-        self.direction = direction;
-        match self.direction {
-            StepperDirection::Clockwise => self.dir.set_high(),
-            StepperDirection::CounterClockwise => self.dir.set_low(),
-        };
     }
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
     async fn move_for(&mut self, distance: Distance) {
-        if self.distance_per_step.to_mm() == 0f64
-            || distance.to_mm() < self.distance_per_step.to_mm()
-            || self.step_duration.is_none()
-        {
+        let step_duration = compute_step_duration(
+            self.steps_per_revolution,
+            self.distance_per_step,
+            self.speed,
+        );
+        let step_duration = step_duration.expect("Invalid step duration");
+        let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
+        self.step.set_frequency(freq);
+
+        if distance.to_mm() < self.distance_per_step.to_mm(){
             return;
         }
 
@@ -113,17 +93,21 @@ where
             return;
         }
 
-        let direction = if distance.to_mm().is_sign_positive() {
+        self.direction = if distance.to_mm().is_sign_positive() {
             StepperDirection::Clockwise
         } else {
             StepperDirection::CounterClockwise
         };
-        self.set_direction(direction);
+
+        match self.direction {
+            StepperDirection::Clockwise => self.dir.set_high(),
+            StepperDirection::CounterClockwise => self.dir.set_low(),
+        };
 
         let steps_n = (abs(distance.to_mm()) / self.distance_per_step.to_mm()) as u64;
 
         // compute the duration of the move.
-        let duration = Duration::from_micros(steps_n * self.step_duration.unwrap().as_micros());
+        let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
 
         // move
         self.step.enable(self.step_ch);
@@ -158,10 +142,5 @@ where
         self.speed = Speed::from_mm_per_second(0.0);
         self.position = Distance::from_mm(0.0);
         self.direction = StepperDirection::Clockwise;
-        self.step_duration = compute_step_duration(
-            self.steps_per_revolution,
-            self.distance_per_step,
-            self.speed,
-        );
     }
 }
