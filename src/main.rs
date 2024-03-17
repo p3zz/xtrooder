@@ -3,6 +3,7 @@
 #![no_main]
 #![feature(type_alias_impl_trait)]
 
+use crate::math::distance::Distance;
 use core::str;
 use defmt::*;
 use embassy_executor::Spawner;
@@ -18,10 +19,9 @@ use embassy_stm32::{bind_interrupts, peripherals, usart};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Delay, Duration, Timer};
-use crate::math::distance::Distance;
 
-use {defmt_rtt as _, panic_probe as _};
 use heapless::spsc::Queue;
+use {defmt_rtt as _, panic_probe as _};
 
 mod stepper;
 use stepper::a4988::Stepper;
@@ -57,7 +57,7 @@ static TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<f64>> = Mutex::new(N
 #[embassy_executor::task]
 async fn input_handler(peri: USART3, rx: PD9, tx: PD8, dma_rx: DMA1_CH0) {
     let mut uart = Uart::new(peri, rx, tx, Irqs, NoDma, dma_rx, Config::default());
-    if uart.is_err(){
+    if uart.is_err() {
         return;
     }
 
@@ -101,10 +101,13 @@ async fn hotend_handler(adc: ADC1, read_pin: PA1, heater_tim: TIM1, heater_pin: 
         heater_tim,
         None,
         None,
-        Some(PwmPin::new_ch3(heater_pin, embassy_stm32::gpio::OutputType::PushPull)), 
+        Some(PwmPin::new_ch3(
+            heater_pin,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
         None,
         hz(1),
-        embassy_stm32::timer::CountingMode::EdgeAlignedUp
+        embassy_stm32::timer::CountingMode::EdgeAlignedUp,
     );
 
     let hotend_heater = Heater::new(heater_out, Channel::Ch3);
@@ -144,12 +147,15 @@ async fn main(_spawner: Spawner) {
     // setup X stepper
     let x_step = SimplePwm::new(
         p.TIM5,
-        Some(PwmPin::new_ch1(p.PA0, embassy_stm32::gpio::OutputType::PushPull)),
+        Some(PwmPin::new_ch1(
+            p.PA0,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
         None,
         None,
         None,
         hz(1),
-        embassy_stm32::timer::CountingMode::EdgeAlignedUp
+        embassy_stm32::timer::CountingMode::EdgeAlignedUp,
     );
 
     let x_dir = Output::new(p.PB0, Level::Low, Speed::Low);
@@ -166,12 +172,15 @@ async fn main(_spawner: Spawner) {
 
     let y_step = SimplePwm::new(
         p.TIM15,
-        Some(PwmPin::new_ch1(p.PA2, embassy_stm32::gpio::OutputType::PushPull)),
+        Some(PwmPin::new_ch1(
+            p.PA2,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
         None,
         None,
         None,
         hz(1),
-        embassy_stm32::timer::CountingMode::EdgeAlignedUp
+        embassy_stm32::timer::CountingMode::EdgeAlignedUp,
     );
 
     let y_dir = Output::new(p.PB1, Level::Low, Speed::Low);
@@ -188,12 +197,15 @@ async fn main(_spawner: Spawner) {
 
     let z_step = SimplePwm::new(
         p.TIM3,
-        Some(PwmPin::new_ch1(p.PA6, embassy_stm32::gpio::OutputType::PushPull)),
+        Some(PwmPin::new_ch1(
+            p.PA6,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
         None,
         None,
         None,
         hz(1),
-        embassy_stm32::timer::CountingMode::EdgeAlignedUp
+        embassy_stm32::timer::CountingMode::EdgeAlignedUp,
     );
 
     let z_dir = Output::new(p.PB2, Level::Low, Speed::Low);
@@ -210,12 +222,15 @@ async fn main(_spawner: Spawner) {
 
     let e_step = SimplePwm::new(
         p.TIM14,
-        Some(PwmPin::new_ch1(p.PA7, embassy_stm32::gpio::OutputType::PushPull)),
+        Some(PwmPin::new_ch1(
+            p.PA7,
+            embassy_stm32::gpio::OutputType::PushPull,
+        )),
         None,
         None,
         None,
         hz(1),
-        embassy_stm32::timer::CountingMode::EdgeAlignedUp
+        embassy_stm32::timer::CountingMode::EdgeAlignedUp,
     );
 
     let e_dir = Output::new(p.PB3, Level::Low, Speed::Low);

@@ -1,8 +1,8 @@
 use crate::math::common::abs;
 use crate::math::computable::Computable;
+use crate::math::distance::Distance;
 use crate::math::speed::Speed;
 use crate::math::vector::Vector2D;
-use crate::math::distance::Distance;
 use crate::stepper::a4988::Stepper;
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
@@ -54,11 +54,13 @@ pub async fn linear_move_to_2d<
 ) {
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let direction = dest.sub(&src).normalize();
-    if direction.is_err(){
+    if direction.is_err() {
         return;
     }
-    let ab_speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let ab_speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+    let ab_speed_x =
+        Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let ab_speed_y =
+        Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
     let ab_speed = Vector2D::new(ab_speed_x, ab_speed_y);
 
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, ab_speed).await;
@@ -91,10 +93,10 @@ pub async fn linear_move_to_2d_e<
     stepper_e: &mut Stepper<'s, E>,
     ab_dest: Vector2D<Distance>,
     e_dest: Distance,
-    ab_speed: Speed
+    ab_speed: Speed,
 ) {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let ab_distance = ab_dest.sub(&ab_source); 
+    let ab_distance = ab_dest.sub(&ab_source);
     let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.to_mm_per_second();
     let e_delta = e_dest.sub(&stepper_e.get_position());
     let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / ab_time);

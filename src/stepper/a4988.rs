@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::math::common::abs;
+use crate::math::computable::Computable;
 use crate::math::distance::Distance;
 use crate::math::speed::Speed;
 use embassy_stm32::gpio::Output;
@@ -8,7 +9,6 @@ use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Duration, Timer};
-use crate::math::computable::Computable;
 
 use super::math::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
@@ -63,7 +63,7 @@ where
                 distance_per_step,
                 Speed::from_mm_per_second(0.0),
             ),
-            bounds: (Distance::from_mm(-200.0), Distance::from_mm(200.0))
+            bounds: (Distance::from_mm(-200.0), Distance::from_mm(200.0)),
         }
     }
 
@@ -99,16 +99,25 @@ where
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
     async fn move_for(&mut self, distance: Distance) {
-        if self.distance_per_step.to_mm() == 0f64 || distance.to_mm() < self.distance_per_step.to_mm() || self.step_duration.is_none() {
-            return;
-        }
-        
-        let position_next = self.position.add(&distance);
-        if position_next.to_mm() < self.bounds.0.to_mm() || position_next.to_mm() > self.bounds.1.to_mm(){
+        if self.distance_per_step.to_mm() == 0f64
+            || distance.to_mm() < self.distance_per_step.to_mm()
+            || self.step_duration.is_none()
+        {
             return;
         }
 
-        let direction = if distance.to_mm().is_sign_positive() { StepperDirection::Clockwise } else { StepperDirection::CounterClockwise }; 
+        let position_next = self.position.add(&distance);
+        if position_next.to_mm() < self.bounds.0.to_mm()
+            || position_next.to_mm() > self.bounds.1.to_mm()
+        {
+            return;
+        }
+
+        let direction = if distance.to_mm().is_sign_positive() {
+            StepperDirection::Clockwise
+        } else {
+            StepperDirection::CounterClockwise
+        };
         self.set_direction(direction);
 
         let steps_n = (abs(distance.to_mm()) / self.distance_per_step.to_mm()) as u64;
@@ -122,7 +131,6 @@ where
         self.step.disable(self.step_ch);
 
         self.position = position_next;
-
     }
 
     pub async fn move_to(&mut self, dst: Distance) {

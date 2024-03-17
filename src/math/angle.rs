@@ -29,7 +29,6 @@ impl Angle {
 }
 
 impl Computable for Angle {
-    
     fn add(&self, other: &Self) -> Self {
         Self::from_radians(self.to_radians() + other.to_radians())
     }
@@ -37,27 +36,26 @@ impl Computable for Angle {
     fn sub(&self, other: &Self) -> Self {
         Self::from_radians(self.to_radians() - other.to_radians())
     }
-    
+
     fn mul(&self, other: &Self) -> Self {
         Self::from_radians(self.to_radians() * other.to_radians())
     }
-    
+
     fn div(&self, other: &Self) -> Result<f64, ()> {
-        if other.to_radians() == 0f64{
+        if other.to_radians() == 0f64 {
             Err(())
-        }else{
+        } else {
             Ok(self.to_radians() / other.to_radians())
         }
     }
-    
+
     fn to_raw(&self) -> f64 {
         self.to_radians()
     }
-    
+
     fn from_raw(value: f64) -> Self {
         Self::from_radians(value)
     }
-    
 }
 
 pub fn cos(angle: Angle) -> f64 {

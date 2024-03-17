@@ -1,32 +1,33 @@
 use super::computable::Computable;
 
 #[derive(Clone, Copy)]
-pub enum DistanceUnit{
+pub enum DistanceUnit {
     Millimeter,
-    Inch
+    Inch,
 }
 
 #[derive(Clone, Copy)]
-pub struct Distance{
+pub struct Distance {
     // mm
-    value: f64
+    value: f64,
 }
 
-impl Distance{
-
+impl Distance {
     pub fn from_unit(value: f64, unit: DistanceUnit) -> Self {
-        match unit{
+        match unit {
             DistanceUnit::Millimeter => Self::from_mm(value),
             DistanceUnit::Inch => Self::from_inches(value),
         }
     }
 
     pub fn from_mm(value: f64) -> Self {
-        Self{value}
+        Self { value }
     }
 
     pub fn from_inches(value: f64) -> Self {
-        Self{value: value * 25.4}
+        Self {
+            value: value * 25.4,
+        }
     }
 
     pub fn to_mm(&self) -> f64 {
@@ -38,13 +39,12 @@ impl Distance{
     }
 }
 
-impl Computable for Distance{
-    
+impl Computable for Distance {
     fn add(&self, other: &Self) -> Self {
         let value = self.to_mm() + other.to_mm();
         Self::from_mm(value)
     }
-    
+
     fn sub(&self, other: &Self) -> Self {
         let value = self.to_mm() - other.to_mm();
         Self::from_mm(value)
@@ -56,10 +56,9 @@ impl Computable for Distance{
     }
 
     fn div(&self, other: &Self) -> Result<f64, ()> {
-        if other.to_mm() == 0f64{
+        if other.to_mm() == 0f64 {
             Err(())
-        }
-        else{
+        } else {
             Ok(self.to_mm() / other.to_mm())
         }
     }
@@ -67,7 +66,7 @@ impl Computable for Distance{
     fn to_raw(&self) -> f64 {
         self.to_mm()
     }
-    
+
     fn from_raw(value: f64) -> Self {
         Self::from_mm(value)
     }

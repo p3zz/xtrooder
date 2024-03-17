@@ -1,29 +1,30 @@
 use super::{
     angle::{acos, atan2, Angle},
-    common::sqrt, computable::Computable,
+    common::sqrt,
+    computable::Computable,
 };
 
-impl Computable for f64{
+impl Computable for f64 {
     fn add(&self, other: &Self) -> Self {
         self + other
     }
-    
+
     fn sub(&self, other: &Self) -> Self {
         self - other
     }
-    
+
     fn mul(&self, other: &Self) -> Self {
         self * other
     }
-    
+
     fn div(&self, other: &Self) -> Result<f64, ()> {
         Ok(self / other)
     }
-    
+
     fn to_raw(&self) -> Self {
         *self
     }
-    
+
     fn from_raw(value: f64) -> Self {
         value
     }
@@ -35,9 +36,10 @@ pub struct Vector2D<M> {
     y: M,
 }
 
-impl <M> Vector2D<M>
-where M: Computable + Clone + Copy {
-
+impl<M> Vector2D<M>
+where
+    M: Computable + Clone + Copy,
+{
     pub fn new(x: M, y: M) -> Vector2D<M> {
         Vector2D { x, y }
     }
@@ -56,8 +58,8 @@ where M: Computable + Clone + Copy {
         let v = sqrt(x.add(&y).to_raw());
         M::from_raw(v)
     }
-    
-    pub fn get_angle(&self) -> Angle{
+
+    pub fn get_angle(&self) -> Angle {
         atan2(self.y.to_raw(), self.x.to_raw())
     }
 
@@ -87,7 +89,6 @@ where M: Computable + Clone + Copy {
     pub fn get_y(&self) -> M {
         self.y
     }
-
 }
 
 #[derive(Clone, Copy)]
@@ -97,19 +98,28 @@ pub struct Vector3D<M> {
     z: M,
 }
 
-impl <M> Vector3D<M>
-where M: Computable + Clone + Copy {
-
+impl<M> Vector3D<M>
+where
+    M: Computable + Clone + Copy,
+{
     pub fn new(x: M, y: M, z: M) -> Vector3D<M> {
         Vector3D { x, y, z }
     }
 
     pub fn add(&self, other: &Vector3D<M>) -> Vector3D<M> {
-        Vector3D::new(self.x.add(&other.x), self.y.add(&other.y), self.z.add(&other.z))
+        Vector3D::new(
+            self.x.add(&other.x),
+            self.y.add(&other.y),
+            self.z.add(&other.z),
+        )
     }
 
     pub fn sub(&self, other: &Vector3D<M>) -> Vector3D<M> {
-        Vector3D::new(self.x.sub(&other.x), self.y.sub(&other.y), self.z.sub(&other.z))
+        Vector3D::new(
+            self.x.sub(&other.x),
+            self.y.sub(&other.y),
+            self.z.sub(&other.z),
+        )
     }
 
     pub fn get_magnitude(&self) -> M {
@@ -119,7 +129,7 @@ where M: Computable + Clone + Copy {
         let value = sqrt(x.add(&y).add(&z).to_raw());
         M::from_raw(value)
     }
-    
+
     pub fn normalize(&self) -> Result<Vector3D<f64>, ()> {
         let mag = self.get_magnitude();
         let x = self.x.div(&mag)?;
@@ -140,4 +150,3 @@ where M: Computable + Clone + Copy {
         self.z
     }
 }
-    

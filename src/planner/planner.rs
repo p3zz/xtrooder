@@ -154,8 +154,8 @@ where
                     self.feedrate,
                 )
                 .await
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 
@@ -234,8 +234,8 @@ where
                     e_dest,
                 )
                 .await
-            },
-            _ => ()
+            }
+            _ => (),
         }
     }
 
@@ -288,7 +288,12 @@ where
         motion::linear_move_to_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
     }
 
-    pub async fn linear_move_xye(&mut self, dest: Vector2D<Distance>, feedrate: Speed, e_dst: Distance) {
+    pub async fn linear_move_xye(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+        e_dst: Distance,
+    ) {
         motion::linear_move_to_2d_e(
             &mut self.x_stepper,
             &mut self.y_stepper,
@@ -304,7 +309,12 @@ where
         motion::linear_move_to_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await;
     }
 
-    pub async fn linear_move_xze(&mut self, dest: Vector2D<Distance>, feedrate: Speed, e_dst: Distance) {
+    pub async fn linear_move_xze(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+        e_dst: Distance,
+    ) {
         motion::linear_move_to_2d_e(
             &mut self.x_stepper,
             &mut self.z_stepper,
@@ -320,7 +330,12 @@ where
         motion::linear_move_to_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await;
     }
 
-    pub async fn linear_move_yze(&mut self, dest: Vector2D<Distance>, feedrate: Speed, e_dst: Distance) {
+    pub async fn linear_move_yze(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+        e_dst: Distance,
+    ) {
         motion::linear_move_to_2d_e(
             &mut self.y_stepper,
             &mut self.z_stepper,
@@ -336,7 +351,12 @@ where
         todo!()
     }
 
-    pub async fn linear_move_xyze(&mut self, dest: Vector3D<Distance>, feedrate: Speed, e_dst: Distance) {
+    pub async fn linear_move_xyze(
+        &mut self,
+        dest: Vector3D<Distance>,
+        feedrate: Speed,
+        e_dst: Distance,
+    ) {
         todo!()
     }
 }

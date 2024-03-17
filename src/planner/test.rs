@@ -1,12 +1,19 @@
 use defmt::{assert, assert_eq, println};
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, CaptureCompare16bitInstance, Channel, CountingMode},
+    time::hz,
+    timer::{
+        simple_pwm::{PwmPin, SimplePwm},
+        CaptureCompare16bitInstance, Channel, CountingMode,
+    },
 };
 
 use crate::{
     math::{
-        common::{abs, StopWatch}, distance::Distance, vector::Vector2D, speed::Speed as StepperSpeed
+        common::{abs, StopWatch},
+        distance::Distance,
+        speed::Speed as StepperSpeed,
+        vector::Vector2D,
     },
     planner::motion::{linear_move_to, linear_move_to_2d, linear_move_to_2d_e, linear_move_to_e},
     stepper::a4988::{Stepper, StepperDirection},
@@ -22,7 +29,12 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
     println!("Test - Linear move to");
     let mut stopwatch = StopWatch::new();
     stopwatch.start();
-    linear_move_to(stepper, Distance::from_mm(15.0), StepperSpeed::from_mm_per_second(10.0)).await;
+    linear_move_to(
+        stepper,
+        Distance::from_mm(15.0),
+        StepperSpeed::from_mm_per_second(10.0),
+    )
+    .await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 1500);
     assert_eq!(stepper.get_position().to_mm(), 15.0);
@@ -31,7 +43,12 @@ async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut S
         StepperDirection::CounterClockwise => assert!(false),
     };
     stopwatch.start();
-    linear_move_to(stepper, Distance::from_mm(-5.0), StepperSpeed::from_mm_per_second(10.0)).await;
+    linear_move_to(
+        stepper,
+        Distance::from_mm(-5.0),
+        StepperSpeed::from_mm_per_second(10.0),
+    )
+    .await;
     let duration = stopwatch.measure();
     assert_eq!(duration.as_millis(), 2000);
     assert_eq!(stepper.get_position().to_mm(), -5.00);

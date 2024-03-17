@@ -66,7 +66,7 @@ fn get_steps(resolution: Resolution) -> f64 {
         Resolution::BITS12 => 4096.0,
         Resolution::BITS10 => 1024.0,
         Resolution::BITS8 => 256.0,
-        _ => 0.0
+        _ => 0.0,
     }
 }
 
