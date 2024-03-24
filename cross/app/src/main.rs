@@ -3,7 +3,14 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::{gpio::{Level, Output, OutputType, Speed}, time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode}};
+use embassy_stm32::{
+    gpio::{Level, Output, OutputType, Speed},
+    time::hz,
+    timer::{
+        simple_pwm::{PwmPin, SimplePwm},
+        Channel, CountingMode,
+    },
+};
 use embassy_time::Timer;
 use math::{distance::Distance, speed::Speed as StepperSpeed};
 use stepper::a4988::{Stepper, SteppingMode};
@@ -27,7 +34,7 @@ async fn main(_spawner: Spawner) {
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-        
+
     let a_dir = Output::new(p.PB0, Level::Low, Speed::Low);
 
     let mut a_stepper = Stepper::new(
@@ -36,13 +43,12 @@ async fn main(_spawner: Spawner) {
         a_dir,
         200,
         Distance::from_mm(0.15f64),
-        SteppingMode::HalfStep
+        SteppingMode::HalfStep,
     );
 
     let mut distance = 100.0;
 
     loop {
-
         a_stepper.set_speed(StepperSpeed::from_mm_per_second(70f64));
 
         match a_stepper.move_for(Distance::from_mm(distance)).await {
@@ -50,7 +56,6 @@ async fn main(_spawner: Spawner) {
             Err(_) => info!("cannot move"),
         };
 
-        distance = -distance; 
-
+        distance = -distance;
     }
 }

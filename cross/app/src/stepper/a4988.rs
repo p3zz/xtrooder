@@ -1,16 +1,16 @@
 #![allow(dead_code)]
 
 use defmt::info;
-use embedded_hal_async::delay::DelayNs;
-use math::common::abs;
-use math::computable::Computable;
-use math::distance::Distance;
-use math::speed::Speed;
 use embassy_stm32::gpio::Output;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Delay, Duration, Timer};
+use embedded_hal_async::delay::DelayNs;
+use math::common::abs;
+use math::computable::Computable;
+use math::distance::Distance;
+use math::speed::Speed;
 
 use math::common::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
@@ -27,12 +27,12 @@ pub enum SteppingMode {
     HalfStep,
     QuarterStep,
     EighthStep,
-    SixteenthStep
+    SixteenthStep,
 }
 
-impl From<SteppingMode> for u64{
+impl From<SteppingMode> for u64 {
     fn from(value: SteppingMode) -> Self {
-        match value{
+        match value {
             SteppingMode::FullStep => 1,
             SteppingMode::HalfStep => 2,
             SteppingMode::QuarterStep => 4,
@@ -67,7 +67,7 @@ where
         dir: Output<'s>,
         steps_per_revolution: u64,
         distance_per_step: Distance,
-        stepping_mode: SteppingMode
+        stepping_mode: SteppingMode,
     ) -> Stepper<'s, S> {
         // the duty is 50% (in order to have high/low pin for the same amount of time)
         // TODO do we really need to set the duty to 50%?
@@ -77,12 +77,14 @@ where
             step_ch,
             dir,
             steps_per_revolution,
-            distance_per_step: Distance::from_mm(distance_per_step.to_mm() / (u64::from(stepping_mode) as f64)),
+            distance_per_step: Distance::from_mm(
+                distance_per_step.to_mm() / (u64::from(stepping_mode) as f64),
+            ),
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
             direction: StepperDirection::Clockwise,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
-            stepping_mode
+            stepping_mode,
         }
     }
 
@@ -98,7 +100,7 @@ where
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
     pub async fn move_for(&mut self, distance: Distance) -> Result<(), ()> {
-        if abs(distance.to_mm()) < self.distance_per_step.to_mm(){
+        if abs(distance.to_mm()) < self.distance_per_step.to_mm() {
             return Err(());
         }
 
@@ -118,7 +120,6 @@ where
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
 
-        
         self.direction = if distance.to_mm().is_sign_positive() {
             StepperDirection::Clockwise
         } else {
@@ -135,7 +136,12 @@ where
         // compute the duration of the move.
         let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
 
-        info!("Steps: {} Total duration: {} Step duration: {}", steps_n, duration.as_micros(), step_duration.as_micros());
+        info!(
+            "Steps: {} Total duration: {} Step duration: {}",
+            steps_n,
+            duration.as_micros(),
+            step_duration.as_micros()
+        );
         // move
         self.step.enable(self.step_ch);
         Timer::after(duration).await;

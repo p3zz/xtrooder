@@ -1,11 +1,11 @@
+use crate::stepper::a4988::Stepper;
+use embassy_stm32::timer::CaptureCompare16bitInstance;
+use futures::join;
 use math::common::abs;
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::Vector2D;
-use crate::stepper::a4988::Stepper;
-use embassy_stm32::timer::CaptureCompare16bitInstance;
-use futures::join;
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,

@@ -25,7 +25,6 @@
 //  * In 2d motion, an error has been used to cope with the inaccuracy of some of the micromath functions
 //  * An example is the sqrt, where the error is +-5% of the correct square root
 //  */
-
 // async fn test_linear_move_to<'s, S: CaptureCompare16bitInstance>(stepper: &mut Stepper<'s, S>) {
 //     println!("Test - Linear move to");
 //     let mut stopwatch = StopWatch::new();

@@ -1,4 +1,4 @@
-use embassy_time::{Instant, Duration};
+use embassy_time::{Duration, Instant};
 
 pub struct StopWatch {
     last_ticks: u64,
