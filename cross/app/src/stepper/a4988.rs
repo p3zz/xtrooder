@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use defmt::info;
+use embedded_hal_async::delay::DelayNs;
 use math::common::abs;
 use math::computable::Computable;
 use math::distance::Distance;
@@ -8,7 +10,7 @@ use embassy_stm32::gpio::Output;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Delay, Duration, Timer};
 
 use math::common::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
@@ -19,6 +21,27 @@ pub enum StepperDirection {
     CounterClockwise,
 }
 
+#[derive(Clone, Copy)]
+pub enum SteppingMode {
+    FullStep,
+    HalfStep,
+    QuarterStep,
+    EighthStep,
+    SixteenthStep
+}
+
+impl From<SteppingMode> for u64{
+    fn from(value: SteppingMode) -> Self {
+        match value{
+            SteppingMode::FullStep => 1,
+            SteppingMode::HalfStep => 2,
+            SteppingMode::QuarterStep => 4,
+            SteppingMode::EighthStep => 8,
+            SteppingMode::SixteenthStep => 16,
+        }
+    }
+}
+
 pub struct Stepper<'s, S> {
     // properties that won't change
     step: SimplePwm<'s, S>,
@@ -27,7 +50,7 @@ pub struct Stepper<'s, S> {
     steps_per_revolution: u64,
     distance_per_step: Distance,
     bounds: (Distance, Distance),
-
+    stepping_mode: SteppingMode,
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
     position: Distance,
@@ -44,20 +67,22 @@ where
         dir: Output<'s>,
         steps_per_revolution: u64,
         distance_per_step: Distance,
+        stepping_mode: SteppingMode
     ) -> Stepper<'s, S> {
         // the duty is 50% (in order to have high/low pin for the same amount of time)
         // TODO do we really need to set the duty to 50%?
-        step.set_duty(step_ch, step.get_max_duty() / 2);
+        step.set_duty(step_ch, (step.get_max_duty() as f64 * 0.5) as u16);
         Stepper {
             step,
             step_ch,
             dir,
             steps_per_revolution,
-            distance_per_step,
+            distance_per_step: Distance::from_mm(distance_per_step.to_mm() / (u64::from(stepping_mode) as f64)),
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
             direction: StepperDirection::Clockwise,
-            bounds: (Distance::from_mm(-10000.0), Distance::from_mm(10000.0)),
+            bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
+            stepping_mode
         }
     }
 
@@ -85,7 +110,7 @@ where
         }
 
         let step_duration = compute_step_duration(
-            self.steps_per_revolution,
+            self.steps_per_revolution * u64::from(self.stepping_mode),
             self.distance_per_step,
             self.speed,
         );
@@ -110,6 +135,7 @@ where
         // compute the duration of the move.
         let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
 
+        info!("Steps: {} Total duration: {} Step duration: {}", steps_n, duration.as_micros(), step_duration.as_micros());
         // move
         self.step.enable(self.step_ch);
         Timer::after(duration).await;

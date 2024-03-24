@@ -6,7 +6,7 @@ use embassy_executor::Spawner;
 use embassy_stm32::{gpio::{Level, Output, OutputType, Speed}, time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode}};
 use embassy_time::Timer;
 use math::{distance::Distance, speed::Speed as StepperSpeed};
-use stepper::a4988::Stepper;
+use stepper::a4988::{Stepper, SteppingMode};
 mod hotend;
 mod planner;
 mod stepper;
@@ -35,39 +35,22 @@ async fn main(_spawner: Spawner) {
         Channel::Ch1,
         a_dir,
         200,
-        Distance::from_mm(1f64),
+        Distance::from_mm(0.15f64),
+        SteppingMode::HalfStep
     );
 
-    let mut speed = 50.0;
-    let mut distance = 1000.0;
+    let mut distance = 100.0;
 
     loop {
-        info!("loop");
 
-        a_stepper.set_speed(StepperSpeed::from_mm_per_second(speed));
+        a_stepper.set_speed(StepperSpeed::from_mm_per_second(70f64));
 
         match a_stepper.move_for(Distance::from_mm(distance)).await {
             Ok(_) => info!("move done"),
             Err(_) => info!("cannot move"),
-            
         };
 
-        if speed >= 500.0{
-            speed = 10.0;
-        }
-
-        speed += 50.0;
         distance = -distance; 
 
-        // a_stepper.set_speed(StepperSpeed::from_mm_per_second(100f64));
-
-        // // Timer::after_millis(500).await;
-        // match a_stepper.move_for(Distance::from_mm(-600f64)).await {
-        //     Ok(_) => info!("move done"),
-        //     Err(_) => info!("cannot move"),
-            
-        // };
-
-        // Timer::after_millis(500).await;
     }
 }
