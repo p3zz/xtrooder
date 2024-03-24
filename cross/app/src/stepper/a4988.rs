@@ -57,7 +57,7 @@ where
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
             direction: StepperDirection::Clockwise,
-            bounds: (Distance::from_mm(-200.0), Distance::from_mm(200.0)),
+            bounds: (Distance::from_mm(-10000.0), Distance::from_mm(10000.0)),
         }
     }
 
@@ -72,7 +72,18 @@ where
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
-    async fn move_for(&mut self, distance: Distance) {
+    pub async fn move_for(&mut self, distance: Distance) -> Result<(), ()> {
+        if abs(distance.to_mm()) < self.distance_per_step.to_mm(){
+            return Err(());
+        }
+
+        let position_next = self.position.add(&distance);
+        if position_next.to_mm() < self.bounds.0.to_mm()
+            || position_next.to_mm() > self.bounds.1.to_mm()
+        {
+            return Err(());
+        }
+
         let step_duration = compute_step_duration(
             self.steps_per_revolution,
             self.distance_per_step,
@@ -82,17 +93,7 @@ where
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
 
-        if distance.to_mm() < self.distance_per_step.to_mm(){
-            return;
-        }
-
-        let position_next = self.position.add(&distance);
-        if position_next.to_mm() < self.bounds.0.to_mm()
-            || position_next.to_mm() > self.bounds.1.to_mm()
-        {
-            return;
-        }
-
+        
         self.direction = if distance.to_mm().is_sign_positive() {
             StepperDirection::Clockwise
         } else {
@@ -115,6 +116,8 @@ where
         self.step.disable(self.step_ch);
 
         self.position = position_next;
+
+        Ok(())
     }
 
     pub async fn move_to(&mut self, dst: Distance) {
