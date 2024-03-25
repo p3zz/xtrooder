@@ -4,17 +4,26 @@
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::{
-    bind_interrupts, dma::NoDma, gpio::{Level, Output, OutputType, Speed as PinSpeed}, peripherals::{DMA1_CH0, PB10, PB11, PD8, PD9, USART1, USART3}, time::hz, timer::{
+    bind_interrupts,
+    dma::NoDma,
+    gpio::{Level, Output, OutputType, Speed as PinSpeed},
+    peripherals::{DMA1_CH0, PB10, PB11, PD8, PD9, USART1, USART3},
+    time::hz,
+    timer::{
         simple_pwm::{PwmPin, SimplePwm},
         Channel, CountingMode,
-    }, usart::{Config, InterruptHandler, Uart}
+    },
+    usart::{Config, InterruptHandler, Uart},
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use heapless::spsc::Queue;
 use math::{distance::Distance, speed::Speed as StepperSpeed};
 use parser::parser::{parse_line, GCommand};
-use planner::{motion::{linear_move_for, linear_move_to}, planner::Planner};
+use planner::{
+    motion::{linear_move_for, linear_move_to},
+    planner::Planner,
+};
 use stepper::a4988::{Stepper, SteppingMode};
 mod hotend;
 mod planner;
@@ -31,7 +40,8 @@ bind_interrupts!(struct Irqs {
 
 #[embassy_executor::task]
 async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0) {
-    let mut uart = Uart::new(peri, rx, tx, Irqs, NoDma, dma_rx, Config::default()).expect("Cannot initialize USART");
+    let mut uart = Uart::new(peri, rx, tx, Irqs, NoDma, dma_rx, Config::default())
+        .expect("Cannot initialize USART");
 
     let mut buf = [0u8; 32];
 
@@ -55,13 +65,13 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0) {
                     Some(cmd) => {
                         let mut q = COMMAND_QUEUE.lock().await;
                         q.enqueue(cmd).unwrap()
-                    },
+                    }
                     None => info!("invalid line"),
                 };
             }
             Err(_) => (),
         };
-        buf = [0u8;32];
+        buf = [0u8; 32];
         Timer::after(poll_interval).await;
     }
 }
@@ -92,10 +102,9 @@ async fn main(_spawner: Spawner) {
         SteppingMode::FullStep,
     );
 
-
     _spawner
-    .spawn(input_handler(p.USART3, p.PB11, p.PB10, p.DMA1_CH0))
-    .unwrap();
+        .spawn(input_handler(p.USART3, p.PB11, p.PB10, p.DMA1_CH0))
+        .unwrap();
 
     // let planner = Planner::new(a_stepper, a_stepper, a_stepper, a_stepper);
 
@@ -109,11 +118,16 @@ async fn main(_spawner: Spawner) {
         } // mutex is freed here
 
         match c {
-            Some(cmd) => {
-                match cmd{
-                    GCommand::G0 { x, y, z, f } => linear_move_for(&mut a_stepper, Distance::from_mm(x.unwrap()), StepperSpeed::from_mm_per_second(f.unwrap())).await,
-                    _ => info!("implement movement")
+            Some(cmd) => match cmd {
+                GCommand::G0 { x, y, z, f } => {
+                    linear_move_for(
+                        &mut a_stepper,
+                        Distance::from_mm(x.unwrap()),
+                        StepperSpeed::from_mm_per_second(f.unwrap()),
+                    )
+                    .await
                 }
+                _ => info!("implement movement"),
             },
             None => (),
         };

@@ -54,78 +54,88 @@ pub fn compute_step_duration(spr: u64, dps: Distance, speed: Speed) -> Option<Du
 }
 
 #[cfg(test)]
-mod tests{
-    use crate::{common::{abs, compute_step_duration}, distance::Distance, speed::Speed};
+mod tests {
+    use crate::{
+        common::{abs, compute_step_duration},
+        distance::Distance,
+        speed::Speed,
+    };
 
     #[test]
     fn test_rps_from_mmps_1() {
         println!("Test - RPS from MMPS 1");
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_mm(1.0);
-        let speed = Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
         assert_eq!(speed.to_mm_per_second(), 100.0);
     }
-    
+
     #[test]
     fn test_rps_from_mmps_2() {
         println!("Test - RPS from MMPS 2");
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_mm(1.0);
-        let speed = Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
         assert_eq!(speed.to_mm_per_second(), 200.0);
     }
-    
+
     #[test]
     fn test_rps_from_mmps_3() {
         println!("Test - RPS from MMPS 3");
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_mm(0.1);
-        let speed = Speed::from_revolutions_per_second(100.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(100.0, steps_per_revolution, distance_per_step);
         assert_eq!(speed.to_mm_per_second(), 2000.0);
     }
-    
+
     #[test]
     fn test_compute_step_duration_1() {
         println!("Test - Compute step duration 1");
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_mm(1.0);
-        let speed = Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
         let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
         assert!(duration.is_some());
         assert_eq!(duration.unwrap().as_micros(), 2500);
     }
-    
+
     #[test]
     fn test_compute_step_duration_2() {
         println!("Test - Compute step duration 2");
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_mm(0.1);
-        let speed = Speed::from_revolutions_per_second(10.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(10.0, steps_per_revolution, distance_per_step);
         let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
         assert!(duration.is_some());
         assert_eq!(duration.unwrap().as_micros(), 500);
     }
-    
+
     #[test]
     fn test_compute_step_duration_3() {
         println!("Test - Compute step duration 3");
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_mm(0.1);
-        let speed = Speed::from_revolutions_per_second(0.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(0.0, steps_per_revolution, distance_per_step);
         let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
         assert!(duration.is_none());
     }
-    
+
     #[test]
     fn test_compute_step_duration_4() {
         println!("Test - Compute step duration 4");
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_mm(0.0);
-        let speed = Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
+        let speed =
+            Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
         let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
         assert!(duration.is_none());
     }
-    
 }
 
 // pub struct StopWatch {

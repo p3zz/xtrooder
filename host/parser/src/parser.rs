@@ -146,9 +146,8 @@ fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64
     }
 }
 
-
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
@@ -230,5 +229,4 @@ mod tests{
         let command = parse_line(line);
         assert!(command.is_none());
     }
-
 }

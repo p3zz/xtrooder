@@ -1,5 +1,5 @@
-use core::f64::consts::PI;
 use super::computable::Computable;
+use core::f64::consts::PI;
 use micromath::F32Ext;
 
 #[derive(Clone, Copy)]
@@ -25,7 +25,6 @@ impl Angle {
     pub fn to_degrees(&self) -> f64 {
         self.value * 180.0 / PI
     }
-
 }
 
 impl Computable for Angle {
@@ -77,19 +76,19 @@ pub fn acos(value: f64) -> Angle {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use core::f64::consts::PI;
 
     use crate::angle::{cos, Angle};
 
     #[test]
-    fn test_cos(){
+    fn test_cos() {
         let v = cos(Angle::from_radians(PI));
         assert_eq!(v, -1.0);
     }
 
     #[test]
-    fn test_angle_2(){
+    fn test_angle_2() {
         assert!(true);
     }
 }
