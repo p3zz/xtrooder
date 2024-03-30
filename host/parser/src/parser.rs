@@ -1,4 +1,4 @@
-use heapless::{LinearMap, Vec};
+use heapless::{LinearMap, Vec, String};
 
 #[derive(PartialEq, Debug)]
 pub enum GCommand {
@@ -146,6 +146,57 @@ fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64
     }
 }
 
+enum ParserState{
+    ReadingCommand,
+    ReadingComment
+}
+pub struct Parser{
+    buffer: Vec<u8, 16>,
+    state: ParserState
+}
+
+impl Parser{
+    
+    pub fn new() -> Self {
+        Self { buffer: Vec::new(), state: ParserState::ReadingCommand }
+    }
+
+    pub fn parse(&mut self, data: &[u8]) -> Vec<GCommand, 16>{
+        let mut res: Vec<GCommand, 16> = Vec::new();
+        for b in data{
+            match self.state{
+                ParserState::ReadingCommand => {
+                    match b {
+                        b';' | b'(' | b'\n' => {
+                            if !self.buffer.is_empty(){
+                                let c = String::from_utf8(self.buffer.clone()).unwrap();
+                                if let Some(cmd) = parse_line(c.as_str()){
+                                    res.push(cmd).unwrap_or_else(|_|());
+                                }
+                                self.buffer.clear();
+                            }
+                            self.state = if *b == b'\n'{
+                                ParserState::ReadingCommand
+                            }else{
+                                ParserState::ReadingComment
+                            }
+                        },
+                        0 => (),
+                        _ => self.buffer.push(*b).unwrap_or_else(|_|())
+                    }
+                },
+                ParserState::ReadingComment => {
+                    match b {
+                        b'\n' | b')' => self.state = ParserState::ReadingCommand,
+                        _ => ()
+                    }
+                },
+            }
+        }
+        res
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,4 +280,50 @@ mod tests {
         let command = parse_line(line);
         assert!(command.is_none());
     }
+
+    #[test]
+    fn test_parser_incomplete(){
+        let data = "hellohellohellohello";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(cmd.len(), 0);
+    }
+
+    #[test]
+    fn test_parser_invalid(){
+        let data = "hellohellohellohello";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(cmd.len(), 0);
+    }
+
+    #[test]
+    fn test_parser_valid(){
+        let data = "G1 X10.1 F1200\n";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(parser.buffer.len(), 0);
+        assert_eq!(cmd.len(), 1);
+        assert!(*cmd.get(0).unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+    }
+
+    #[test]
+    fn test_parser_valid_with_comment_semicolon(){
+        let data = "G1 X10.1 F1200;comment";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(parser.buffer.len(), 0);
+        assert_eq!(cmd.len(), 1);
+        assert!(*cmd.get(0).unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+    }
+
+    #[test]
+    fn test_parser_invalid_with_comment_semicolon(){
+        let data = ";G1 X10.1 F1200;comment";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(parser.buffer.len(), 0);
+        assert_eq!(cmd.len(), 0);
+    }
+
 }
