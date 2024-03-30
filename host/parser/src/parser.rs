@@ -150,19 +150,19 @@ enum ParserState{
     ReadingCommand,
     ReadingComment
 }
-pub struct Parser{
+pub struct GCodeParser{
     buffer: Vec<u8, 16>,
     state: ParserState
 }
 
-impl Parser{
+impl GCodeParser{
     
     pub fn new() -> Self {
         Self { buffer: Vec::new(), state: ParserState::ReadingCommand }
     }
 
-    pub fn parse(&mut self, data: &[u8]) -> Vec<GCommand, 16>{
-        let mut res: Vec<GCommand, 16> = Vec::new();
+    pub fn parse(&mut self, data: &[u8]) -> Vec<GCommand, 8>{
+        let mut res: Vec<GCommand, 8> = Vec::new();
         for b in data{
             match self.state{
                 ParserState::ReadingCommand => {
@@ -171,7 +171,7 @@ impl Parser{
                             if !self.buffer.is_empty(){
                                 let c = String::from_utf8(self.buffer.clone()).unwrap();
                                 if let Some(cmd) = parse_line(c.as_str()){
-                                    res.push(cmd).unwrap_or_else(|_|());
+                                    res.push(cmd).unwrap();
                                 }
                                 self.buffer.clear();
                             }
@@ -182,7 +182,7 @@ impl Parser{
                             }
                         },
                         0 => (),
-                        _ => self.buffer.push(*b).unwrap_or_else(|_|())
+                        _ => self.buffer.push(*b).unwrap()
                     }
                 },
                 ParserState::ReadingComment => {
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn test_parser_incomplete(){
         let data = "hellohellohellohello";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(cmd.len(), 0);
     }
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn test_parser_invalid(){
         let data = "hellohellohellohello";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(cmd.len(), 0);
     }
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn test_parser_valid(){
         let data = "G1 X10.1 F1200\n";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(parser.buffer.len(), 0);
         assert_eq!(cmd.len(), 1);
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_parser_valid_with_comment_semicolon(){
         let data = "G1 X10.1 F1200;comment";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(parser.buffer.len(), 0);
         assert_eq!(cmd.len(), 1);
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_parser_invalid_with_comment_semicolon(){
         let data = ";G1 X10.1 F1200;comment";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(parser.buffer.len(), 0);
         assert_eq!(cmd.len(), 0);
@@ -329,7 +329,7 @@ mod tests {
     #[test]
     fn test_parser_valid_3_commands(){
         let data = "G20\nG20\nG21;";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(parser.buffer.len(), 0);
         assert_eq!(cmd.len(), 3);
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn test_parser_valid_2_commands_busy_buffer(){
         let data = "G20\nG20\nG21";
-        let mut parser = Parser::new();
+        let mut parser = GCodeParser::new();
         let cmd = parser.parse(data.as_bytes());
         assert_eq!(parser.buffer.len(), 3);
         assert_eq!(cmd.len(), 2);
