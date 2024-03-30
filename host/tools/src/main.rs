@@ -1,6 +1,6 @@
 use std::io::BufRead;
 use std::io::BufReader;
-use std::time::Duration;
+use std::io::Write;
 use std::env;
 use std::fs;
 
@@ -12,16 +12,19 @@ fn main(){
     let file = fs::File::open(file_path).expect("File not found");
     let bufreader = BufReader::new(file);
     
-    let mut port = serialport::new(serialport, 115_200)
-        .timeout(Duration::from_millis(10))
+    let mut port = serialport::new(serialport, 19200)
         .open().expect("Failed to open port");
-    
-    for line in bufreader.lines(){
-        match line{
-            Ok(l) => {
-                port.write(l.as_bytes()).expect("Write failed!");
+
+    for l in bufreader.lines(){
+        match l{
+            Ok(mut line) => {
+                line.push('\n');
+                match port.write_all(line.as_bytes()){
+                    Ok(_) => print!("{} sent", line),
+                    Err(_) => (),
+                };
             },
-            Err(_) => todo!(),
+            Err(_) => (),
         }
     }
 
