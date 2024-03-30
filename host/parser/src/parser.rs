@@ -326,4 +326,28 @@ mod tests {
         assert_eq!(cmd.len(), 0);
     }
 
+    #[test]
+    fn test_parser_valid_3_commands(){
+        let data = "G20\nG20\nG21;";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(parser.buffer.len(), 0);
+        assert_eq!(cmd.len(), 3);
+        assert!(*cmd.get(0).unwrap() == GCommand::G20);
+        assert!(*cmd.get(1).unwrap() == GCommand::G20);
+        assert!(*cmd.get(2).unwrap() == GCommand::G21);
+    }
+
+
+    #[test]
+    fn test_parser_valid_2_commands_busy_buffer(){
+        let data = "G20\nG20\nG21";
+        let mut parser = Parser::new();
+        let cmd = parser.parse(data.as_bytes());
+        assert_eq!(parser.buffer.len(), 3);
+        assert_eq!(cmd.len(), 2);
+        assert!(*cmd.get(0).unwrap() == GCommand::G20);
+        assert!(*cmd.get(1).unwrap() == GCommand::G20);
+    }
+
 }
