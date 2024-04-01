@@ -1,4 +1,6 @@
-use heapless::{LinearMap, Vec, String};
+use core::result;
+
+use heapless::{spsc::Queue, LinearMap, String, Vec};
 
 #[derive(PartialEq, Debug)]
 pub enum GCommand {
@@ -151,29 +153,31 @@ enum ParserState{
     ReadingComment
 }
 pub struct GCodeParser{
-    buffer: Vec<u8, 16>,
+    data_buffer: Vec<u8, 32>,
+    command_queue: Queue<GCommand, 32>,
     state: ParserState
 }
 
 impl GCodeParser{
     
     pub fn new() -> Self {
-        Self { buffer: Vec::new(), state: ParserState::ReadingCommand }
+        Self { data_buffer: Vec::new(), command_queue: Queue::new(), state: ParserState::ReadingCommand }
     }
 
-    pub fn parse(&mut self, data: &[u8]) -> Vec<GCommand, 8>{
-        let mut res: Vec<GCommand, 8> = Vec::new();
+    pub fn parse(&mut self, data: &[u8]) -> Result<(), ()>{
         for b in data{
             match self.state{
                 ParserState::ReadingCommand => {
                     match b {
                         b';' | b'(' | b'\n' => {
-                            if !self.buffer.is_empty(){
-                                let c = String::from_utf8(self.buffer.clone()).unwrap();
+                            if !self.data_buffer.is_empty(){
+                                let c = String::from_utf8(self.data_buffer.clone()).unwrap();
                                 if let Some(cmd) = parse_line(c.as_str()){
-                                    res.push(cmd).unwrap();
+                                    if self.command_queue.enqueue(cmd).is_err(){
+                                        return Err(());
+                                    }
+                                    self.data_buffer.clear();
                                 }
-                                self.buffer.clear();
                             }
                             self.state = if *b == b'\n'{
                                 ParserState::ReadingCommand
@@ -182,7 +186,7 @@ impl GCodeParser{
                             }
                         },
                         0 => (),
-                        _ => self.buffer.push(*b).unwrap()
+                        _ => self.data_buffer.push(*b).unwrap_or_else(|_|())
                     }
                 },
                 ParserState::ReadingComment => {
@@ -193,8 +197,21 @@ impl GCodeParser{
                 },
             }
         }
-        res
+        Ok(())
     }
+
+    pub fn pick_from_queue(&mut self) -> Option<GCommand> {
+        self.command_queue.dequeue()
+    }
+
+    pub fn queue_len(&self) -> usize {
+        self.command_queue.len() 
+    }
+
+    pub fn is_queue_full(&self) -> bool {
+        self.command_queue.is_full()
+    }
+
 }
 
 #[cfg(test)]
@@ -285,69 +302,81 @@ mod tests {
     fn test_parser_incomplete(){
         let data = "hellohellohellohello";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(cmd.len(), 0);
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_none());
     }
 
     #[test]
     fn test_parser_invalid(){
         let data = "hellohellohellohello";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(cmd.len(), 0);
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_none());
     }
 
     #[test]
     fn test_parser_valid(){
         let data = "G1 X10.1 F1200\n";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(parser.buffer.len(), 0);
-        assert_eq!(cmd.len(), 1);
-        assert!(*cmd.get(0).unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(cmd.unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
     }
 
     #[test]
     fn test_parser_valid_with_comment_semicolon(){
         let data = "G1 X10.1 F1200;comment";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(parser.buffer.len(), 0);
-        assert_eq!(cmd.len(), 1);
-        assert!(*cmd.get(0).unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+        parser.parse(data.as_bytes());
+        assert_eq!(parser.data_buffer.len(), 0);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(cmd.unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
     }
 
     #[test]
     fn test_parser_invalid_with_comment_semicolon(){
         let data = ";G1 X10.1 F1200;comment";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(parser.buffer.len(), 0);
-        assert_eq!(cmd.len(), 0);
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert_eq!(parser.data_buffer.len(), 0);
+        assert!(cmd.is_none());
     }
 
     #[test]
     fn test_parser_valid_3_commands(){
         let data = "G20\nG20\nG21;";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(parser.buffer.len(), 0);
-        assert_eq!(cmd.len(), 3);
-        assert!(*cmd.get(0).unwrap() == GCommand::G20);
-        assert!(*cmd.get(1).unwrap() == GCommand::G20);
-        assert!(*cmd.get(2).unwrap() == GCommand::G21);
+        parser.parse(data.as_bytes());
+        assert_eq!(parser.data_buffer.len(), 0);
+        assert_eq!(parser.command_queue.len(), 3);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(cmd.unwrap() == GCommand::G20);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(cmd.unwrap() == GCommand::G20);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(cmd.unwrap() == GCommand::G21);
     }
 
 
     #[test]
-    fn test_parser_valid_2_commands_busy_buffer(){
+    fn test_parser_valid_2_commands_busy_data_buffer(){
         let data = "G20\nG20\nG21";
         let mut parser = GCodeParser::new();
-        let cmd = parser.parse(data.as_bytes());
-        assert_eq!(parser.buffer.len(), 3);
-        assert_eq!(cmd.len(), 2);
-        assert!(*cmd.get(0).unwrap() == GCommand::G20);
-        assert!(*cmd.get(1).unwrap() == GCommand::G20);
+        parser.parse(data.as_bytes());
+        assert_eq!(parser.data_buffer.len(), 3);
+        assert_eq!(parser.command_queue.len(), 2);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.unwrap() == GCommand::G20);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.unwrap() == GCommand::G20);
     }
 
 }
