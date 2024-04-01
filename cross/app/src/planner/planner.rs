@@ -96,25 +96,34 @@ where
         self.positioning = Positioning::Relative;
     }
 
-    pub async fn g0(&mut self, x: Option<f64>, y: Option<f64>, z: Option<f64>, f: Option<f64>) -> Result<(), StepperError> {
+    pub async fn g0(
+        &mut self,
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        f: Option<f64>,
+    ) -> Result<(), StepperError> {
         self.feedrate = match f {
             Some(speed) => Speed::from_unit(speed, self.unit),
             None => self.feedrate,
         };
         match (x, y, z) {
-            (None, None, Some(z)) => 
+            (None, None, Some(z)) => {
                 self.linear_move_z(Distance::from_unit(z, self.unit), self.feedrate)
-                    .await,
-            
-            (None, Some(y), None) => 
+                    .await
+            }
+
+            (None, Some(y), None) => {
                 self.linear_move_y(Distance::from_unit(y, self.unit), self.feedrate)
-                    .await,
-            
-            (Some(x), None, None) => 
+                    .await
+            }
+
+            (Some(x), None, None) => {
                 self.linear_move_x(Distance::from_unit(x, self.unit), self.feedrate)
-                    .await,
-            
-            (None, Some(y), Some(z)) => 
+                    .await
+            }
+
+            (None, Some(y), Some(z)) => {
                 self.linear_move_yz(
                     Vector2D::new(
                         Distance::from_unit(y, self.unit),
@@ -122,9 +131,10 @@ where
                     ),
                     self.feedrate,
                 )
-                .await,
-            
-            (Some(x), None, Some(z)) => 
+                .await
+            }
+
+            (Some(x), None, Some(z)) => {
                 self.linear_move_xz(
                     Vector2D::new(
                         Distance::from_unit(x, self.unit),
@@ -132,9 +142,10 @@ where
                     ),
                     self.feedrate,
                 )
-                .await,
-            
-            (Some(x), Some(y), None) => 
+                .await
+            }
+
+            (Some(x), Some(y), None) => {
                 self.linear_move_xy(
                     Vector2D::new(
                         Distance::from_unit(x, self.unit),
@@ -142,9 +153,10 @@ where
                     ),
                     self.feedrate,
                 )
-                .await,
+                .await
+            }
 
-            (Some(x), Some(y), Some(z)) => 
+            (Some(x), Some(y), Some(z)) => {
                 self.linear_move_xyz(
                     Vector3D::new(
                         Distance::from_unit(x, self.unit),
@@ -153,7 +165,8 @@ where
                     ),
                     self.feedrate,
                 )
-                .await,
+                .await
+            }
             _ => Err(StepperError::MoveNotValid),
         }
     }
@@ -177,16 +190,19 @@ where
         };
 
         match (x, y, z) {
-            (None, None, Some(z)) => 
+            (None, None, Some(z)) => {
                 self.linear_move_ze(Distance::from_unit(z, self.unit), e_dest, self.feedrate)
-                    .await,
-            (None, Some(y), None) => 
+                    .await
+            }
+            (None, Some(y), None) => {
                 self.linear_move_ye(Distance::from_unit(y, self.unit), e_dest, self.feedrate)
-                    .await,
-            (Some(x), None, None) => 
+                    .await
+            }
+            (Some(x), None, None) => {
                 self.linear_move_xe(Distance::from_unit(x, self.unit), e_dest, self.feedrate)
-                    .await,
-            (None, Some(y), Some(z)) => 
+                    .await
+            }
+            (None, Some(y), Some(z)) => {
                 self.linear_move_yze(
                     Vector2D::new(
                         Distance::from_unit(y, self.unit),
@@ -195,8 +211,9 @@ where
                     self.feedrate,
                     e_dest,
                 )
-                .await,
-            (Some(x), None, Some(z)) => 
+                .await
+            }
+            (Some(x), None, Some(z)) => {
                 self.linear_move_xze(
                     Vector2D::new(
                         Distance::from_unit(x, self.unit),
@@ -205,8 +222,9 @@ where
                     self.feedrate,
                     e_dest,
                 )
-                .await,
-            (Some(x), Some(y), None) => 
+                .await
+            }
+            (Some(x), Some(y), None) => {
                 self.linear_move_xye(
                     Vector2D::new(
                         Distance::from_unit(x, self.unit),
@@ -215,8 +233,9 @@ where
                     self.feedrate,
                     e_dest,
                 )
-                .await,
-            (Some(x), Some(y), Some(z)) => 
+                .await
+            }
+            (Some(x), Some(y), Some(z)) => {
                 self.linear_move_xyze(
                     Vector3D::new(
                         Distance::from_unit(x, self.unit),
@@ -226,16 +245,26 @@ where
                     self.feedrate,
                     e_dest,
                 )
-                .await,
+                .await
+            }
             _ => Err(StepperError::MoveNotValid),
         }
     }
 
-    pub async fn linear_move_x(&mut self, dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_x(
+        &mut self,
+        dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to(&mut self.x_stepper, dest, feedrate).await
     }
 
-    pub async fn linear_move_xe(&mut self, dest: Distance, e_dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_xe(
+        &mut self,
+        dest: Distance,
+        e_dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_e(
             &mut self.x_stepper,
             &mut self.e_stepper,
@@ -246,11 +275,20 @@ where
         .await
     }
 
-    pub async fn linear_move_y(&mut self, dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_y(
+        &mut self,
+        dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to(&mut self.y_stepper, dest, feedrate).await
     }
 
-    pub async fn linear_move_ye(&mut self, dest: Distance, e_dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_ye(
+        &mut self,
+        dest: Distance,
+        e_dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_e(
             &mut self.y_stepper,
             &mut self.e_stepper,
@@ -261,11 +299,20 @@ where
         .await
     }
 
-    pub async fn linear_move_z(&mut self, dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_z(
+        &mut self,
+        dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to(&mut self.z_stepper, dest, feedrate).await
     }
 
-    pub async fn linear_move_ze(&mut self, dest: Distance, e_dest: Distance, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_ze(
+        &mut self,
+        dest: Distance,
+        e_dest: Distance,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_e(
             &mut self.z_stepper,
             &mut self.e_stepper,
@@ -276,7 +323,11 @@ where
         .await
     }
 
-    pub async fn linear_move_xy(&mut self, dest: Vector2D<Distance>, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_xy(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
     }
 
@@ -297,7 +348,11 @@ where
         .await
     }
 
-    pub async fn linear_move_xz(&mut self, dest: Vector2D<Distance>, feedrate: Speed) -> Result<(), StepperError> {
+    pub async fn linear_move_xz(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_2d(&mut self.x_stepper, &mut self.z_stepper, dest, feedrate).await
     }
 
@@ -318,7 +373,11 @@ where
         .await
     }
 
-    pub async fn linear_move_yz(&mut self, dest: Vector2D<Distance>, feedrate: Speed) -> Result<(), StepperError>{
+    pub async fn linear_move_yz(
+        &mut self,
+        dest: Vector2D<Distance>,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         motion::linear_move_to_2d(&mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await
     }
 
@@ -339,7 +398,11 @@ where
         .await
     }
 
-    pub async fn linear_move_xyz(&mut self, dest: Vector3D<Distance>, feedrate: Speed) -> Result<(), StepperError>{
+    pub async fn linear_move_xyz(
+        &mut self,
+        dest: Vector3D<Distance>,
+        feedrate: Speed,
+    ) -> Result<(), StepperError> {
         todo!()
     }
 

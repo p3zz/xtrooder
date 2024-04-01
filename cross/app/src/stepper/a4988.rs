@@ -15,10 +15,10 @@ use math::speed::Speed;
 use math::common::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
-pub enum StepperError{
+pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
-    MoveNotValid
+    MoveNotValid,
 }
 
 #[derive(Clone, Copy)]
@@ -27,9 +27,9 @@ pub enum StepperDirection {
     CounterClockwise,
 }
 
-impl From<StepperDirection> for u8{
+impl From<StepperDirection> for u8 {
     fn from(value: StepperDirection) -> Self {
-        match value{
+        match value {
             StepperDirection::Clockwise => 0,
             StepperDirection::CounterClockwise => 1,
         }

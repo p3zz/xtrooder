@@ -39,9 +39,9 @@ pub async fn linear_move_to_e<
     match join!(
         linear_move_to(stepper_a, a_dest, a_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
-    ){
+    ) {
         (Ok(_), Ok(_)) => Ok(()),
-        _ => Err(StepperError::MoveNotValid)
+        _ => Err(StepperError::MoveNotValid),
     }
 }
 
@@ -54,7 +54,7 @@ pub async fn linear_move_to_2d<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let direction = dest.sub(&src).normalize();
     if direction.is_err() {
@@ -78,11 +78,11 @@ pub async fn linear_move_to_2d_raw<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     speed: Vector2D<Speed>,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     match join!(
         linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
         linear_move_to(stepper_b, dest.get_y(), speed.get_y())
-    ){
+    ) {
         (Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
@@ -100,7 +100,7 @@ pub async fn linear_move_to_2d_e<
     ab_dest: Vector2D<Distance>,
     e_dest: Distance,
     ab_speed: Speed,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let ab_distance = ab_dest.sub(&ab_source);
     let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.to_mm_per_second();
@@ -109,7 +109,7 @@ pub async fn linear_move_to_2d_e<
     match join!(
         linear_move_to_2d(stepper_a, stepper_b, ab_dest, ab_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
-    ){
+    ) {
         (Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
@@ -119,7 +119,7 @@ pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     distance: Distance,
     speed: Speed,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     let dest = stepper.get_position().add(&distance);
     linear_move_to(stepper, dest, speed).await
 }
@@ -134,7 +134,7 @@ pub async fn linear_move_for_e<
     a_distance: Distance,
     e_distance: Distance,
     feedrate: Speed,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     let a_dest = stepper_a.get_position().add(&a_distance);
     let e_dest = stepper_e.get_position().add(&e_distance);
     linear_move_to_e(stepper_a, stepper_e, a_dest, e_dest, feedrate).await
@@ -167,7 +167,7 @@ pub async fn linear_move_for_2d_e<
     ab_distance: Vector2D<Distance>,
     e_distance: Distance,
     ab_speed: Speed,
-) -> Result<(), StepperError>{
+) -> Result<(), StepperError> {
     let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let ab_dest = ab_source.add(&ab_distance);
     let e_dest = stepper_e.get_position().add(&e_distance);
