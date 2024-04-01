@@ -15,10 +15,25 @@ use math::speed::Speed;
 use math::common::compute_step_duration;
 use {defmt_rtt as _, panic_probe as _};
 
+pub enum StepperError{
+    MoveTooShort,
+    MoveOutOfBounds,
+    MoveNotValid
+}
+
 #[derive(Clone, Copy)]
 pub enum StepperDirection {
     Clockwise,
     CounterClockwise,
+}
+
+impl From<StepperDirection> for u8{
+    fn from(value: StepperDirection) -> Self {
+        match value{
+            StepperDirection::Clockwise => 0,
+            StepperDirection::CounterClockwise => 1,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -99,16 +114,16 @@ where
 
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
-    pub async fn move_for(&mut self, distance: Distance) -> Result<(), ()> {
+    pub async fn move_for(&mut self, distance: Distance) -> Result<(), StepperError> {
         if abs(distance.to_mm()) < self.distance_per_step.to_mm() {
-            return Err(());
+            return Err(StepperError::MoveTooShort);
         }
 
         let position_next = self.position.add(&distance);
         if position_next.to_mm() < self.bounds.0.to_mm()
             || position_next.to_mm() > self.bounds.1.to_mm()
         {
-            return Err(());
+            return Err(StepperError::MoveOutOfBounds);
         }
 
         let step_duration = compute_step_duration(
@@ -137,10 +152,11 @@ where
         let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
 
         info!(
-            "Steps: {} Total duration: {} Step duration: {}",
+            "Steps: {} Total duration: {} Step duration: {} Direction: {}",
             steps_n,
             duration.as_micros(),
-            step_duration.as_micros()
+            step_duration.as_micros(),
+            u8::from(self.direction)
         );
         // move
         self.step.enable(self.step_ch);
@@ -152,9 +168,9 @@ where
         Ok(())
     }
 
-    pub async fn move_to(&mut self, dst: Distance) {
+    pub async fn move_to(&mut self, dst: Distance) -> Result<(), StepperError> {
         let delta = dst.sub(&self.position);
-        self.move_for(delta).await;
+        self.move_for(delta).await
     }
 
     pub fn get_position(&self) -> Distance {
@@ -169,8 +185,8 @@ where
         self.speed
     }
 
-    pub async fn home(&mut self) {
-        self.move_to(Distance::from_mm(0.0)).await;
+    pub async fn home(&mut self) -> Result<(), StepperError> {
+        self.move_to(Distance::from_mm(0.0)).await
     }
 
     pub fn reset(&mut self) -> () {
