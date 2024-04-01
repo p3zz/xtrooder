@@ -1,18 +1,9 @@
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-ciaociaociaociaociaociaociaociaociaociaociaociao
-sono
-pezz
+G0 X102 Y50 F50
+G0 X-102 Y-50 F50
+G0 X102 Y50 F50
+G0 X-102 Y-50 F50
+G0 X102 Y50 F50
+;G0 X-102 Y-50 F50
+;G0 X102 Y50 F50
+;G0 X-102 Y-50 F50
+;G0 X0 Y0 F50

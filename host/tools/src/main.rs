@@ -10,19 +10,38 @@ fn main(){
     let file_path = args.get(2).expect("File not specified");
 
     let file = fs::File::open(file_path).expect("File not found");
-    let bufreader = BufReader::new(file);
+    let mut bufreader = BufReader::new(file);
     
     let mut port = serialport::new(serialport, 19200)
         .open().expect("Failed to open port");
 
-    for l in bufreader.lines(){
-        match l{
-            Ok(mut line) => {
-                line.push('\n');
-                match port.write_all(line.as_bytes()){
-                    Ok(_) => print!("{} sent", line),
-                    Err(_) => (),
-                };
+    let mut buf = [0u8; 32];
+    let mut line = String::new();
+    let mut v: Vec<u8> = Vec::new();
+
+    // FIXME ugly as shit pls refactor
+    loop{
+        match port.read(&mut buf){
+            Ok(n) => {
+                for i in 0..n{
+                    let elem = *buf.get(i).unwrap();
+                    if elem == b'#'{
+                        let s = String::from_utf8(v.clone()).unwrap();
+                        if s.as_str() == "next"{
+                            match bufreader.read_line(&mut line){
+                                Ok(_) => {
+                                    println!("{}", line);
+                                    port.write_all(line.as_bytes()).unwrap();
+                                    line.clear();
+                                },
+                                Err(_) => print!("error while reading file"),
+                            }
+                        }
+                        v.clear();
+                    }else{
+                        v.push(elem);
+                    }
+                }
             },
             Err(_) => (),
         }
