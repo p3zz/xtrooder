@@ -4,7 +4,7 @@
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::{
-    adc::{Adc, AdcPin, Resolution}, bind_interrupts, dma::NoDma, gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed}, peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA1, PA3, PB10, PB11, PD8, PD9, USART1, USART3}, time::hz, timer::{
+    adc::{Adc, AdcPin, Resolution}, bind_interrupts, dma::NoDma, gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed}, peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PB10, PB11, PD8, PD9, USART1, USART3}, time::hz, timer::{
         simple_pwm::{PwmPin, SimplePwm},
         Channel, CountingMode
     }, usart::{InterruptHandler, Uart},
@@ -101,10 +101,10 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
 #[embassy_executor::task]
 async fn temperature_handler(adc_peri: ADC1, read_pin: PA3) {
     let adc = Adc::new(adc_peri, &mut Delay);
-    let mut thermistor = Thermistor::new(adc, read_pin, Resolution::BITS16, 10_000.0, Temperature::from_kelvin(4300.0));
+    let mut thermistor = Thermistor::new(adc, read_pin, Resolution::BITS12, 100_000.0, 10_000.0, Temperature::from_kelvin(3950.0));
     loop{
         let temp = thermistor.read_temperature();
-        info!("{}", temp.to_kelvin());
+        info!("Temperature: {}", temp.to_celsius());
         Timer::after(Duration::from_secs(1)).await;
     }
 }

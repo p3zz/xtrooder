@@ -1,3 +1,4 @@
+use defmt::info;
 use embassy_stm32::adc::{Adc, AdcPin, Instance, Resolution, SampleTime};
 use embassy_stm32::gpio::Pin;
 use micromath::F32Ext;
@@ -21,6 +22,7 @@ where
     read_pin: P,
     resolution: Resolution,
     r0: f64,
+    r_series: f64,
     b: Temperature,
 }
 
@@ -34,6 +36,7 @@ where
         read_pin: P,
         resolution: Resolution,
         r0: f64,
+        r_series: f64,
         b: Temperature,
     ) -> Thermistor<'a, T, P> {
         adc.set_sample_time(SampleTime::CYCLES32_5);
@@ -43,18 +46,21 @@ where
             read_pin,
             resolution,
             r0,
+            r_series,
             b,
         }
     }
 
     pub fn read_temperature(&mut self) -> Temperature {
         let sample = self.adc.read(&mut self.read_pin) as f64;
+        info!("sample: {}", sample);
         compute_temperature(
             sample,
             self.resolution,
-            Temperature::from_kelvin(298.15),
+            Temperature::from_celsius(25.0),
             self.b,
             self.r0,
+            self.r_series
         )
     }
 }
@@ -71,6 +77,7 @@ fn get_steps(resolution: Resolution) -> f64 {
 }
 
 // https://circuitdigest.com/microcontroller-projects/interfacing-Thermistor-with-arduino
+// https://www.petervis.com/electronics%20guides/calculators/thermistor/thermistor.html
 // Steinhart–Hart equation simplified for ntc thermistors
 fn compute_temperature(
     sample: f64,
@@ -78,9 +85,11 @@ fn compute_temperature(
     t0: Temperature,
     b: Temperature,
     r0: f64,
+    r_series: f64
 ) -> Temperature {
-    let resolution_steps = get_steps(resolution);
-    let r = r0 * ((resolution_steps - 1.0) / sample - 1.0);
-    let val_inv = (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r / r0) as f32).ln() as f64);
+    let max_sample = get_steps(resolution) - 1.0;
+    let r_ntc = r_series * (max_sample / sample - 1.0);
+    info!("R: {}", r_ntc);
+    let val_inv = (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }
