@@ -70,6 +70,7 @@ fn get_steps(resolution: Resolution) -> f64 {
     }
 }
 
+// https://circuitdigest.com/microcontroller-projects/interfacing-Thermistor-with-arduino
 // Steinhart–Hart equation simplified for ntc thermistors
 fn compute_temperature(
     sample: f64,
