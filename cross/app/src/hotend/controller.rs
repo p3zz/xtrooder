@@ -26,20 +26,16 @@ where
     H: CaptureCompare16bitInstance,
 {
     pub fn new(heater: Heater<'l, H>, thermistor: Thermistor<'l, I, P>) -> Hotend<'l, H, I, P> {
-        Hotend {
-            heater,
-            thermistor,
-        }
+        Hotend { heater, thermistor }
     }
 
     pub fn set_temperature(&mut self, temperature: Temperature) {
         self.heater.set_target_temperature(temperature);
     }
 
-    pub fn update(&mut self, dt: Duration){
+    pub fn update(&mut self, dt: Duration) {
         let curr_tmp = self.thermistor.read_temperature();
         info!("Temperature: {}", curr_tmp.to_celsius());
         self.heater.update(curr_tmp, dt);
     }
-
 }

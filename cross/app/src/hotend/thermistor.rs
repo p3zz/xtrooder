@@ -60,7 +60,7 @@ where
             Temperature::from_celsius(25.0),
             self.b,
             self.r0,
-            self.r_series
+            self.r_series,
         )
     }
 }
@@ -85,11 +85,12 @@ fn compute_temperature(
     t0: Temperature,
     b: Temperature,
     r0: f64,
-    r_series: f64
+    r_series: f64,
 ) -> Temperature {
     let max_sample = get_steps(resolution) - 1.0;
     let r_ntc = r_series * (max_sample / sample - 1.0);
     info!("R: {}", r_ntc);
-    let val_inv = (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
+    let val_inv =
+        (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }
