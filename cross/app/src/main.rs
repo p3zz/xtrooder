@@ -4,7 +4,7 @@
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::{
-    adc::{Adc, AdcPin, Resolution}, bind_interrupts, dma::NoDma, gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed}, peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PB10, PB11, PD8, PD9, USART1, USART3}, time::hz, timer::{
+    adc::{Adc, AdcPin, Resolution}, bind_interrupts, dma::NoDma, gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed}, peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PB10, PB11, PD8, PD9, TIM1, TIM15, USART1, USART3}, time::hz, timer::{
         simple_pwm::{PwmPin, SimplePwm},
         Channel, CountingMode
     }, usart::{InterruptHandler, Uart},
@@ -14,7 +14,7 @@ use embassy_time::{Delay, Duration, Timer};
 use embedded_io_async::Write;
 use heapless::spsc::Queue;
 use heapless::{String, Vec};
-use hotend::thermistor::Thermistor;
+use hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use math::{distance::Distance, speed::Speed as StepperSpeed, temperature::Temperature};
 use parser::parser::{parse_line, GCodeParser, GCommand};
 use planner::{
@@ -99,13 +99,28 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn temperature_handler(adc_peri: ADC1, read_pin: PA3) {
+async fn temperature_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM15, heater_out_pin: PA2) {
     let adc = Adc::new(adc_peri, &mut Delay);
-    let mut thermistor = Thermistor::new(adc, read_pin, Resolution::BITS12, 100_000.0, 10_000.0, Temperature::from_kelvin(3950.0));
+    let thermistor = Thermistor::new(adc, read_pin, Resolution::BITS12, 100_000.0, 10_000.0, Temperature::from_kelvin(3950.0));
+    
+    let heater_out = SimplePwm::new(
+        heater_tim,
+        Some(PwmPin::new_ch1(heater_out_pin, OutputType::PushPull)),
+        None,
+        None,
+        None,
+        hz(1),
+        CountingMode::EdgeAlignedUp,
+    );
+    let heater = Heater::new(heater_out, Channel::Ch1);
+    let mut hotend = Hotend::new(heater, thermistor);
+
+    hotend.set_temperature(Temperature::from_celsius(30f64));
+
+    let dt = Duration::from_millis(500);
     loop{
-        let temp = thermistor.read_temperature();
-        info!("Temperature: {}", temp.to_celsius());
-        Timer::after(Duration::from_secs(1)).await;
+        hotend.update(dt);
+        Timer::after(dt).await;
     }
 }
 
@@ -174,7 +189,7 @@ async fn main(_spawner: Spawner) {
 
     _spawner
         .spawn(temperature_handler(
-            p.ADC1, p.PA3,
+            p.ADC1, p.PA3, p.TIM15, p.PA2
         ))
         .unwrap();
 
