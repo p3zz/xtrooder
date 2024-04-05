@@ -38,6 +38,10 @@ pub enum GCommand {
         j: Option<f64>,
         r: Option<f64>,
     },
+    G4 {
+        p: Option<f64>,
+        s: Option<f64>
+    },
     G20,
     G21,
     G90,
@@ -118,7 +122,12 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
                     r,
                 })
             }
-        }
+        },
+        (GCommandType::G, 4) => {
+            let p = retrieve_map_value(&cmd, "P");
+            let s = retrieve_map_value(&cmd, "S");
+            Some(GCommand::G4 { p, s })
+        },
         (GCommandType::G, 20) => Some(GCommand::G20),
         (GCommandType::G, 21) => Some(GCommand::G21),
         (GCommandType::G, 90) => Some(GCommand::G90),

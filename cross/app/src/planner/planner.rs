@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use embassy_stm32::timer::CaptureCompare16bitInstance;
+use embassy_time::Timer;
 
 use super::motion;
 use crate::stepper::a4988::{Stepper, StepperError};
@@ -8,6 +9,7 @@ use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::parser::GCommand;
+use embassy_time::Duration;
 
 pub enum Positioning {
     Relative,
@@ -77,6 +79,17 @@ where
             GCommand::G90 => Ok(self.g90()),
             GCommand::G91 => Ok(self.g91()),
             GCommand::M104 { s } => todo!(),
+        }
+    }
+
+    async fn g4(&mut self, p: Option<f64>, s: Option<f64>){
+        let d = match (p,s){
+            (None, None) => None,
+            (None, Some(s)) | (Some(_), Some(s)) => Some(Duration::from_secs(s as u64)),
+            (Some(p), None) => Some(Duration::from_millis(p as u64)),
+        };
+        if let Some(duration) = d{
+            Timer::after(duration).await;
         }
     }
 
