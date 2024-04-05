@@ -9,7 +9,7 @@ use embassy_stm32::{
     dma::NoDma,
     gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed},
     peripherals::{
-        ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PB10, PB11, PD8, PD9, TIM1, TIM15, USART1, USART3,
+        ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PA4, PA5, PB10, PB11, PD8, PD9, TIM1, TIM15, TIM2, USART1, USART3
     },
     time::hz,
     timer::{
@@ -111,8 +111,8 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
 async fn temperature_handler(
     adc_peri: ADC1,
     read_pin: PA3,
-    heater_tim: TIM15,
-    heater_out_pin: PA2,
+    heater_tim: TIM2,
+    heater_out_pin: PA5,
 ) {
     let adc = Adc::new(adc_peri, &mut Delay);
     let thermistor = Thermistor::new(
@@ -136,7 +136,7 @@ async fn temperature_handler(
     let heater = Heater::new(heater_out, Channel::Ch1);
     let mut hotend = Hotend::new(heater, thermistor);
 
-    hotend.set_temperature(Temperature::from_celsius(30f64));
+    hotend.set_temperature(Temperature::from_celsius(100f64));
 
     let dt = Duration::from_millis(500);
     loop {
@@ -209,7 +209,7 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     _spawner
-        .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM15, p.PA2))
+        .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM2, p.PA5))
         .unwrap();
 
     loop {

@@ -30,6 +30,8 @@ where
             core::time::Duration::from_millis(dt.as_millis()),
         );
 
+        info!("duty cycle real value {}", duty_cycle);
+
         let min = 0f64;
         let max = f64::from(self.out.get_max_duty());
 
