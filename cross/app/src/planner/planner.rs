@@ -417,7 +417,7 @@ where
         dest: Vector3D<Distance>,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        todo!()
+        motion::linear_move_to_3d(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await
     }
 
     pub async fn linear_move_xyze(
@@ -426,6 +426,6 @@ where
         feedrate: Speed,
         e_dst: Distance,
     ) -> Result<(), StepperError> {
-        todo!()
+        motion::linear_move_to_3d_e(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper, dest, feedrate, e_dst).await
     }
 }
