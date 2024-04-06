@@ -24,7 +24,7 @@ use embedded_io_async::Write;
 use heapless::spsc::Queue;
 use heapless::{String, Vec};
 use hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
-use math::{distance::Distance, speed::Speed as StepperSpeed, temperature::Temperature};
+use math::{distance::Distance, speed::Speed as StepperSpeed, temperature::Temperature, vector::{Vector2D, Vector3D}};
 use parser::parser::{parse_line, GCodeParser, GCommand};
 use planner::{
     motion::{linear_move_for, linear_move_to, linear_move_to_2d},
@@ -37,6 +37,8 @@ mod stepper;
 mod utils;
 
 use core::str;
+
+use crate::planner::motion::linear_move_to_3d;
 
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 
@@ -181,7 +183,9 @@ async fn main(_spawner: Spawner) {
     }
     let p = embassy_stm32::init(config);
 
-    let a_step = SimplePwm::new(
+    // --------- X AXIS -----------------
+
+    let x_step = SimplePwm::new(
         p.TIM5,
         Some(PwmPin::new_ch1(p.PA0, OutputType::PushPull)),
         None,
@@ -191,12 +195,58 @@ async fn main(_spawner: Spawner) {
         CountingMode::EdgeAlignedUp,
     );
 
-    let a_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
+    let x_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
-    let mut a_stepper = Stepper::new(
-        a_step,
+    let mut x_stepper = Stepper::new(
+        x_step,
         Channel::Ch1,
-        a_dir,
+        x_dir,
+        200,
+        Distance::from_mm(0.15f64),
+        SteppingMode::HalfStep,
+    );
+
+    // --------- Y AXIS -----------------
+
+    let y_step = SimplePwm::new(
+        p.TIM3,
+        Some(PwmPin::new_ch1(p.PA6, OutputType::PushPull)),
+        None,
+        None,
+        None,
+        hz(1),
+        CountingMode::EdgeAlignedUp,
+    );
+
+    let y_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
+
+    let mut y_stepper = Stepper::new(
+        y_step,
+        Channel::Ch1,
+        y_dir,
+        200,
+        Distance::from_mm(0.15f64),
+        SteppingMode::HalfStep,
+    );
+
+    // --------- Z AXIS -----------------
+
+    let z_step = SimplePwm::new(
+        p.TIM2,
+        Some(PwmPin::new_ch1(p.PA5, OutputType::PushPull)),
+        None,
+        None,
+        None,
+        hz(1),
+        CountingMode::EdgeAlignedUp,
+    );
+
+    let z_dir = Output::new(p.PB2, Level::Low, PinSpeed::Low);
+
+    let mut z_stepper = Stepper::new(
+        z_step,
+        Channel::Ch1,
+        z_dir,
         200,
         Distance::from_mm(0.15f64),
         SteppingMode::HalfStep,
@@ -208,9 +258,9 @@ async fn main(_spawner: Spawner) {
         ))
         .unwrap();
 
-    _spawner
-        .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM2, p.PA5))
-        .unwrap();
+    // _spawner
+    //     .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM2, p.PA5))
+    //     .unwrap();
 
     loop {
         let mut c: Option<GCommand> = None;
@@ -223,9 +273,11 @@ async fn main(_spawner: Spawner) {
             Some(cmd) => match cmd {
                 GCommand::G0 { x, y, z, f } => {
                     info!("performing a linear movement");
-                    linear_move_to(
-                        &mut a_stepper,
-                        Distance::from_mm(x.unwrap()),
+                    linear_move_to_3d(
+                        &mut x_stepper,
+                        &mut y_stepper,
+                        &mut z_stepper,
+                        Vector3D::new(Distance::from_mm(x.unwrap()), Distance::from_mm(y.unwrap()), Distance::from_mm(z.unwrap())),
                         StepperSpeed::from_mm_per_second(f.unwrap()),
                     )
                     .await

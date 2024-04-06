@@ -79,6 +79,7 @@ where
             GCommand::G90 => Ok(self.g90()),
             GCommand::G91 => Ok(self.g91()),
             GCommand::M104 { s } => todo!(),
+            GCommand::G4 { p, s } => Ok(self.g4(p, s).await),
         }
     }
 

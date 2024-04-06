@@ -5,7 +5,7 @@ use math::common::abs;
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
-use math::vector::Vector2D;
+use math::vector::{Vector2D, Vector3D};
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
@@ -84,6 +84,58 @@ pub async fn linear_move_to_2d_raw<
         linear_move_to(stepper_b, dest.get_y(), speed.get_y())
     ) {
         (Ok(_), Ok(_)) => Ok(()),
+        _ => Err(StepperError::MoveNotValid),
+    }
+}
+
+pub async fn linear_move_to_3d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    C: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_c: &mut Stepper<'s, C>,
+    dest: Vector3D<Distance>,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let src = Vector3D::new(stepper_a.get_position(), stepper_b.get_position(), stepper_c.get_position());
+    let direction = dest.sub(&src).normalize();
+    if direction.is_err() {
+        return Err(StepperError::MoveNotValid);
+    }
+    let ab_speed_x =
+        Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let ab_speed_y =
+        Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+    let ab_speed_z =
+        Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
+    
+    let ab_speed = Vector3D::new(ab_speed_x, ab_speed_y, ab_speed_z);
+
+    linear_move_to_3d_raw(stepper_a, stepper_b, stepper_c, dest, ab_speed).await
+}
+
+
+pub async fn linear_move_to_3d_raw<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    C: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_c: &mut Stepper<'s, C>,
+    dest: Vector3D<Distance>,
+    speed: Vector3D<Speed>,
+) -> Result<(), StepperError> {
+    match join!(
+        linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
+        linear_move_to(stepper_b, dest.get_y(), speed.get_y()),
+        linear_move_to(stepper_c, dest.get_z(), speed.get_z()),
+    ) {
+        (Ok(_), Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
 }
