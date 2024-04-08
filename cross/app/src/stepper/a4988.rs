@@ -6,7 +6,6 @@ use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Delay, Duration, Timer};
-use embedded_hal_async::delay::DelayNs;
 use math::common::abs;
 use math::computable::Computable;
 use math::distance::Distance;

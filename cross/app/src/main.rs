@@ -23,23 +23,19 @@ use embassy_time::{Delay, Duration, Timer};
 use embedded_io_async::Write;
 use heapless::spsc::Queue;
 use heapless::{String, Vec};
-use hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
+use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use math::{distance::Distance, speed::Speed as StepperSpeed, temperature::Temperature, vector::{Vector2D, Vector3D}};
 use parser::parser::{parse_line, GCodeParser, GCommand};
-use planner::{
+use app::planner::{
     motion::{linear_move_for, linear_move_to, linear_move_to_2d},
     planner::Planner,
 };
 use {defmt_rtt as _, panic_probe as _};
-use stepper::a4988::{Stepper, SteppingMode};
-mod hotend;
-mod planner;
-mod stepper;
-mod utils;
+use app::stepper::a4988::{Stepper, SteppingMode};
 
 use core::str;
 
-use crate::planner::motion::linear_move_to_3d;
+use app::planner::motion::linear_move_to_3d;
 
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 
