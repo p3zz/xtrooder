@@ -5,8 +5,6 @@ use micromath::F32Ext;
 
 use math::temperature::Temperature;
 
-use {defmt_rtt as _, panic_probe as _};
-
 /*
 ADC value = R / (R + R0) * Vcc * resolution / Varef
 Vcc: voltage reference of the board

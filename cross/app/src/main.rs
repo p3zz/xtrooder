@@ -9,7 +9,7 @@ use embassy_stm32::{
     dma::NoDma,
     gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed},
     peripherals::{
-        ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PA4, PA5, PB10, PB11, PD8, PD9, TIM1, TIM15, TIM2, USART1, USART3
+        ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PA4, PA5, PB10, PB11, PB8, PB9, PC0, PD8, PD9, TIM1, TIM12, TIM15, TIM2, TIM4, USART1, USART3
     },
     time::hz,
     timer::{
@@ -30,6 +30,7 @@ use planner::{
     motion::{linear_move_for, linear_move_to, linear_move_to_2d},
     planner::Planner,
 };
+use {defmt_rtt as _, panic_probe as _};
 use stepper::a4988::{Stepper, SteppingMode};
 mod hotend;
 mod planner;
@@ -106,15 +107,14 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
         buf = [0u8; 64];
     }
 }
-// use panic_probe as _;
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn temperature_handler(
     adc_peri: ADC1,
     read_pin: PA3,
-    heater_tim: TIM2,
-    heater_out_pin: PA5,
+    heater_tim: TIM4,
+    heater_out_pin: PB9,
 ) {
     let adc = Adc::new(adc_peri, &mut Delay);
     let thermistor = Thermistor::new(
@@ -128,14 +128,14 @@ async fn temperature_handler(
 
     let heater_out = SimplePwm::new(
         heater_tim,
-        Some(PwmPin::new_ch1(heater_out_pin, OutputType::PushPull)),
         None,
         None,
         None,
+        Some(PwmPin::new_ch4(heater_out_pin, OutputType::PushPull)),
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-    let heater = Heater::new(heater_out, Channel::Ch1);
+    let heater = Heater::new(heater_out, Channel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
 
     hotend.set_temperature(Temperature::from_celsius(100f64));
@@ -252,15 +252,18 @@ async fn main(_spawner: Spawner) {
         SteppingMode::HalfStep,
     );
 
+    let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
+    led.set_high();
+
     _spawner
         .spawn(input_handler(
             p.USART3, p.PB11, p.PB10, p.DMA1_CH0, p.DMA1_CH1,
         ))
         .unwrap();
 
-    // _spawner
-    //     .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM2, p.PA5))
-    //     .unwrap();
+    _spawner
+        .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM4, p.PB9))
+        .unwrap();
 
     loop {
         let mut c: Option<GCommand> = None;

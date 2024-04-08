@@ -1,5 +1,5 @@
 use defmt::info;
-use embassy_stm32::timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel};
+use embassy_stm32::{time::Hertz, timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel}};
 use embassy_time::Duration;
 use math::temperature::Temperature;
 use micromath::F32Ext;
@@ -15,8 +15,11 @@ impl<'s, S> Heater<'s, S>
 where
     S: CaptureCompare16bitInstance,
 {
-    pub fn new(out: SimplePwm<'s, S>, ch: Channel) -> Heater<'s, S> {
-        let pid = Controller::new(Temperature::from_celsius(25.0).to_celsius(), 15.0, 0.3, 0.0);
+    pub fn new(mut out: SimplePwm<'s, S>, ch: Channel) -> Heater<'s, S> {
+        let pid = Controller::new(Temperature::from_celsius(25.0).to_celsius(), 1.0, 0.01, 0.0);
+        out.set_frequency(Hertz::khz(1));
+        out.set_duty(ch, 0);
+        out.enable(ch);
         Heater { out, ch, pid }
     }
 

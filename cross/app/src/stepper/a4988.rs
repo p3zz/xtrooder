@@ -13,7 +13,6 @@ use math::distance::Distance;
 use math::speed::Speed;
 
 use math::common::compute_step_duration;
-use {defmt_rtt as _, panic_probe as _};
 
 pub enum StepperError {
     MoveTooShort,
