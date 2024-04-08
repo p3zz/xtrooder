@@ -1,13 +1,13 @@
 #![no_std]
 #![no_main]
 
+use app::hotend::thermistor::Thermistor;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_time::{Delay, Duration, Timer};
 use math::temperature::Temperature;
-use app::hotend::thermistor::Thermistor;
-use {panic_probe as _, defmt_rtt as _};
+use {defmt_rtt as _, panic_probe as _};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -57,7 +57,7 @@ async fn main(_spawner: Spawner) {
     );
 
     info!("Hotend example");
-    loop{
+    loop {
         let t = thermistor.read_temperature();
         info!("Temperature: {}°C", t.to_celsius());
         Timer::after(Duration::from_millis(200)).await;

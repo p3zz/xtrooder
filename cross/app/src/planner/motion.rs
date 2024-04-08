@@ -100,7 +100,11 @@ pub async fn linear_move_to_3d<
     dest: Vector3D<Distance>,
     speed: Speed,
 ) -> Result<(), StepperError> {
-    let src = Vector3D::new(stepper_a.get_position(), stepper_b.get_position(), stepper_c.get_position());
+    let src = Vector3D::new(
+        stepper_a.get_position(),
+        stepper_b.get_position(),
+        stepper_c.get_position(),
+    );
     let direction = dest.sub(&src).normalize();
     if direction.is_err() {
         return Err(StepperError::MoveNotValid);
@@ -111,7 +115,7 @@ pub async fn linear_move_to_3d<
         Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
     let ab_speed_z =
         Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
-    
+
     let ab_speed = Vector3D::new(ab_speed_x, ab_speed_y, ab_speed_z);
 
     linear_move_to_3d_raw(stepper_a, stepper_b, stepper_c, dest, ab_speed).await
@@ -132,22 +136,25 @@ pub async fn linear_move_to_3d_e<
     speed: Speed,
     e_dest: Distance,
 ) -> Result<(), StepperError> {
-    let ab_src = Vector3D::new(stepper_a.get_position(), stepper_b.get_position(), stepper_c.get_position());
+    let ab_src = Vector3D::new(
+        stepper_a.get_position(),
+        stepper_b.get_position(),
+        stepper_c.get_position(),
+    );
     let ab_distance = dest.sub(&ab_src);
     let ab_time = ab_distance.get_magnitude().to_mm() / speed.to_mm_per_second();
-    
+
     let e_delta = e_dest.sub(&stepper_e.get_position());
     let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / ab_time);
 
     match join!(
         linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed),
         linear_move_to(stepper_e, e_dest, e_speed)
-    ){
+    ) {
         (Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
 }
-
 
 pub async fn linear_move_to_3d_raw<
     's,

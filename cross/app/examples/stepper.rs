@@ -1,16 +1,20 @@
 #![no_std]
 #![no_main]
 
-use {defmt_rtt as _, panic_probe as _};
-use app::stepper::{self, a4988::{Stepper, SteppingMode}};
+use app::stepper::{
+    self,
+    a4988::{Stepper, SteppingMode},
+};
 use defmt::info;
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
     time::hz,
     timer::{
-        simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode
-    }
+        simple_pwm::{PwmPin, SimplePwm},
+        Channel, CountingMode,
+    },
 };
+use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use embassy_time::{Duration, Timer};
@@ -45,10 +49,10 @@ async fn main(_spawner: Spawner) {
 
     let mut d = Distance::from_mm(80.0);
 
-    loop{
+    loop {
         info!("Moving to {}mm", d.to_mm());
-        if let Err(e) = stepper.move_to(d).await{
-            match e{
+        if let Err(e) = stepper.move_to(d).await {
+            match e {
                 stepper::a4988::StepperError::MoveTooShort => info!("Move too short"),
                 stepper::a4988::StepperError::MoveOutOfBounds => info!("Move out of bounds"),
                 stepper::a4988::StepperError::MoveNotValid => info!("Move not valid"),

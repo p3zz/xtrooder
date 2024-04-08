@@ -3,11 +3,11 @@ use embassy_time::Timer;
 
 use super::motion;
 use crate::stepper::a4988::{Stepper, StepperError};
+use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::parser::GCommand;
-use embassy_time::Duration;
 
 pub enum Positioning {
     Relative,
@@ -81,13 +81,13 @@ where
         }
     }
 
-    async fn g4(&mut self, p: Option<f64>, s: Option<f64>){
-        let d = match (p,s){
+    async fn g4(&mut self, p: Option<f64>, s: Option<f64>) {
+        let d = match (p, s) {
             (None, None) => None,
             (None, Some(s)) | (Some(_), Some(s)) => Some(Duration::from_secs(s as u64)),
             (Some(p), None) => Some(Duration::from_millis(p as u64)),
         };
-        if let Some(duration) = d{
+        if let Some(duration) = d {
             Timer::after(duration).await;
         }
     }
@@ -415,7 +415,14 @@ where
         dest: Vector3D<Distance>,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_3d(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, dest, feedrate).await
+        motion::linear_move_to_3d(
+            &mut self.x_stepper,
+            &mut self.y_stepper,
+            &mut self.z_stepper,
+            dest,
+            feedrate,
+        )
+        .await
     }
 
     pub async fn linear_move_xyze(
@@ -424,6 +431,15 @@ where
         feedrate: Speed,
         e_dst: Distance,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_3d_e(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper, dest, feedrate, e_dst).await
+        motion::linear_move_to_3d_e(
+            &mut self.x_stepper,
+            &mut self.y_stepper,
+            &mut self.z_stepper,
+            &mut self.e_stepper,
+            dest,
+            feedrate,
+            e_dst,
+        )
+        .await
     }
 }

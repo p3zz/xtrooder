@@ -40,7 +40,7 @@ pub enum GCommand {
     },
     G4 {
         p: Option<f64>,
-        s: Option<f64>
+        s: Option<f64>,
     },
     G20,
     G21,
@@ -122,12 +122,12 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
                     r,
                 })
             }
-        },
+        }
         (GCommandType::G, 4) => {
             let p = retrieve_map_value(&cmd, "P");
             let s = retrieve_map_value(&cmd, "S");
             Some(GCommand::G4 { p, s })
-        },
+        }
         (GCommandType::G, 20) => Some(GCommand::G20),
         (GCommandType::G, 21) => Some(GCommand::G21),
         (GCommandType::G, 90) => Some(GCommand::G90),
@@ -157,52 +157,51 @@ fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64
     }
 }
 
-enum ParserState{
+enum ParserState {
     ReadingCommand,
-    ReadingComment
+    ReadingComment,
 }
-pub struct GCodeParser{
+pub struct GCodeParser {
     data_buffer: Vec<u8, 32>,
     command_queue: Queue<GCommand, 32>,
-    state: ParserState
+    state: ParserState,
 }
 
-impl GCodeParser{
-    
+impl GCodeParser {
     pub fn new() -> Self {
-        Self { data_buffer: Vec::new(), command_queue: Queue::new(), state: ParserState::ReadingCommand }
+        Self {
+            data_buffer: Vec::new(),
+            command_queue: Queue::new(),
+            state: ParserState::ReadingCommand,
+        }
     }
 
-    pub fn parse(&mut self, data: &[u8]) -> Result<(), ()>{
-        for b in data{
-            match self.state{
-                ParserState::ReadingCommand => {
-                    match b {
-                        b';' | b'(' | b'\n' => {
-                            if !self.data_buffer.is_empty(){
-                                let c = String::from_utf8(self.data_buffer.clone()).unwrap();
-                                if let Some(cmd) = parse_line(c.as_str()){
-                                    if self.command_queue.enqueue(cmd).is_err(){
-                                        return Err(());
-                                    }
-                                    self.data_buffer.clear();
+    pub fn parse(&mut self, data: &[u8]) -> Result<(), ()> {
+        for b in data {
+            match self.state {
+                ParserState::ReadingCommand => match b {
+                    b';' | b'(' | b'\n' => {
+                        if !self.data_buffer.is_empty() {
+                            let c = String::from_utf8(self.data_buffer.clone()).unwrap();
+                            if let Some(cmd) = parse_line(c.as_str()) {
+                                if self.command_queue.enqueue(cmd).is_err() {
+                                    return Err(());
                                 }
+                                self.data_buffer.clear();
                             }
-                            self.state = if *b == b'\n'{
-                                ParserState::ReadingCommand
-                            }else{
-                                ParserState::ReadingComment
-                            }
-                        },
-                        0 => (),
-                        _ => self.data_buffer.push(*b).unwrap_or_else(|_|())
+                        }
+                        self.state = if *b == b'\n' {
+                            ParserState::ReadingCommand
+                        } else {
+                            ParserState::ReadingComment
+                        }
                     }
+                    0 => (),
+                    _ => self.data_buffer.push(*b).unwrap_or_else(|_| ()),
                 },
-                ParserState::ReadingComment => {
-                    match b {
-                        b'\n' | b')' => self.state = ParserState::ReadingCommand,
-                        _ => ()
-                    }
+                ParserState::ReadingComment => match b {
+                    b'\n' | b')' => self.state = ParserState::ReadingCommand,
+                    _ => (),
                 },
             }
         }
@@ -214,13 +213,12 @@ impl GCodeParser{
     }
 
     pub fn queue_len(&self) -> usize {
-        self.command_queue.len() 
+        self.command_queue.len()
     }
 
     pub fn is_queue_full(&self) -> bool {
         self.command_queue.is_full()
     }
-
 }
 
 #[cfg(test)]
@@ -308,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_incomplete(){
+    fn test_parser_incomplete() {
         let data = "hellohellohellohello";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
@@ -317,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_invalid(){
+    fn test_parser_invalid() {
         let data = "hellohellohellohello";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
@@ -326,28 +324,46 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_valid(){
+    fn test_parser_valid() {
         let data = "G1 X10.1 F1200\n";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
         let cmd = parser.pick_from_queue();
         assert!(cmd.is_some());
-        assert!(cmd.unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+        assert!(
+            cmd.unwrap()
+                == GCommand::G1 {
+                    x: Some(10.1),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(1200_f64)
+                }
+        );
     }
 
     #[test]
-    fn test_parser_valid_with_comment_semicolon(){
+    fn test_parser_valid_with_comment_semicolon() {
         let data = "G1 X10.1 F1200;comment";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
         assert_eq!(parser.data_buffer.len(), 0);
         let cmd = parser.pick_from_queue();
         assert!(cmd.is_some());
-        assert!(cmd.unwrap() == GCommand::G1 { x: Some(10.1), y: None, z: None, e: None, f: Some(1200_f64) });
+        assert!(
+            cmd.unwrap()
+                == GCommand::G1 {
+                    x: Some(10.1),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(1200_f64)
+                }
+        );
     }
 
     #[test]
-    fn test_parser_invalid_with_comment_semicolon(){
+    fn test_parser_invalid_with_comment_semicolon() {
         let data = ";G1 X10.1 F1200;comment";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
@@ -357,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parser_valid_3_commands(){
+    fn test_parser_valid_3_commands() {
         let data = "G20\nG20\nG21;";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
@@ -374,9 +390,8 @@ mod tests {
         assert!(cmd.unwrap() == GCommand::G21);
     }
 
-
     #[test]
-    fn test_parser_valid_2_commands_busy_data_buffer(){
+    fn test_parser_valid_2_commands_busy_data_buffer() {
         let data = "G20\nG20\nG21";
         let mut parser = GCodeParser::new();
         parser.parse(data.as_bytes());
@@ -387,5 +402,4 @@ mod tests {
         let cmd = parser.pick_from_queue();
         assert!(cmd.unwrap() == GCommand::G20);
     }
-
 }

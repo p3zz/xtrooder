@@ -1,5 +1,8 @@
 use defmt::info;
-use embassy_stm32::{time::Hertz, timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel}};
+use embassy_stm32::{
+    time::Hertz,
+    timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel},
+};
 use embassy_time::Duration;
 use math::temperature::Temperature;
 use micromath::F32Ext;
