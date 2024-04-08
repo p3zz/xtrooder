@@ -1,5 +1,3 @@
-use core::result;
-
 use heapless::{spsc::Queue, LinearMap, String, Vec};
 
 #[derive(PartialEq, Debug)]
@@ -141,17 +139,14 @@ pub fn parse_line(line: &str) -> Option<GCommand> {
 }
 
 fn retrieve_map_value(cmd: &LinearMap<&str, f64, 16>, key: &str) -> Option<f64> {
-    match cmd.get(key) {
-        Some(value) => Some(*value),
-        None => None,
-    }
+    cmd.get(key).copied()
 }
 
 fn get_command_type(cmd: &LinearMap<&str, f64, 16>) -> Option<(GCommandType, u64)> {
-    match retrieve_map_value(&cmd, "G") {
-        Some(code) => return Some((GCommandType::G, code as u64)),
-        None => match retrieve_map_value(&cmd, "M") {
-            Some(code) => return Some((GCommandType::M, code as u64)),
+    match retrieve_map_value(cmd, "G") {
+        Some(code) => Some((GCommandType::G, code as u64)),
+        None => match retrieve_map_value(cmd, "M") {
+            Some(code) => Some((GCommandType::M, code as u64)),
             None => None,
         },
     }
@@ -197,7 +192,7 @@ impl GCodeParser {
                         }
                     }
                     0 => (),
-                    _ => self.data_buffer.push(*b).unwrap_or_else(|_| ()),
+                    _ => self.data_buffer.push(*b).unwrap_or(()),
                 },
                 ParserState::ReadingComment => match b {
                     b'\n' | b')' => self.state = ParserState::ReadingCommand,

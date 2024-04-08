@@ -22,29 +22,26 @@ fn main() {
 
     // FIXME ugly as shit pls refactor
     loop {
-        match port.read(&mut buf) {
-            Ok(n) => {
-                for i in 0..n {
-                    let elem = *buf.get(i).unwrap();
-                    if elem == b'#' {
-                        let s = String::from_utf8(v.clone()).unwrap();
-                        if s.as_str() == "next" {
-                            match bufreader.read_line(&mut line) {
-                                Ok(_) => {
-                                    println!("{}", line);
-                                    port.write_all(line.as_bytes()).unwrap();
-                                    line.clear();
-                                }
-                                Err(_) => print!("error while reading file"),
+        if let Ok(n) = port.read(&mut buf) {
+            for i in 0..n {
+                let elem = *buf.get(i).unwrap();
+                if elem == b'#' {
+                    let s = String::from_utf8(v.clone()).unwrap();
+                    if s.as_str() == "next" {
+                        match bufreader.read_line(&mut line) {
+                            Ok(_) => {
+                                println!("{}", line);
+                                port.write_all(line.as_bytes()).unwrap();
+                                line.clear();
                             }
+                            Err(_) => print!("error while reading file"),
                         }
-                        v.clear();
-                    } else {
-                        v.push(elem);
                     }
+                    v.clear();
+                } else {
+                    v.push(elem);
                 }
             }
-            Err(_) => (),
         }
     }
 }

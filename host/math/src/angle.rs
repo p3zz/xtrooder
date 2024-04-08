@@ -58,11 +58,11 @@ impl Computable for Angle {
 }
 
 pub fn cos(angle: Angle) -> f64 {
-    return (angle.to_radians() as f32).cos() as f64;
+    (angle.to_radians() as f32).cos() as f64
 }
 
 pub fn sin(angle: Angle) -> f64 {
-    return (angle.to_radians() as f32).sin() as f64;
+    (angle.to_radians() as f32).sin() as f64
 }
 
 pub fn atan2(y: f64, x: f64) -> Angle {
