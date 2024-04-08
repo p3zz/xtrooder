@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use embassy_time::Timer;
 

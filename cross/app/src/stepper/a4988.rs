@@ -1,11 +1,9 @@
-#![allow(dead_code)]
-
 use defmt::info;
 use embassy_stm32::gpio::Output;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Duration, Timer};
 use math::common::abs;
 use math::computable::Computable;
 use math::distance::Distance;

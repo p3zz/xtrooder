@@ -1,5 +1,3 @@
-use core::time::Duration;
-
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;

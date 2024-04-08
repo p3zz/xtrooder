@@ -1,6 +1,5 @@
 use core::{f64::consts::PI, time::Duration};
-
-use micromath::F32Ext as _;
+use micromath::F32Ext;
 
 use crate::{distance::Distance, speed::Speed};
 
