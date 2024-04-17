@@ -75,6 +75,19 @@ pub fn acos(value: f64) -> Angle {
     Angle::from_radians(th)
 }
 
+pub fn asin(value: f64) -> Angle {
+    let th = (value as f32).asin() as f64;
+    Angle::from_radians(th)
+}
+
+pub fn sinc(angle: Angle) -> f64 {
+    if angle.to_radians() == 0f64 {
+        1f64
+    } else{
+        sin(angle) / angle.to_radians()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::f64::consts::PI;

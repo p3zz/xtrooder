@@ -1,7 +1,7 @@
 use core::{f64::consts::PI, time::Duration};
 use micromath::F32Ext;
 
-use crate::{distance::Distance, speed::Speed};
+use crate::{angle::{atan2, cos, sin, Angle}, computable::Computable, distance::Distance, speed::Speed, vector::Vector2D};
 
 pub fn abs(value: f64) -> f64 {
     let mut v = value;
@@ -50,6 +50,18 @@ pub fn compute_step_duration(spr: u64, dps: Distance, speed: Speed) -> Option<Du
     let second_per_step = second_per_revolution / (spr as f64);
     let usecond_per_step = (second_per_step * 1_000_000.0) as u64;
     Some(Duration::from_micros(usecond_per_step / 2))
+}
+
+pub fn compute_arc_destination(start: Vector2D<Distance>, radius: Distance, arc_length: Distance) -> Option<Vector2D<Distance>> {
+    let start_angle = atan2(start.get_y().to_mm(), start.get_x().to_mm());
+    let increment_angle = match arc_length.div(&radius){
+        Ok(angle) => Angle::from_radians(angle),
+        Err(_) => return None,
+    };
+    let destination_angle = start_angle.add(&increment_angle);
+    let x = Distance::from_mm(radius.to_mm() * cos(destination_angle));
+    let y = Distance::from_mm(radius.to_mm() * sin(destination_angle));
+    Some(Vector2D::new(x, y))
 }
 
 #[cfg(test)]

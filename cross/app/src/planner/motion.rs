@@ -1,11 +1,14 @@
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
-use math::common::abs;
+use heapless::pool::arc;
+use math::angle::asin;
+use math::common::{abs, compute_arc_destination, sqrt};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
+use micromath::F32Ext;
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
@@ -262,4 +265,36 @@ pub async fn linear_move_for_2d_e<
     let ab_dest = ab_source.add(&ab_distance);
     let e_dest = stepper_e.get_position().add(&e_distance);
     linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await
+}
+
+pub async fn arc_move_2d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    dest: Vector2D<Distance>,
+    radius: Distance,
+    speed: Speed
+) -> Result<(), StepperError> {
+    // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
+    let arc_unit = Distance::from_mm(1.0);
+    let mut source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let chord_length = dest.sub(&source).get_magnitude();
+    if chord_length.to_mm() == 0f64 {
+        return Err(StepperError::MoveNotValid);
+    }
+    let th = 2.0 * asin(chord_length.to_mm() / (2.0 * radius.to_mm())).to_radians();
+    let arc_length = Distance::from_mm(radius.to_mm() * th);
+    let arcs_n = (arc_length.div(&arc_unit).unwrap() as f32).floor() as u64;
+    for _ in 0..(arcs_n + 1) {
+        let arc_dst = match compute_arc_destination(source, radius, arc_unit){
+            Some(dst) => dst,
+            None => return Err(StepperError::MoveNotValid),
+        };
+        linear_move_to_2d(stepper_a, stepper_b, arc_dst, speed).await?;
+        source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    }
+    todo!()
 }
