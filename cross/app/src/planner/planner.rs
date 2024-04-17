@@ -263,6 +263,27 @@ where
         }
     }
 
+    pub async fn g2(
+        &mut self,
+        x: Option<f64>,
+        y: Option<f64>,
+        z: Option<f64>,
+        e: Option<f64>,
+        f: Option<f64>,
+        i: Option<f64>,
+        j: Option<f64>,
+        r: Option<f64>,
+    ) -> Result<(), StepperError> {
+        match (i, j, r){
+            (Some(_), Some(_), Some(_)) |
+            (None, None, None) |
+            (Some(_), None, Some(_)) |
+            (None, Some(_), Some(_)) => return Err(StepperError::MoveNotValid),
+            _ => ()
+        }
+        todo!()
+    }
+
     pub async fn linear_move_x(
         &mut self,
         dest: Distance,

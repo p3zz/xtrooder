@@ -269,6 +269,7 @@ pub async fn linear_move_for_2d_e<
     linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await
 }
 
+// TODO check how do we know if the move is clockwise or counter-clockwise
 pub async fn arc_move_2d_radius<
     's,
     A: CaptureCompare16bitInstance,
