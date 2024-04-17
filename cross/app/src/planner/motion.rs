@@ -303,3 +303,18 @@ pub async fn arc_move_2d_radius<
     }
     Ok(())
 }
+
+pub async fn arc_move_2d_center<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    dest: Vector2D<Distance>,
+    offset_from_center: Vector2D<Distance>,
+    speed: Speed
+) -> Result<(), StepperError> {
+    let radius = dest.add(&offset_from_center).get_magnitude();
+    arc_move_2d_radius(stepper_a, stepper_b, dest, radius, speed).await
+}
