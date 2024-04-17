@@ -9,6 +9,7 @@ use app::planner::{
 use app::stepper::a4988::{Stepper, SteppingMode};
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_stm32::peripherals::{ADC2, PC8, TIM7, TIM8};
 use embassy_stm32::{
     adc::{Adc, AdcPin, Resolution},
     bind_interrupts,
@@ -112,10 +113,9 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn temperature_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_out_pin: PB9) {
-    let adc = Adc::new(adc_peri, &mut Delay);
+async fn hotend_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_out_pin: PB9) {
     let thermistor = Thermistor::new(
-        adc,
+        adc_peri,
         read_pin,
         Resolution::BITS12,
         100_000.0,
@@ -129,6 +129,39 @@ async fn temperature_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, he
         None,
         None,
         Some(PwmPin::new_ch4(heater_out_pin, OutputType::PushPull)),
+        hz(1),
+        CountingMode::EdgeAlignedUp,
+    );
+    let heater = Heater::new(heater_out, Channel::Ch4);
+    let mut hotend = Hotend::new(heater, thermistor);
+
+    hotend.set_temperature(Temperature::from_celsius(100f64));
+
+    let dt = Duration::from_millis(500);
+    loop {
+        hotend.update(dt);
+        Timer::after(dt).await;
+    }
+}
+
+// https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
+#[embassy_executor::task]
+async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater_out_pin: PC8) {
+    let thermistor = Thermistor::new(
+        adc_peri,
+        read_pin,
+        Resolution::BITS12,
+        100_000.0,
+        10_000.0,
+        Temperature::from_kelvin(3950.0),
+    );
+
+    let heater_out = SimplePwm::new(
+        heater_tim,
+        None,
+        None,
+        Some(PwmPin::new_ch3(heater_out_pin, OutputType::PushPull)),
+        None,
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
@@ -259,7 +292,11 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     _spawner
-        .spawn(temperature_handler(p.ADC1, p.PA3, p.TIM4, p.PB9))
+        .spawn(hotend_handler(p.ADC1, p.PA3, p.TIM4, p.PB9))
+        .unwrap();
+
+    _spawner
+        .spawn(heatbed_handler(p.ADC2, p.PA2, p.TIM8, p.PC8))
         .unwrap();
 
     loop {
