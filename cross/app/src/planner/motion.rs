@@ -1,3 +1,5 @@
+use core::iter::Step;
+
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
@@ -267,7 +269,7 @@ pub async fn linear_move_for_2d_e<
     linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await
 }
 
-pub async fn arc_move_2d<
+pub async fn arc_move_2d_radius<
     's,
     A: CaptureCompare16bitInstance,
     B: CaptureCompare16bitInstance,
@@ -287,6 +289,9 @@ pub async fn arc_move_2d<
     }
     let th = 2.0 * asin(chord_length.to_mm() / (2.0 * radius.to_mm())).to_radians();
     let arc_length = Distance::from_mm(radius.to_mm() * th);
+    if arc_length.to_mm() < arc_unit.to_mm(){
+        return Err(StepperError::MoveTooShort);
+    }
     let arcs_n = (arc_length.div(&arc_unit).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
         let arc_dst = match compute_arc_destination(source, radius, arc_unit){
@@ -296,5 +301,5 @@ pub async fn arc_move_2d<
         linear_move_to_2d(stepper_a, stepper_b, arc_dst, speed).await?;
         source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     }
-    todo!()
+    Ok(())
 }
