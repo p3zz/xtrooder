@@ -4,6 +4,7 @@
 use app::hotend::thermistor::Thermistor;
 use defmt::info;
 use embassy_executor::Spawner;
+use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::adc::{Adc, Resolution};
 use embassy_time::{Delay, Duration, Timer};
 use math::temperature::Temperature;
@@ -46,9 +47,8 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
-    let adc = Adc::new(p.ADC1, &mut Delay);
     let mut thermistor = Thermistor::new(
-        adc,
+        p.ADC1,
         p.PA3,
         Resolution::BITS12,
         100_000.0,
@@ -56,7 +56,7 @@ async fn main(_spawner: Spawner) {
         Temperature::from_kelvin(3950.0),
     );
 
-    info!("Hotend example");
+    info!("Thermistor example");
     loop {
         let t = thermistor.read_temperature();
         info!("Temperature: {}°C", t.to_celsius());

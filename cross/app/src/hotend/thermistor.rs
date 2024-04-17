@@ -1,6 +1,8 @@
 use defmt::info;
 use embassy_stm32::adc::{Adc, AdcPin, Instance, Resolution, SampleTime};
 use embassy_stm32::gpio::Pin;
+use embassy_stm32::Peripheral;
+use embassy_time::Delay;
 use micromath::F32Ext;
 
 use math::temperature::Temperature;
@@ -30,13 +32,14 @@ where
     P: AdcPin<T> + Pin,
 {
     pub fn new(
-        mut adc: Adc<'a, T>,
+        adc_peri: impl Peripheral<P = T> + 'a,
         read_pin: P,
         resolution: Resolution,
         r0: f64,
         r_series: f64,
         b: Temperature,
     ) -> Thermistor<'a, T, P> {
+        let mut adc = Adc::new(adc_peri, &mut Delay);
         adc.set_sample_time(SampleTime::CYCLES32_5);
         adc.set_resolution(resolution);
         Thermistor {
