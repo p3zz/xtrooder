@@ -1,9 +1,6 @@
-use core::iter::Step;
-
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
-use heapless::pool::arc;
 use math::angle::asin;
 use math::common::{abs, compute_arc_destination, sqrt};
 use math::computable::Computable;
