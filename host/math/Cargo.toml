@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 micromath="2.0.0"
+
+[dev-dependencies]
+assert_float_eq = "1.1.3"
