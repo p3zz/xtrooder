@@ -274,12 +274,12 @@ where
         j: Option<f64>,
         r: Option<f64>,
     ) -> Result<(), StepperError> {
-        match (i, j, r){
-            (Some(_), Some(_), Some(_)) |
-            (None, None, None) |
-            (Some(_), None, Some(_)) |
-            (None, Some(_), Some(_)) => return Err(StepperError::MoveNotValid),
-            _ => ()
+        match (i, j, r) {
+            (Some(_), Some(_), Some(_))
+            | (None, None, None)
+            | (Some(_), None, Some(_))
+            | (None, Some(_), Some(_)) => return Err(StepperError::MoveNotValid),
+            _ => (),
         }
         todo!()
     }

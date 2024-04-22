@@ -277,7 +277,7 @@ pub async fn arc_move_2d_radius<
     dest: Vector2D<Distance>,
     center: Vector2D<Distance>,
     speed: Speed,
-    direction: RotationDirection
+    direction: RotationDirection,
 ) -> Result<(), StepperError> {
     let radius = dest.sub(&center).get_magnitude();
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
@@ -289,12 +289,12 @@ pub async fn arc_move_2d_radius<
     }
     let th = 2.0 * asin(chord_length.to_mm() / (2.0 * radius.to_mm())).to_radians();
     let arc_length = Distance::from_mm(radius.to_mm() * th);
-    if arc_length.to_mm() < arc_unit.to_mm(){
+    if arc_length.to_mm() < arc_unit.to_mm() {
         return Err(StepperError::MoveTooShort);
     }
     let arcs_n = (arc_length.div(&arc_unit).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
-        let arc_dst = match compute_arc_destination(source, center, arc_unit, direction){
+        let arc_dst = match compute_arc_destination(source, center, arc_unit, direction) {
             Some(dst) => dst,
             None => return Err(StepperError::MoveNotValid),
         };
@@ -314,7 +314,7 @@ pub async fn arc_move_2d_center<
     dest: Vector2D<Distance>,
     offset_from_center: Vector2D<Distance>,
     speed: Speed,
-    direction: RotationDirection
+    direction: RotationDirection,
 ) -> Result<(), StepperError> {
     let center = dest.add(&offset_from_center);
     arc_move_2d_radius(stepper_a, stepper_b, dest, center, speed, direction).await

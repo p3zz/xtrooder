@@ -19,7 +19,12 @@ where
     S: CaptureCompare16bitInstance,
 {
     pub fn new(mut out: SimplePwm<'s, S>, ch: Channel) -> Heater<'s, S> {
-        let pid = Controller::new(Temperature::from_celsius(30.0).to_celsius(), 20.0, 0.02, 0.0);
+        let pid = Controller::new(
+            Temperature::from_celsius(30.0).to_celsius(),
+            20.0,
+            0.02,
+            0.0,
+        );
         out.set_frequency(Hertz::hz(100));
         out.set_duty(ch, 0);
         out.enable(ch);

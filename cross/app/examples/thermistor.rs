@@ -4,8 +4,8 @@
 use app::hotend::thermistor::Thermistor;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::{Output, Level, Speed};
 use embassy_stm32::adc::{Adc, Resolution};
+use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_time::{Delay, Duration, Timer};
 use math::temperature::Temperature;
 use {defmt_rtt as _, panic_probe as _};
