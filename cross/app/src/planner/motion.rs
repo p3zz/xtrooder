@@ -2,7 +2,7 @@ use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
 use math::angle::asin;
-use math::common::{abs, compute_arc_destination, sqrt};
+use math::common::{abs, compute_arc_destination, sqrt, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -276,7 +276,8 @@ pub async fn arc_move_2d_radius<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     center: Vector2D<Distance>,
-    speed: Speed
+    speed: Speed,
+    direction: RotationDirection
 ) -> Result<(), StepperError> {
     let radius = dest.sub(&center).get_magnitude();
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
@@ -293,7 +294,7 @@ pub async fn arc_move_2d_radius<
     }
     let arcs_n = (arc_length.div(&arc_unit).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
-        let arc_dst = match compute_arc_destination(source, center, arc_unit){
+        let arc_dst = match compute_arc_destination(source, center, arc_unit, direction){
             Some(dst) => dst,
             None => return Err(StepperError::MoveNotValid),
         };
@@ -312,8 +313,9 @@ pub async fn arc_move_2d_center<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     offset_from_center: Vector2D<Distance>,
-    speed: Speed
+    speed: Speed,
+    direction: RotationDirection
 ) -> Result<(), StepperError> {
     let center = dest.add(&offset_from_center);
-    arc_move_2d_radius(stepper_a, stepper_b, dest, center, speed).await
+    arc_move_2d_radius(stepper_a, stepper_b, dest, center, speed, direction).await
 }
