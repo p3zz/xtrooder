@@ -275,9 +275,10 @@ pub async fn arc_move_2d_radius<
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
-    radius: Distance,
+    center: Vector2D<Distance>,
     speed: Speed
 ) -> Result<(), StepperError> {
+    let radius = dest.sub(&center).get_magnitude();
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let arc_unit = Distance::from_mm(1.0);
     let mut source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
@@ -292,7 +293,7 @@ pub async fn arc_move_2d_radius<
     }
     let arcs_n = (arc_length.div(&arc_unit).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
-        let arc_dst = match compute_arc_destination(source, radius, arc_unit){
+        let arc_dst = match compute_arc_destination(source, center, arc_unit){
             Some(dst) => dst,
             None => return Err(StepperError::MoveNotValid),
         };
@@ -313,6 +314,6 @@ pub async fn arc_move_2d_center<
     offset_from_center: Vector2D<Distance>,
     speed: Speed
 ) -> Result<(), StepperError> {
-    let radius = dest.add(&offset_from_center).get_magnitude();
-    arc_move_2d_radius(stepper_a, stepper_b, dest, radius, speed).await
+    let center = dest.add(&offset_from_center);
+    arc_move_2d_radius(stepper_a, stepper_b, dest, center, speed).await
 }

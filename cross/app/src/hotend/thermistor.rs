@@ -68,11 +68,11 @@ where
 
 fn get_steps(resolution: Resolution) -> f64 {
     match resolution {
-        Resolution::BITS16 => 65536.0,
-        Resolution::BITS14 => 16384.0,
-        Resolution::BITS12 => 4096.0,
-        Resolution::BITS10 => 1024.0,
-        Resolution::BITS8 => 256.0,
+        Resolution::BITS16 => f64::from(1 << 16),
+        Resolution::BITS14 => f64::from(1 << 14),
+        Resolution::BITS12 => f64::from(1 << 12),
+        Resolution::BITS10 => f64::from(1 << 10),
+        Resolution::BITS8 => f64::from(1 << 8),
         _ => 0.0,
     }
 }

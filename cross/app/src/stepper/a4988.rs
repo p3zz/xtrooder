@@ -4,7 +4,7 @@ use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Duration, Timer};
-use math::common::abs;
+use math::common::{abs, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -15,21 +15,6 @@ pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
     MoveNotValid,
-}
-
-#[derive(Clone, Copy)]
-pub enum StepperDirection {
-    Clockwise,
-    CounterClockwise,
-}
-
-impl From<StepperDirection> for u8 {
-    fn from(value: StepperDirection) -> Self {
-        match value {
-            StepperDirection::Clockwise => 0,
-            StepperDirection::CounterClockwise => 1,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -65,7 +50,7 @@ pub struct Stepper<'s, S> {
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
     position: Distance,
-    direction: StepperDirection,
+    direction: RotationDirection,
 }
 
 impl<'s, S> Stepper<'s, S>
@@ -93,7 +78,7 @@ where
             ),
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
-            direction: StepperDirection::Clockwise,
+            direction: RotationDirection::Clockwise,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
             stepping_mode,
         }
@@ -132,14 +117,14 @@ where
         self.step.set_frequency(freq);
 
         self.direction = if distance.to_mm().is_sign_positive() {
-            StepperDirection::Clockwise
+            RotationDirection::Clockwise
         } else {
-            StepperDirection::CounterClockwise
+            RotationDirection::CounterClockwise
         };
 
         match self.direction {
-            StepperDirection::Clockwise => self.dir.set_high(),
-            StepperDirection::CounterClockwise => self.dir.set_low(),
+            RotationDirection::Clockwise => self.dir.set_high(),
+            RotationDirection::CounterClockwise => self.dir.set_low(),
         };
 
         let steps_n = (abs(distance.to_mm()) / self.distance_per_step.to_mm()) as u64;
@@ -173,7 +158,7 @@ where
         self.position
     }
 
-    pub fn get_direction(&self) -> StepperDirection {
+    pub fn get_direction(&self) -> RotationDirection {
         self.direction
     }
 
@@ -188,6 +173,6 @@ where
     pub fn reset(&mut self) -> () {
         self.speed = Speed::from_mm_per_second(0.0);
         self.position = Distance::from_mm(0.0);
-        self.direction = StepperDirection::Clockwise;
+        self.direction = RotationDirection::Clockwise;
     }
 }
