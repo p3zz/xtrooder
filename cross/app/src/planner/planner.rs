@@ -1,18 +1,13 @@
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use embassy_time::Timer;
 
-use super::motion;
+use super::motion::{self, Positioning};
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::parser::GCommand;
-
-pub enum Positioning {
-    Relative,
-    Absolute,
-}
 
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'s, X, Y, Z, E> {
@@ -289,7 +284,11 @@ where
         dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to(&mut self.x_stepper, dest, feedrate).await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for(&mut self.x_stepper, dest, feedrate).await,
+            Positioning::Absolute => motion::linear_move_to(&mut self.x_stepper, dest, feedrate).await,
+        }
+        
     }
 
     pub async fn linear_move_xe(
@@ -298,14 +297,25 @@ where
         e_dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_e(
-            &mut self.x_stepper,
-            &mut self.e_stepper,
-            dest,
-            e_dest,
-            feedrate,
-        )
-        .await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for_e(
+                &mut self.x_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+            Positioning::Absolute => motion::linear_move_to_e(
+                &mut self.x_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+        }
+        
     }
 
     pub async fn linear_move_y(
@@ -313,7 +323,10 @@ where
         dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to(&mut self.y_stepper, dest, feedrate).await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for(&mut self.y_stepper, dest, feedrate).await,
+            Positioning::Absolute => motion::linear_move_to(&mut self.y_stepper, dest, feedrate).await,
+        }
     }
 
     pub async fn linear_move_ye(
@@ -322,14 +335,24 @@ where
         e_dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_e(
-            &mut self.y_stepper,
-            &mut self.e_stepper,
-            dest,
-            e_dest,
-            feedrate,
-        )
-        .await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for_e(
+                &mut self.y_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+            Positioning::Absolute => motion::linear_move_to_e(
+                &mut self.y_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+        }
     }
 
     pub async fn linear_move_z(
@@ -337,7 +360,10 @@ where
         dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to(&mut self.z_stepper, dest, feedrate).await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for(&mut self.z_stepper, dest, feedrate).await,
+            Positioning::Absolute => motion::linear_move_to(&mut self.z_stepper, dest, feedrate).await,
+        }
     }
 
     pub async fn linear_move_ze(
@@ -346,14 +372,24 @@ where
         e_dest: Distance,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_e(
-            &mut self.z_stepper,
-            &mut self.e_stepper,
-            dest,
-            e_dest,
-            feedrate,
-        )
-        .await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for_e(
+                &mut self.z_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+            Positioning::Absolute => motion::linear_move_to_e(
+                &mut self.z_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dest,
+                feedrate,
+            )
+            .await,
+        }
     }
 
     pub async fn linear_move_xy(
@@ -361,6 +397,7 @@ where
         dest: Vector2D<Distance>,
         feedrate: Speed,
     ) -> Result<(), StepperError> {
+        
         motion::linear_move_to_2d(&mut self.x_stepper, &mut self.y_stepper, dest, feedrate).await
     }
 
@@ -420,15 +457,26 @@ where
         feedrate: Speed,
         e_dst: Distance,
     ) -> Result<(), StepperError> {
-        motion::linear_move_to_2d_e(
-            &mut self.y_stepper,
-            &mut self.z_stepper,
-            &mut self.e_stepper,
-            dest,
-            e_dst,
-            feedrate,
-        )
-        .await
+        match self.positioning{
+            Positioning::Relative => motion::linear_move_for_2d_e(
+                &mut self.y_stepper,
+                &mut self.z_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dst,
+                feedrate,
+            )
+            .await,
+            Positioning::Absolute => motion::linear_move_to_2d_e(
+                &mut self.y_stepper,
+                &mut self.z_stepper,
+                &mut self.e_stepper,
+                dest,
+                e_dst,
+                feedrate,
+            )
+            .await,
+        }
     }
 
     pub async fn linear_move_xyz(

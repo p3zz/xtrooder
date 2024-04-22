@@ -9,6 +9,11 @@ use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use micromath::F32Ext;
 
+pub enum Positioning {
+    Relative,
+    Absolute,
+}
+
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     dest: Distance,
@@ -316,6 +321,7 @@ pub async fn arc_move_2d_center<
     speed: Speed,
     direction: RotationDirection,
 ) -> Result<(), StepperError> {
-    let center = dest.add(&offset_from_center);
+    let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let center = source.add(&offset_from_center);
     arc_move_2d_radius(stepper_a, stepper_b, dest, center, speed, direction).await
 }
