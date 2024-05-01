@@ -280,8 +280,8 @@ pub async fn arc_move_3d_center<
         arc_move_2d_arc_length(stepper_a, stepper_b, arc_length, xy_center, speed, direction),
         linear_move_to(stepper_c, dest.get_z(), z_speed)
     ){
-        (Ok(_), Ok(_)) => todo!(),
-        _ => todo!(),
+        (Ok(_), Ok(_)) => Ok(()),
+        _ => Err(StepperError::MoveNotValid),
     }
 }
 
