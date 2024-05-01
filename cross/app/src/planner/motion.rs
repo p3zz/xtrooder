@@ -9,9 +9,33 @@ use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use micromath::F32Ext;
 
+#[derive(Clone, Copy)]
 pub enum Positioning {
     Relative,
     Absolute,
+}
+
+// ---------------------------- LINEAR MOVE 1D ----------------------------
+
+pub async fn linear_move<'s, S: CaptureCompare16bitInstance>(
+    stepper: &mut Stepper<'s, S>,
+    dest: Distance,
+    speed: Speed,
+    positioning: Positioning
+) -> Result<(), StepperError> {
+    match positioning{
+        Positioning::Relative => linear_move_for(stepper, dest, speed).await,
+        Positioning::Absolute => linear_move_to(stepper, dest, speed).await,
+    }
+}
+
+pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
+    stepper: &mut Stepper<'s, S>,
+    distance: Distance,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let dest = stepper.get_position().add(&distance);
+    linear_move_to(stepper, dest, speed).await
 }
 
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
@@ -23,6 +47,41 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper.set_speed(s);
     stepper.move_to(dest).await
 }
+
+pub async fn linear_move_e<
+'s,
+A: CaptureCompare16bitInstance,
+E: CaptureCompare16bitInstance
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_e: &mut Stepper<'s, E>,
+    a_distance: Distance,
+    e_distance: Distance,
+    feedrate: Speed,
+    positioning: Positioning
+) -> Result<(), StepperError> {
+    match positioning{
+        Positioning::Relative => linear_move_for_e(stepper_a, stepper_e, a_distance, e_distance, feedrate).await,
+        Positioning::Absolute => linear_move_to_e(stepper_a, stepper_e, a_distance, e_distance, feedrate).await,
+    }
+}
+
+pub async fn linear_move_for_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_e: &mut Stepper<'s, E>,
+    a_distance: Distance,
+    e_distance: Distance,
+    feedrate: Speed,
+) -> Result<(), StepperError> {
+    let a_dest = stepper_a.get_position().add(&a_distance);
+    let e_dest = stepper_e.get_position().add(&e_distance);
+    linear_move_to_e(stepper_a, stepper_e, a_dest, e_dest, feedrate).await
+}
+
 
 pub async fn linear_move_to_e<
     's,
@@ -46,6 +105,44 @@ pub async fn linear_move_to_e<
     match join!(
         linear_move_to(stepper_a, a_dest, a_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
+    ) {
+        (Ok(_), Ok(_)) => Ok(()),
+        _ => Err(StepperError::MoveNotValid),
+    }
+}
+
+// ---------------------------- LINEAR MOVE 2D ----------------------------
+
+pub async fn linear_move_2d<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    dest: Vector2D<Distance>,
+    speed: Speed,
+    positioning: Positioning
+) -> Result<(), StepperError> {
+    match positioning{
+        Positioning::Relative => linear_move_for_2d(stepper_a, stepper_b, dest, speed).await,
+        Positioning::Absolute => linear_move_to_2d(stepper_a, stepper_b, dest, speed).await,
+    }
+}
+
+pub async fn linear_move_to_2d_raw<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    dest: Vector2D<Distance>,
+    speed: Vector2D<Speed>,
+) -> Result<(), StepperError> {
+    match join!(
+        linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
+        linear_move_to(stepper_b, dest.get_y(), speed.get_y())
     ) {
         (Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
@@ -76,24 +173,90 @@ pub async fn linear_move_to_2d<
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, ab_speed).await
 }
 
-pub async fn linear_move_to_2d_raw<
+pub async fn linear_move_for_2d<
     's,
     A: CaptureCompare16bitInstance,
     B: CaptureCompare16bitInstance,
 >(
     stepper_a: &mut Stepper<'s, A>,
     stepper_b: &mut Stepper<'s, B>,
-    dest: Vector2D<Distance>,
-    speed: Vector2D<Speed>,
+    distance: Vector2D<Distance>,
+    speed: Speed,
 ) -> Result<(), StepperError> {
+    let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let dest = source.add(&distance);
+    linear_move_to_2d(stepper_a, stepper_b, dest, speed).await
+}
+
+pub async fn linear_move_2d_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_e: &mut Stepper<'s, E>,
+    ab_dest: Vector2D<Distance>,
+    e_dest: Distance,
+    ab_speed: Speed,
+    positioning: Positioning
+) -> Result<(), StepperError> {
+    match positioning{
+        Positioning::Relative => linear_move_for_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await,
+        Positioning::Absolute => linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await,
+    }
+}
+
+pub async fn linear_move_to_2d_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_e: &mut Stepper<'s, E>,
+    ab_dest: Vector2D<Distance>,
+    e_dest: Distance,
+    ab_speed: Speed,
+) -> Result<(), StepperError> {
+    let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let ab_distance = ab_dest.sub(&ab_source);
+    let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.to_mm_per_second();
+    let e_delta = e_dest.sub(&stepper_e.get_position());
+    let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / ab_time);
     match join!(
-        linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
-        linear_move_to(stepper_b, dest.get_y(), speed.get_y())
+        linear_move_to_2d(stepper_a, stepper_b, ab_dest, ab_speed),
+        linear_move_to(stepper_e, e_dest, e_speed)
     ) {
         (Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
 }
+
+
+pub async fn linear_move_for_2d_e<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    E: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_e: &mut Stepper<'s, E>,
+    ab_distance: Vector2D<Distance>,
+    e_distance: Distance,
+    ab_speed: Speed,
+) -> Result<(), StepperError> {
+    let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let ab_dest = ab_source.add(&ab_distance);
+    let e_dest = stepper_e.get_position().add(&e_distance);
+    linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await
+}
+
+
+// ---------------------------- LINEAR MOVE 3D ----------------------------
 
 pub async fn linear_move_to_3d<
     's,
@@ -183,92 +346,6 @@ pub async fn linear_move_to_3d_raw<
         (Ok(_), Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
-}
-
-pub async fn linear_move_to_2d_e<
-    's,
-    A: CaptureCompare16bitInstance,
-    B: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
->(
-    stepper_a: &mut Stepper<'s, A>,
-    stepper_b: &mut Stepper<'s, B>,
-    stepper_e: &mut Stepper<'s, E>,
-    ab_dest: Vector2D<Distance>,
-    e_dest: Distance,
-    ab_speed: Speed,
-) -> Result<(), StepperError> {
-    let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let ab_distance = ab_dest.sub(&ab_source);
-    let ab_time = ab_distance.get_magnitude().to_mm() / ab_speed.to_mm_per_second();
-    let e_delta = e_dest.sub(&stepper_e.get_position());
-    let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / ab_time);
-    match join!(
-        linear_move_to_2d(stepper_a, stepper_b, ab_dest, ab_speed),
-        linear_move_to(stepper_e, e_dest, e_speed)
-    ) {
-        (Ok(_), Ok(_)) => Ok(()),
-        _ => Err(StepperError::MoveNotValid),
-    }
-}
-
-pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
-    stepper: &mut Stepper<'s, S>,
-    distance: Distance,
-    speed: Speed,
-) -> Result<(), StepperError> {
-    let dest = stepper.get_position().add(&distance);
-    linear_move_to(stepper, dest, speed).await
-}
-
-pub async fn linear_move_for_e<
-    's,
-    A: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
->(
-    stepper_a: &mut Stepper<'s, A>,
-    stepper_e: &mut Stepper<'s, E>,
-    a_distance: Distance,
-    e_distance: Distance,
-    feedrate: Speed,
-) -> Result<(), StepperError> {
-    let a_dest = stepper_a.get_position().add(&a_distance);
-    let e_dest = stepper_e.get_position().add(&e_distance);
-    linear_move_to_e(stepper_a, stepper_e, a_dest, e_dest, feedrate).await
-}
-
-pub async fn linear_move_for_2d<
-    's,
-    A: CaptureCompare16bitInstance,
-    B: CaptureCompare16bitInstance,
->(
-    stepper_a: &mut Stepper<'s, A>,
-    stepper_b: &mut Stepper<'s, B>,
-    distance: Vector2D<Distance>,
-    speed: Vector2D<Speed>,
-) -> Result<(), StepperError> {
-    let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let dest = source.add(&distance);
-    linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed).await
-}
-
-pub async fn linear_move_for_2d_e<
-    's,
-    A: CaptureCompare16bitInstance,
-    B: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
->(
-    stepper_a: &mut Stepper<'s, A>,
-    stepper_b: &mut Stepper<'s, B>,
-    stepper_e: &mut Stepper<'s, E>,
-    ab_distance: Vector2D<Distance>,
-    e_distance: Distance,
-    ab_speed: Speed,
-) -> Result<(), StepperError> {
-    let ab_source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let ab_dest = ab_source.add(&ab_distance);
-    let e_dest = stepper_e.get_position().add(&e_distance);
-    linear_move_to_2d_e(stepper_a, stepper_b, stepper_e, ab_dest, e_dest, ab_speed).await
 }
 
 // TODO check how do we know if the move is clockwise or counter-clockwise
