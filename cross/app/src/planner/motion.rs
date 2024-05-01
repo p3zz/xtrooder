@@ -258,7 +258,7 @@ pub async fn arc_move_3d_center<
     stepper_b: &mut Stepper<'s, B>,
     stepper_c: &mut Stepper<'s, C>,
     dest: Vector3D<Distance>,
-    center: Vector3D<Distance>,
+    center: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
 ) -> Result<(), StepperError> {
@@ -304,6 +304,24 @@ pub async fn arc_move_3d_radius<
     let center_offset_x = Distance::from_mm(radius.to_mm() * cos(angle));
     let center_offset_y = Distance::from_mm(radius.to_mm() * sin(angle));
     let center = source.add(&Vector2D::new(center_offset_x, center_offset_y));
-    let center = Vector3D::new(center.get_x(), center.get_y(), Distance::from_mm(0f64));
+    arc_move_3d_center(stepper_a, stepper_b, stepper_c, dest, center, speed, direction).await
+}
+
+pub async fn arc_move_3d_offset_from_center<
+    's,
+    A: CaptureCompare16bitInstance,
+    B: CaptureCompare16bitInstance,
+    C: CaptureCompare16bitInstance,
+>(
+    stepper_a: &mut Stepper<'s, A>,
+    stepper_b: &mut Stepper<'s, B>,
+    stepper_c: &mut Stepper<'s, C>,
+    dest: Vector3D<Distance>,
+    offset: Vector2D<Distance>,
+    speed: Speed,
+    direction: RotationDirection,
+) -> Result<(), StepperError> {
+    let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
+    let center = source.add(&offset);
     arc_move_3d_center(stepper_a, stepper_b, stepper_c, dest, center, speed, direction).await
 }
