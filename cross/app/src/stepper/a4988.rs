@@ -47,6 +47,7 @@ pub struct Stepper<'s, S> {
     distance_per_step: Distance,
     bounds: (Distance, Distance),
     stepping_mode: SteppingMode,
+    positive_heading: RotationDirection,
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
     position: Distance,
@@ -81,7 +82,15 @@ where
             direction: RotationDirection::Clockwise,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
             stepping_mode,
+            positive_heading: RotationDirection::Clockwise
         }
+    }
+
+    // select how the stepper has to move (clockwise or counter-clockwise) in order to
+    // perform a positive move. Use this if the stepper is mounted so that a positive move
+    // is done with a counter-clockwise rotation
+    pub fn set_positive_heading(&mut self, direction: RotationDirection){
+        self.positive_heading = direction;
     }
 
     /*
@@ -116,7 +125,12 @@ where
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
 
-        self.direction = if distance.to_mm().is_sign_positive() {
+        let distance = match self.positive_heading{
+            RotationDirection::Clockwise => distance.to_mm(),
+            RotationDirection::CounterClockwise => -distance.to_mm(),
+        };
+
+        self.direction = if distance.is_sign_positive() {
             RotationDirection::Clockwise
         } else {
             RotationDirection::CounterClockwise
@@ -127,7 +141,7 @@ where
             RotationDirection::CounterClockwise => self.dir.set_low(),
         };
 
-        let steps_n = (abs(distance.to_mm()) / self.distance_per_step.to_mm()) as u64;
+        let steps_n = (abs(distance) / self.distance_per_step.to_mm()) as u64;
 
         // compute the duration of the move.
         let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
