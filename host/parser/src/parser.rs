@@ -67,10 +67,7 @@ enum GCommandType {
 }
 
 fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
-    match extract_token_as_number(cmd, key) {
-        Some(value) => Some(Speed::from_unit(value, unit)),
-        None => None,
-    }
+    extract_token_as_number(cmd, key).map(|value|Speed::from_unit(value, unit))
 }
 
 fn extract_distance(
@@ -78,10 +75,7 @@ fn extract_distance(
     key: &str,
     unit: DistanceUnit,
 ) -> Option<Distance> {
-    match extract_token_as_number(cmd, key) {
-        Some(value) => Some(Distance::from_unit(value, unit)),
-        None => None,
-    }
+    extract_token_as_number(cmd, key).map(|value|Distance::from_unit(value, unit))
 }
 
 fn extract_duration(
@@ -101,10 +95,7 @@ fn extract_temperature(
     key: &str,
     unit: TemperatureUnit,
 ) -> Option<Temperature> {
-    match extract_token_as_number(cmd, key) {
-        Some(value) => Some(Temperature::from_unit(value, unit)),
-        None => None,
-    }
+    extract_token_as_number(cmd, key).map(|value|Temperature::from_unit(value, unit))
 }
 
 fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64> {
@@ -124,10 +115,7 @@ fn extract_token_as_string(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option
 fn get_command_type(cmd: &LinearMap<&str, &str, 16>) -> Option<(GCommandType, u64)> {
     match extract_token_as_number(cmd, "G") {
         Some(code) => Some((GCommandType::G, code as u64)),
-        None => match extract_token_as_number(cmd, "M") {
-            Some(code) => Some((GCommandType::M, code as u64)),
-            None => None,
-        },
+        None => extract_token_as_number(cmd, "M").map(|code|(GCommandType::M, code as u64))
     }
 }
 
@@ -216,10 +204,6 @@ impl GCodeParser {
         for t in tokens {
             let key = t.get(0..1)?;
             let v = t.get(1..)?;
-            let value = match v.parse::<f64>() {
-                Ok(n) => n,
-                Err(_) => return None,
-            };
             cmd.insert(key, v).unwrap();
         }
 

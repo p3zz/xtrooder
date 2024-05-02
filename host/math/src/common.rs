@@ -2,8 +2,7 @@ use core::{f64::consts::PI, time::Duration};
 use micromath::F32Ext;
 
 use crate::{
-    angle::{asin, atan2, cos, sin, Angle},
-    computable::Computable,
+    angle::{asin, cos, sin, Angle},
     distance::Distance,
     speed::Speed,
     vector::Vector2D,
