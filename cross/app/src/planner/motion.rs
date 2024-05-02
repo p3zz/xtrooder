@@ -1,11 +1,8 @@
-use core::time::Duration;
-
 use crate::stepper::a4988::{Stepper, StepperError};
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
-use heapless::Vec;
-use math::angle::{asin, cos, sin};
-use math::common::{abs, compute_arc_destination, compute_arc_length, sqrt, RotationDirection};
+use math::angle::{cos, sin};
+use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -18,8 +15,8 @@ pub enum Positioning {
     Absolute,
 }
 
-pub fn no_move<'t, T: CaptureCompare16bitInstance>(
-    stepper: &Stepper<'t, T>,
+pub fn no_move<T: CaptureCompare16bitInstance>(
+    stepper: &Stepper<T>,
     positioning: Positioning,
 ) -> Distance {
     match positioning {

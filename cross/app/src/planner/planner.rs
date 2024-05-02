@@ -69,12 +69,27 @@ where
                 j,
                 r,
             } => self.g3(x, y, z, e, f, i, j, r).await,
-            GCommand::G20 => Ok(self.g20()),
-            GCommand::G21 => Ok(self.g21()),
-            GCommand::G90 => Ok(self.g90()),
-            GCommand::G91 => Ok(self.g91()),
+            GCommand::G20 => {
+                self.g20();
+                Ok(())
+            },
+            GCommand::G21 => {
+                self.g21();
+                Ok(())
+            },
+            GCommand::G90 => {
+                self.g90();
+                Ok(())
+            },
+            GCommand::G91 => {
+                self.g91();
+                Ok(())
+            },
             GCommand::M104 { s } => todo!(),
-            GCommand::G4 { p, s } => Ok(self.g4(p, s).await),
+            GCommand::G4 { p, s } => {
+                self.g4(p, s).await;
+                Ok(())
+            },
             GCommand::M149 => todo!(),
         }
     }

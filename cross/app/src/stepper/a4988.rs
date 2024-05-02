@@ -98,7 +98,7 @@ where
     pwm frequency: count of PWM interval periods per second
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
-    pub fn set_speed(&mut self, speed: Speed) -> () {
+    pub fn set_speed(&mut self, speed: Speed) {
         self.speed = speed;
     }
 
@@ -184,7 +184,7 @@ where
         self.move_to(Distance::from_mm(0.0)).await
     }
 
-    pub fn reset(&mut self) -> () {
+    pub fn reset(&mut self) {
         self.speed = Speed::from_mm_per_second(0.0);
         self.position = Distance::from_mm(0.0);
         self.direction = RotationDirection::Clockwise;
