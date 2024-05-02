@@ -82,14 +82,14 @@ where
             direction: RotationDirection::Clockwise,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
             stepping_mode,
-            positive_heading: RotationDirection::Clockwise
+            positive_heading: RotationDirection::Clockwise,
         }
     }
 
     // select how the stepper has to move (clockwise or counter-clockwise) in order to
     // perform a positive move. Use this if the stepper is mounted so that a positive move
     // is done with a counter-clockwise rotation
-    pub fn set_positive_heading(&mut self, direction: RotationDirection){
+    pub fn set_positive_heading(&mut self, direction: RotationDirection) {
         self.positive_heading = direction;
     }
 
@@ -125,7 +125,7 @@ where
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
 
-        let distance = match self.positive_heading{
+        let distance = match self.positive_heading {
             RotationDirection::Clockwise => distance.to_mm(),
             RotationDirection::CounterClockwise => -distance.to_mm(),
         };

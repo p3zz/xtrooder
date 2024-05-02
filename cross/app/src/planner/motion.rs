@@ -18,8 +18,11 @@ pub enum Positioning {
     Absolute,
 }
 
-pub fn no_move<'t, T: CaptureCompare16bitInstance>(stepper: &Stepper<'t, T>, positioning: Positioning) -> Distance {
-    match positioning{
+pub fn no_move<'t, T: CaptureCompare16bitInstance>(
+    stepper: &Stepper<'t, T>,
+    positioning: Positioning,
+) -> Distance {
+    match positioning {
         Positioning::Relative => Distance::from_mm(0.0),
         Positioning::Absolute => stepper.get_position(),
     }
@@ -77,24 +80,18 @@ pub async fn linear_move_to_2d<
     dest: Vector2D<Distance>,
     speed: Speed,
 ) -> Result<(), StepperError> {
-    let src = Vector2D::new(
-        stepper_a.get_position(),
-        stepper_b.get_position(),
-    );
+    let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let direction = dest.sub(&src).normalize();
     if direction.is_err() {
         return Err(StepperError::MoveNotValid);
     }
-    let speed_x =
-        Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let speed_y =
-        Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
 
     let speed = Vector2D::new(speed_x, speed_y);
 
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed).await
 }
-
 
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
@@ -109,11 +106,15 @@ pub async fn linear_move_3d<
     stepper_c: &mut Stepper<'s, C>,
     dest: Vector3D<Distance>,
     speed: Speed,
-    positioning: Positioning
+    positioning: Positioning,
 ) -> Result<(), StepperError> {
-    match positioning{
-        Positioning::Relative => linear_move_for_3d(stepper_a, stepper_b, stepper_c, dest, speed).await,
-        Positioning::Absolute => linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed).await,
+    match positioning {
+        Positioning::Relative => {
+            linear_move_for_3d(stepper_a, stepper_b, stepper_c, dest, speed).await
+        }
+        Positioning::Absolute => {
+            linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed).await
+        }
     }
 }
 
@@ -160,12 +161,9 @@ pub async fn linear_move_to_3d<
     if direction.is_err() {
         return Err(StepperError::MoveNotValid);
     }
-    let speed_x =
-        Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let speed_y =
-        Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
-    let speed_z =
-        Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
+    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+    let speed_z = Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
 
     let speed = Vector3D::new(speed_x, speed_y, speed_z);
 
@@ -183,8 +181,12 @@ pub async fn linear_move_for_3d<
     stepper_c: &mut Stepper<'s, C>,
     distance: Vector3D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError>{
-    let source = Vector3D::new(stepper_a.get_position(), stepper_b.get_position(), stepper_c.get_position());
+) -> Result<(), StepperError> {
+    let source = Vector3D::new(
+        stepper_a.get_position(),
+        stepper_b.get_position(),
+        stepper_c.get_position(),
+    );
     let dest = source.add(&distance);
     linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed).await
 }
@@ -203,14 +205,23 @@ pub async fn linear_move_3d_e<
     dest: Vector3D<Distance>,
     speed: Speed,
     e_dest: Distance,
-    positioning: Positioning
+    positioning: Positioning,
 ) -> Result<(), StepperError> {
-    match positioning{
-        Positioning::Relative => linear_move_for_3d_e(stepper_a, stepper_b, stepper_c,stepper_e, dest, speed, e_dest).await,
-        Positioning::Absolute => linear_move_to_3d_e(stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest).await,
+    match positioning {
+        Positioning::Relative => {
+            linear_move_for_3d_e(
+                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest,
+            )
+            .await
+        }
+        Positioning::Absolute => {
+            linear_move_to_3d_e(
+                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest,
+            )
+            .await
+        }
     }
 }
-
 
 pub async fn linear_move_to_3d_e<
     's,
@@ -270,7 +281,16 @@ pub async fn linear_move_for_3d_e<
     let abc_destination = src.add(&distance);
     let e_destination = stepper_e.get_position().add(&e_distance);
 
-    linear_move_to_3d_e(stepper_a, stepper_b, stepper_c, stepper_e, abc_destination, speed, e_destination).await
+    linear_move_to_3d_e(
+        stepper_a,
+        stepper_b,
+        stepper_c,
+        stepper_e,
+        abc_destination,
+        speed,
+        e_destination,
+    )
+    .await
 }
 
 // ---------------------------- ARC MOVE 2D ----------------------------
@@ -320,7 +340,7 @@ pub async fn arc_move_3d_e_center<
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
-    full_circle_enabled: bool
+    full_circle_enabled: bool,
 ) -> Result<(), StepperError> {
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let xy_dest = Vector2D::new(dest.get_x(), dest.get_y());
@@ -341,7 +361,7 @@ pub async fn arc_move_3d_e_center<
         arc_move_2d_arc_length(stepper_a, stepper_b, arc_length, xy_center, speed, direction),
         linear_move_to(stepper_c, dest.get_z(), z_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
-    ){
+    ) {
         (Ok(_), Ok(_), Ok(_)) => Ok(()),
         _ => Err(StepperError::MoveNotValid),
     }
@@ -362,14 +382,17 @@ pub async fn arc_move_3d_e_radius<
     radius: Distance,
     speed: Speed,
     direction: RotationDirection,
-    e_dest: Distance
+    e_dest: Distance,
 ) -> Result<(), StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let angle = source.get_angle();
     let center_offset_x = Distance::from_mm(radius.to_mm() * cos(angle));
     let center_offset_y = Distance::from_mm(radius.to_mm() * sin(angle));
     let center = source.add(&Vector2D::new(center_offset_x, center_offset_y));
-    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false).await
+    arc_move_3d_e_center(
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,
+    )
+    .await
 }
 
 pub async fn arc_move_3d_e_offset_from_center<
@@ -387,9 +410,12 @@ pub async fn arc_move_3d_e_offset_from_center<
     offset: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
-    e_dest: Distance
+    e_dest: Distance,
 ) -> Result<(), StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let center = source.add(&offset);
-    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true).await
+    arc_move_3d_e_center(
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true,
+    )
+    .await
 }

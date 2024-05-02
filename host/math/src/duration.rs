@@ -1,4 +1,4 @@
-pub enum DurationUnit{
+pub enum DurationUnit {
     Second,
-    Millisecond
+    Millisecond,
 }

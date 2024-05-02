@@ -19,7 +19,7 @@ pub struct Planner<'s, X, Y, Z, E> {
     y_stepper: Stepper<'s, Y>,
     z_stepper: Stepper<'s, Z>,
     e_stepper: Stepper<'s, E>,
-    parser: GCodeParser
+    parser: GCodeParser,
 }
 impl<'s, X, Y, Z, E> Planner<'s, X, Y, Z, E>
 where
@@ -41,7 +41,7 @@ where
             e_stepper,
             feedrate: Speed::from_mm_per_second(0.0),
             positioning: Positioning::Absolute,
-            parser: GCodeParser::new()
+            parser: GCodeParser::new(),
         }
     }
 
@@ -86,7 +86,7 @@ where
             (Some(_), None) => p,
         };
         if let Some(duration) = d {
-            let t =  embassy_time::Duration::from_millis(duration.as_millis() as u64);
+            let t = embassy_time::Duration::from_millis(duration.as_millis() as u64);
             Timer::after(t).await;
         }
     }
@@ -114,20 +114,20 @@ where
         z: Option<Distance>,
         f: Option<Speed>,
     ) -> Result<(), StepperError> {
-        if let Some(feedrate) = f{
-            self.feedrate = feedrate;    
+        if let Some(feedrate) = f {
+            self.feedrate = feedrate;
         }
-        let x = match x{
+        let x = match x {
             Some(v) => v,
             None => no_move(&self.x_stepper, self.positioning),
         };
 
-        let y = match y{
+        let y = match y {
             Some(v) => v,
             None => no_move(&self.y_stepper, self.positioning),
         };
-        
-        let z = match z{
+
+        let z = match z {
             Some(v) => v,
             None => no_move(&self.z_stepper, self.positioning),
         };
@@ -136,11 +136,13 @@ where
 
         motion::linear_move_3d(
             &mut self.x_stepper,
-            &mut self.y_stepper, 
-            &mut self.z_stepper, 
-            dst, 
-            self.feedrate, 
-            self.positioning).await
+            &mut self.y_stepper,
+            &mut self.z_stepper,
+            dst,
+            self.feedrate,
+            self.positioning,
+        )
+        .await
     }
 
     pub async fn g1(
@@ -151,25 +153,25 @@ where
         e: Option<Distance>,
         f: Option<Speed>,
     ) -> Result<(), StepperError> {
-        if let Some(feedrate) = f{
-            self.feedrate = feedrate;    
+        if let Some(feedrate) = f {
+            self.feedrate = feedrate;
         }
-        let x = match x{
+        let x = match x {
             Some(v) => v,
             None => no_move(&self.x_stepper, self.positioning),
         };
 
-        let y = match y{
+        let y = match y {
             Some(v) => v,
             None => no_move(&self.y_stepper, self.positioning),
         };
-        
-        let z = match z{
+
+        let z = match z {
             Some(v) => v,
             None => no_move(&self.z_stepper, self.positioning),
         };
 
-        let e = match e{
+        let e = match e {
             Some(v) => v,
             None => no_move(&self.e_stepper, self.positioning),
         };
@@ -178,13 +180,15 @@ where
 
         motion::linear_move_3d_e(
             &mut self.x_stepper,
-            &mut self.y_stepper, 
-            &mut self.z_stepper, 
-            &mut self.e_stepper, 
-            dst, 
+            &mut self.y_stepper,
+            &mut self.z_stepper,
+            &mut self.e_stepper,
+            dst,
             self.feedrate,
             e,
-            self.positioning).await
+            self.positioning,
+        )
+        .await
     }
 
     /**
@@ -192,15 +196,15 @@ where
      * IJ form:
      * - i or j is required. Omitting both will throw an error
      * - x and y can be omitted to do a complete circle
-     * 
+     *
      * R form:
      * - x or y is required. Omitting both will throw an error
      * - x or y must differ from the current xy position
-     * 
+     *
      * mixing i or j with r will throw an error
      *  
      */
-     async fn g2_3(
+    async fn g2_3(
         &mut self,
         x: Option<Distance>,
         y: Option<Distance>,
@@ -210,7 +214,7 @@ where
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-        d: RotationDirection
+        d: RotationDirection,
     ) -> Result<(), StepperError> {
         match (i, j, r) {
             (Some(_), Some(_), Some(_))
@@ -220,67 +224,69 @@ where
             _ => (),
         }
 
-        if let Some(feedrate) = f{
-            self.feedrate = feedrate;    
+        if let Some(feedrate) = f {
+            self.feedrate = feedrate;
         }
 
-        let z = match z{
+        let z = match z {
             Some(v) => v,
             None => no_move(&self.z_stepper, Positioning::Absolute),
         };
 
-        let e = match e{
+        let e = match e {
             Some(v) => v,
             None => no_move(&self.z_stepper, Positioning::Relative),
         };
 
-        if i.is_some() || j.is_some(){
-            let x = match x{
+        if i.is_some() || j.is_some() {
+            let x = match x {
                 Some(v) => v,
                 None => no_move(&self.x_stepper, Positioning::Absolute),
             };
-    
-            let y = match y{
+
+            let y = match y {
                 Some(v) => v,
                 None => no_move(&self.y_stepper, Positioning::Absolute),
             };
-    
+
             let dst = Vector3D::new(x, y, z);
-    
-            let i = match i{
+
+            let i = match i {
                 Some(v) => v,
                 None => Distance::from_mm(0f64),
             };
-    
-            let j = match j{
+
+            let j = match j {
                 Some(v) => v,
                 None => Distance::from_mm(0f64),
             };
 
             let offset_from_center = Vector2D::new(i, j);
             arc_move_3d_e_offset_from_center(
-                &mut self.x_stepper, 
-                &mut self.y_stepper, 
-                &mut self.z_stepper, 
+                &mut self.x_stepper,
+                &mut self.y_stepper,
+                &mut self.z_stepper,
                 &mut self.e_stepper,
                 dst,
                 offset_from_center,
                 self.feedrate,
-                d, 
-                e).await?
+                d,
+                e,
+            )
+            .await?
         }
 
-        if r.is_some(){
-            if x.is_none() && y.is_none(){
+        if r.is_some() {
+            if x.is_none() && y.is_none() {
                 return Err(StepperError::MoveNotValid);
             }
 
-            let x = match x{
+            let x = match x {
                 Some(v) => v,
                 None => no_move(&self.x_stepper, Positioning::Absolute),
             };
-    
-            let y = match y{
+
+            let y = match y {
                 Some(v) => v,
                 None => no_move(&self.y_stepper, Positioning::Absolute),
             };
@@ -290,16 +296,17 @@ where
             let r = r.unwrap();
 
             arc_move_3d_e_radius(
-                &mut self.x_stepper, 
-                &mut self.y_stepper, 
-                &mut self.z_stepper, 
+                &mut self.x_stepper,
+                &mut self.y_stepper,
+                &mut self.z_stepper,
                 &mut self.e_stepper,
                 dst,
                 r,
                 self.feedrate,
-                d, 
-                e).await?
-
+                d,
+                e,
+            )
+            .await?
         }
 
         Err(StepperError::MoveNotValid)
@@ -314,8 +321,10 @@ where
         f: Option<Speed>,
         i: Option<Distance>,
         j: Option<Distance>,
-        r: Option<Distance>,) -> Result<(), StepperError> {
-        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise).await
+        r: Option<Distance>,
+    ) -> Result<(), StepperError> {
+        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise)
+            .await
     }
 
     pub async fn g3(
@@ -327,8 +336,9 @@ where
         f: Option<Speed>,
         i: Option<Distance>,
         j: Option<Distance>,
-        r: Option<Distance>,) -> Result<(), StepperError> {
-        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise).await
+        r: Option<Distance>,
+    ) -> Result<(), StepperError> {
+        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
+            .await
     }
-
 }

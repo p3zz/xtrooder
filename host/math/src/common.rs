@@ -1,7 +1,13 @@
 use core::{f64::consts::PI, time::Duration};
 use micromath::F32Ext;
 
-use crate::{angle::{asin, atan2, cos, sin, Angle}, computable::Computable, distance::Distance, speed::Speed, vector::Vector2D};
+use crate::{
+    angle::{asin, atan2, cos, sin, Angle},
+    computable::Computable,
+    distance::Distance,
+    speed::Speed,
+    vector::Vector2D,
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum RotationDirection {
@@ -67,40 +73,54 @@ pub fn compute_step_duration(spr: u64, dps: Distance, speed: Speed) -> Option<Du
     Some(Duration::from_micros(usecond_per_step / 2))
 }
 
-pub fn compute_arc_length(start: Vector2D<Distance>, center: Vector2D<Distance>, end: Vector2D<Distance>, direction: RotationDirection, full_circle_enabled: bool) -> Distance{
+pub fn compute_arc_length(
+    start: Vector2D<Distance>,
+    center: Vector2D<Distance>,
+    end: Vector2D<Distance>,
+    direction: RotationDirection,
+    full_circle_enabled: bool,
+) -> Distance {
     let start_angle = start.get_angle();
     let end_angle = end.get_angle();
     let radius = end.sub(&center).get_magnitude();
-    if radius.to_mm() == 0f64{
+    if radius.to_mm() == 0f64 {
         return Distance::from_mm(0.0);
     }
 
     let chord_length = end.sub(&start).get_magnitude();
     let mut th: f64 = 2.0 * asin(chord_length.to_mm() / (2.0 * radius.to_mm())).to_radians();
 
-    if start_angle.to_radians() < end_angle.to_radians() && direction == RotationDirection::Clockwise ||
-        start_angle.to_radians() > end_angle.to_radians() && direction == RotationDirection::CounterClockwise{
-            th = 2.0 * PI - th;
+    if start_angle.to_radians() < end_angle.to_radians()
+        && direction == RotationDirection::Clockwise
+        || start_angle.to_radians() > end_angle.to_radians()
+            && direction == RotationDirection::CounterClockwise
+    {
+        th = 2.0 * PI - th;
     }
 
-    if th == 0f64 && full_circle_enabled{
+    if th == 0f64 && full_circle_enabled {
         th = 2.0 * PI;
     }
 
     Distance::from_mm(radius.to_mm() * th)
 }
 
-pub fn compute_arc_destination(start: Vector2D<Distance>, center: Vector2D<Distance>, arc_length: Distance, direction: RotationDirection) -> Option<Vector2D<Distance>> {
+pub fn compute_arc_destination(
+    start: Vector2D<Distance>,
+    center: Vector2D<Distance>,
+    arc_length: Distance,
+    direction: RotationDirection,
+) -> Option<Vector2D<Distance>> {
     let delta = start.sub(&center);
     let radius = delta.get_magnitude();
-    
-    if radius.to_mm() == 0f64{
-        return None
+
+    if radius.to_mm() == 0f64 {
+        return None;
     }
 
     let angle = delta.get_angle();
 
-    let l = match direction{
+    let l = match direction {
         RotationDirection::Clockwise => Distance::from_mm(-arc_length.to_mm()),
         RotationDirection::CounterClockwise => arc_length,
     };
@@ -115,13 +135,14 @@ pub fn compute_arc_destination(start: Vector2D<Distance>, center: Vector2D<Dista
 
 #[cfg(test)]
 mod tests {
-    use core::f64::consts::PI;
     use assert_float_eq::*;
+    use core::f64::consts::PI;
 
     use crate::{
         common::{abs, compute_arc_length, compute_step_duration, RotationDirection},
         distance::Distance,
-        speed::Speed, vector::Vector2D,
+        speed::Speed,
+        vector::Vector2D,
     };
 
     use super::compute_arc_destination;
@@ -203,10 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_destination_clockwise_1(){
+    fn test_compute_arc_destination_clockwise_1() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(1.0), Distance::from_mm(0.0));
-        let arc_length = Distance::from_mm(PI/2.0);
+        let arc_length = Distance::from_mm(PI / 2.0);
         let direction = RotationDirection::Clockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
         assert!(dest.is_some());
@@ -215,11 +236,11 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_destination_clockwise_2(){
+    fn test_compute_arc_destination_clockwise_2() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let direction = RotationDirection::Clockwise;
-        let arc_length = Distance::from_mm(PI/2.0);
+        let arc_length = Distance::from_mm(PI / 2.0);
         let dest = compute_arc_destination(start, center, arc_length, direction);
         assert!(dest.is_some());
         assert_float_absolute_eq!(dest.unwrap().get_x().to_mm(), -1.0, 0.000001);
@@ -227,10 +248,10 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_destination_counterclockwise_1(){
+    fn test_compute_arc_destination_counterclockwise_1() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(1.0), Distance::from_mm(0.0));
-        let arc_length = Distance::from_mm(PI/2.0);
+        let arc_length = Distance::from_mm(PI / 2.0);
         let direction = RotationDirection::CounterClockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
         assert!(dest.is_some());
@@ -239,11 +260,11 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_destination_counterclockwise_2(){
+    fn test_compute_arc_destination_counterclockwise_2() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let direction = RotationDirection::CounterClockwise;
-        let arc_length = Distance::from_mm(PI/2.0);
+        let arc_length = Distance::from_mm(PI / 2.0);
         let dest = compute_arc_destination(start, center, arc_length, direction);
         assert!(dest.is_some());
         assert_float_absolute_eq!(dest.unwrap().get_x().to_mm(), -1.0, 0.000001);
@@ -251,45 +272,55 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_length_counterclockwise_1(){
+    fn test_compute_arc_length_counterclockwise_1() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
-        let l = compute_arc_length(start, center, end, RotationDirection::CounterClockwise, false);
-        assert_float_absolute_eq!(l.to_mm(), PI * (3.0/2.0), 0.000001);
+        let l = compute_arc_length(
+            start,
+            center,
+            end,
+            RotationDirection::CounterClockwise,
+            false,
+        );
+        assert_float_absolute_eq!(l.to_mm(), PI * (3.0 / 2.0), 0.000001);
     }
 
-
     #[test]
-    fn test_compute_arc_length_clockwise_1(){
+    fn test_compute_arc_length_clockwise_1() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, false);
-        assert_float_absolute_eq!(l.to_mm(), PI * (1.0/2.0), 0.000001);
+        assert_float_absolute_eq!(l.to_mm(), PI * (1.0 / 2.0), 0.000001);
     }
 
     #[test]
-    fn test_compute_arc_length_counterclockwise_2(){
+    fn test_compute_arc_length_counterclockwise_2() {
         let start = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
-        let l = compute_arc_length(start, center, end, RotationDirection::CounterClockwise, false);
-        assert_float_absolute_eq!(l.to_mm(), PI * (1.0/2.0), 0.000001);
+        let l = compute_arc_length(
+            start,
+            center,
+            end,
+            RotationDirection::CounterClockwise,
+            false,
+        );
+        assert_float_absolute_eq!(l.to_mm(), PI * (1.0 / 2.0), 0.000001);
     }
 
-
     #[test]
-    fn test_compute_arc_length_clockwise_2(){
+    fn test_compute_arc_length_clockwise_2() {
         let start = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, false);
-        assert_float_absolute_eq!(l.to_mm(), PI * (3.0/2.0), 0.000001);
+        assert_float_absolute_eq!(l.to_mm(), PI * (3.0 / 2.0), 0.000001);
     }
 
     #[test]
-    fn test_compute_arc_length_full_circle_off(){
+    fn test_compute_arc_length_full_circle_off() {
         let start = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
@@ -298,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_arc_length_full_circle_on(){
+    fn test_compute_arc_length_full_circle_on() {
         let start = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));
         let center = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(-1.0), Distance::from_mm(-1.0));

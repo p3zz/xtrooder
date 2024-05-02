@@ -83,7 +83,7 @@ pub fn asin(value: f64) -> Angle {
 pub fn sinc(angle: Angle) -> f64 {
     if angle.to_radians() == 0f64 {
         1f64
-    } else{
+    } else {
         sin(angle) / angle.to_radians()
     }
 }

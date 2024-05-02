@@ -1,7 +1,12 @@
 use core::{str::FromStr, time::Duration};
 
 use heapless::{spsc::Queue, LinearMap, String, Vec};
-use math::{distance::{Distance, DistanceUnit}, duration::DurationUnit, speed::Speed, temperature::{Temperature, TemperatureUnit}};
+use math::{
+    distance::{Distance, DistanceUnit},
+    duration::DurationUnit,
+    speed::Speed,
+    temperature::{Temperature, TemperatureUnit},
+};
 
 #[derive(PartialEq, Debug)]
 pub enum GCommand {
@@ -53,7 +58,7 @@ pub enum GCommand {
         s: Option<Temperature>,
     },
     // set temperature unit
-    M149
+    M149,
 }
 
 enum GCommandType {
@@ -61,44 +66,56 @@ enum GCommandType {
     M,
 }
 
-fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed>{
-    match extract_token_as_number(cmd, key){
+fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
+    match extract_token_as_number(cmd, key) {
         Some(value) => Some(Speed::from_unit(value, unit)),
-        None => None
+        None => None,
     }
 }
 
-fn extract_distance(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Distance>{
-    match extract_token_as_number(cmd, key){
+fn extract_distance(
+    cmd: &LinearMap<&str, &str, 16>,
+    key: &str,
+    unit: DistanceUnit,
+) -> Option<Distance> {
+    match extract_token_as_number(cmd, key) {
         Some(value) => Some(Distance::from_unit(value, unit)),
-        None => None
+        None => None,
     }
 }
 
-fn extract_duration(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DurationUnit) -> Option<Duration>{
+fn extract_duration(
+    cmd: &LinearMap<&str, &str, 16>,
+    key: &str,
+    unit: DurationUnit,
+) -> Option<Duration> {
     let value = extract_token_as_number(cmd, key)? as u64;
-    match unit{
+    match unit {
         DurationUnit::Second => Some(Duration::from_secs(value)),
         DurationUnit::Millisecond => Some(Duration::from_millis(value)),
     }
 }
 
-fn extract_temperature(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: TemperatureUnit) -> Option<Temperature>{
-    match extract_token_as_number(cmd, key){
+fn extract_temperature(
+    cmd: &LinearMap<&str, &str, 16>,
+    key: &str,
+    unit: TemperatureUnit,
+) -> Option<Temperature> {
+    match extract_token_as_number(cmd, key) {
         Some(value) => Some(Temperature::from_unit(value, unit)),
-        None => None
+        None => None,
     }
 }
 
-fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64>{
-    match extract_token_as_string(cmd, key){
+fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64> {
+    match extract_token_as_string(cmd, key) {
         Some(t) => t.parse::<f64>().ok(),
         None => todo!(),
     }
 }
 
 fn extract_token_as_string(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<String<8>> {
-    match cmd.get(key).copied(){
+    match cmd.get(key).copied() {
         Some(t) => String::from_str(t).ok(),
         None => None,
     }
@@ -133,7 +150,7 @@ impl GCodeParser {
             command_queue: Queue::new(),
             state: ParserState::ReadingCommand,
             distance_unit: DistanceUnit::Millimeter,
-            temperature_unit: TemperatureUnit::Celsius
+            temperature_unit: TemperatureUnit::Celsius,
         }
     }
 
@@ -169,11 +186,11 @@ impl GCodeParser {
         Ok(())
     }
 
-    pub fn set_distance_unit(&mut self, unit: DistanceUnit){
+    pub fn set_distance_unit(&mut self, unit: DistanceUnit) {
         self.distance_unit = unit;
     }
 
-    pub fn set_temperature_unit(&mut self, unit: TemperatureUnit){
+    pub fn set_temperature_unit(&mut self, unit: TemperatureUnit) {
         self.temperature_unit = unit;
     }
 
@@ -205,7 +222,7 @@ impl GCodeParser {
             };
             cmd.insert(key, v).unwrap();
         }
-    
+
         let (t, code) = get_command_type(&cmd)?;
         match (t, code) {
             (GCommandType::G, 0) => {
@@ -214,7 +231,7 @@ impl GCodeParser {
                 let z = extract_distance(&cmd, "Z", self.distance_unit);
                 let f = extract_speed(&cmd, "F", self.distance_unit);
                 Some(GCommand::G0 { x, y, z, f })
-            },
+            }
             (GCommandType::G, 1) => {
                 let x = extract_distance(&cmd, "X", self.distance_unit);
                 let y = extract_distance(&cmd, "Y", self.distance_unit);
@@ -222,28 +239,46 @@ impl GCodeParser {
                 let e = extract_distance(&cmd, "E", self.distance_unit);
                 let f = extract_speed(&cmd, "F", self.distance_unit);
                 Some(GCommand::G1 { x, y, z, e, f })
-            },
+            }
             (GCommandType::G, 2) => {
                 let x = extract_distance(&cmd, "X", self.distance_unit);
                 let y = extract_distance(&cmd, "Y", self.distance_unit);
                 let z = extract_distance(&cmd, "Z", self.distance_unit);
                 let e = extract_distance(&cmd, "E", self.distance_unit);
                 let f = extract_speed(&cmd, "F", self.distance_unit);
-                let i= extract_distance(&cmd, "I", self.distance_unit);
+                let i = extract_distance(&cmd, "I", self.distance_unit);
                 let j = extract_distance(&cmd, "J", self.distance_unit);
                 let r = extract_distance(&cmd, "R", self.distance_unit);
-                Some(GCommand::G2 {x, y, z, e, f, i, j, r})
-            },
+                Some(GCommand::G2 {
+                    x,
+                    y,
+                    z,
+                    e,
+                    f,
+                    i,
+                    j,
+                    r,
+                })
+            }
             (GCommandType::G, 3) => {
                 let x = extract_distance(&cmd, "X", self.distance_unit);
                 let y = extract_distance(&cmd, "Y", self.distance_unit);
                 let z = extract_distance(&cmd, "Z", self.distance_unit);
                 let e = extract_distance(&cmd, "E", self.distance_unit);
                 let f = extract_speed(&cmd, "F", self.distance_unit);
-                let i= extract_distance(&cmd, "I", self.distance_unit);
+                let i = extract_distance(&cmd, "I", self.distance_unit);
                 let j = extract_distance(&cmd, "J", self.distance_unit);
                 let r = extract_distance(&cmd, "R", self.distance_unit);
-                Some(GCommand::G3 {x, y, z, e, f, i, j, r})
+                Some(GCommand::G3 {
+                    x,
+                    y,
+                    z,
+                    e,
+                    f,
+                    i,
+                    j,
+                    r,
+                })
             }
             (GCommandType::G, 4) => {
                 let p = extract_duration(&cmd, "P", DurationUnit::Millisecond);
@@ -261,7 +296,6 @@ impl GCodeParser {
             _ => None,
         }
     }
-    
 }
 
 #[cfg(test)]

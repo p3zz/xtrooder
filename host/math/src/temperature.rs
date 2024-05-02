@@ -1,8 +1,8 @@
 #[derive(Clone, Copy)]
-pub enum TemperatureUnit{
+pub enum TemperatureUnit {
     Celsius,
     Kelvin,
-    Farhenheit
+    Farhenheit,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -26,13 +26,13 @@ impl Temperature {
 
     pub fn from_kelvin(value: f64) -> Self {
         Self {
-            value: value - 273.15
+            value: value - 273.15,
         }
     }
 
     pub fn from_fahrenheit(value: f64) -> Self {
         Self {
-            value: (value - 32.0) * (5.0 / 9.0)
+            value: (value - 32.0) * (5.0 / 9.0),
         }
     }
 
@@ -41,7 +41,7 @@ impl Temperature {
     }
 
     pub fn to_fahrenheit(&self) -> f64 {
-        (self.value * 9.0/5.0) + 32.0
+        (self.value * 9.0 / 5.0) + 32.0
     }
 
     pub fn to_celsius(&self) -> f64 {
