@@ -6,7 +6,7 @@ pub enum DistanceUnit {
     Inch,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Distance {
     // mm
     value: f64,

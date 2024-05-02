@@ -3,7 +3,7 @@ use super::{
     distance::{Distance, DistanceUnit},
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Speed {
     // mm per second
     value: f64,

@@ -37,7 +37,7 @@ use math::{
     temperature::Temperature,
     vector::{Vector2D, Vector3D},
 };
-use parser::parser::{parse_line, GCodeParser, GCommand};
+use parser::parser::{GCodeParser, GCommand};
 use {defmt_rtt as _, panic_probe as _};
 
 use core::str;
@@ -306,28 +306,28 @@ async fn main(_spawner: Spawner) {
             c = q.dequeue();
         } // mutex is freed here
 
-        match c {
-            Some(cmd) => match cmd {
-                GCommand::G0 { x, y, z, f } => {
-                    info!("performing a linear movement");
-                    linear_move_to_3d(
-                        &mut x_stepper,
-                        &mut y_stepper,
-                        &mut z_stepper,
-                        Vector3D::new(
-                            Distance::from_mm(x.unwrap()),
-                            Distance::from_mm(y.unwrap()),
-                            Distance::from_mm(z.unwrap()),
-                        ),
-                        StepperSpeed::from_mm_per_second(f.unwrap()),
-                    )
-                    .await
-                    .unwrap_or_else(|_| info!("Cannot perform move"))
-                }
-                _ => info!("implement movement"),
-            },
-            None => (),
-        };
+        // match c {
+        //     Some(cmd) => match cmd {
+        //         GCommand::G0 { x, y, z, f } => {
+        //             info!("performing a linear movement");
+        //             linear_move_to_3d(
+        //                 &mut x_stepper,
+        //                 &mut y_stepper,
+        //                 &mut z_stepper,
+        //                 Vector3D::new(
+        //                     Distance::from_mm(x.unwrap()),
+        //                     Distance::from_mm(y.unwrap()),
+        //                     Distance::from_mm(z.unwrap()),
+        //                 ),
+        //                 StepperSpeed::from_mm_per_second(f.unwrap()),
+        //             )
+        //             .await
+        //             .unwrap_or_else(|_| info!("Cannot perform move"))
+        //         }
+        //         _ => info!("implement movement"),
+        //     },
+        //     None => (),
+        // };
 
         Timer::after(Duration::from_millis(1)).await;
     }
