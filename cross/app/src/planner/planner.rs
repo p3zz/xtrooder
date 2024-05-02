@@ -1,7 +1,9 @@
 use embassy_stm32::timer::CaptureCompare16bitInstance;
 use embassy_time::Timer;
+use math::common::RotationDirection;
 
 use super::motion::{self, no_move, Positioning};
+use crate::planner::motion::{arc_move_3d_e_offset_from_center, arc_move_3d_e_radius};
 use crate::stepper::a4988::{Stepper, StepperError};
 use core::time::Duration;
 use math::distance::{Distance, DistanceUnit};
@@ -56,7 +58,7 @@ where
                 i,
                 j,
                 r,
-            } => todo!(),
+            } => self.g2(x, y, z, e, f, i, j, r).await,
             GCommand::G3 {
                 x,
                 y,
@@ -66,7 +68,7 @@ where
                 i,
                 j,
                 r,
-            } => todo!(),
+            } => self.g3(x, y, z, e, f, i, j, r).await,
             GCommand::G20 => Ok(self.g20()),
             GCommand::G21 => Ok(self.g21()),
             GCommand::G90 => Ok(self.g90()),
@@ -198,17 +200,17 @@ where
      * mixing i or j with r will throw an error
      *  
      */
-
-     pub async fn g2(
+     async fn g2_3(
         &mut self,
-        x: Option<f64>,
-        y: Option<f64>,
-        z: Option<f64>,
-        e: Option<f64>,
-        f: Option<f64>,
-        i: Option<f64>,
-        j: Option<f64>,
-        r: Option<f64>,
+        x: Option<Distance>,
+        y: Option<Distance>,
+        z: Option<Distance>,
+        e: Option<Distance>,
+        f: Option<Speed>,
+        i: Option<Distance>,
+        j: Option<Distance>,
+        r: Option<Distance>,
+        d: RotationDirection
     ) -> Result<(), StepperError> {
         match (i, j, r) {
             (Some(_), Some(_), Some(_))
@@ -218,9 +220,115 @@ where
             _ => (),
         }
 
+        if let Some(feedrate) = f{
+            self.feedrate = feedrate;    
+        }
 
+        let z = match z{
+            Some(v) => v,
+            None => no_move(&self.z_stepper, Positioning::Absolute),
+        };
 
+        let e = match e{
+            Some(v) => v,
+            None => no_move(&self.z_stepper, Positioning::Relative),
+        };
 
-        todo!()
+        if i.is_some() || j.is_some(){
+            let x = match x{
+                Some(v) => v,
+                None => no_move(&self.x_stepper, Positioning::Absolute),
+            };
+    
+            let y = match y{
+                Some(v) => v,
+                None => no_move(&self.y_stepper, Positioning::Absolute),
+            };
+    
+            let dst = Vector3D::new(x, y, z);
+    
+            let i = match i{
+                Some(v) => v,
+                None => Distance::from_mm(0f64),
+            };
+    
+            let j = match j{
+                Some(v) => v,
+                None => Distance::from_mm(0f64),
+            };
+
+            let offset_from_center = Vector2D::new(i, j);
+            arc_move_3d_e_offset_from_center(
+                &mut self.x_stepper, 
+                &mut self.y_stepper, 
+                &mut self.z_stepper, 
+                &mut self.e_stepper,
+                dst,
+                offset_from_center,
+                self.feedrate,
+                d, 
+                e).await?
+        }
+
+        if r.is_some(){
+            if x.is_none() && y.is_none(){
+                return Err(StepperError::MoveNotValid);
+            }
+
+            let x = match x{
+                Some(v) => v,
+                None => no_move(&self.x_stepper, Positioning::Absolute),
+            };
+    
+            let y = match y{
+                Some(v) => v,
+                None => no_move(&self.y_stepper, Positioning::Absolute),
+            };
+
+            let dst = Vector3D::new(x, y, z);
+
+            let r = r.unwrap();
+
+            arc_move_3d_e_radius(
+                &mut self.x_stepper, 
+                &mut self.y_stepper, 
+                &mut self.z_stepper, 
+                &mut self.e_stepper,
+                dst,
+                r,
+                self.feedrate,
+                d, 
+                e).await?
+
+        }
+
+        Err(StepperError::MoveNotValid)
     }
+
+    pub async fn g2(
+        &mut self,
+        x: Option<Distance>,
+        y: Option<Distance>,
+        z: Option<Distance>,
+        e: Option<Distance>,
+        f: Option<Speed>,
+        i: Option<Distance>,
+        j: Option<Distance>,
+        r: Option<Distance>,) -> Result<(), StepperError> {
+        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise).await
+    }
+
+    pub async fn g3(
+        &mut self,
+        x: Option<Distance>,
+        y: Option<Distance>,
+        z: Option<Distance>,
+        e: Option<Distance>,
+        f: Option<Speed>,
+        i: Option<Distance>,
+        j: Option<Distance>,
+        r: Option<Distance>,) -> Result<(), StepperError> {
+        self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise).await
+    }
+
 }
