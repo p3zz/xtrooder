@@ -5,7 +5,7 @@ use embassy_stm32::timer::CaptureCompare16bitInstance;
 use futures::join;
 use heapless::Vec;
 use math::angle::{asin, cos, sin};
-use math::common::{abs, compute_arc_destination, sqrt, RotationDirection};
+use math::common::{abs, compute_arc_destination, compute_arc_length, sqrt, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -319,21 +319,16 @@ pub async fn arc_move_3d_e_center<
     center: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
-    e_dest: Distance
+    e_dest: Distance,
+    full_circle_enabled: bool
 ) -> Result<(), StepperError> {
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let xy_dest = Vector2D::new(dest.get_x(), dest.get_y());
     let xy_center = Vector2D::new(center.get_x(), center.get_y());
     let xy_src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
 
-    // TODO replace arc length computation with compute_arc_length of math common
-    let radius = xy_dest.sub(&xy_center).get_magnitude();
-    let chord_length = xy_dest.sub(&xy_src).get_magnitude();
-    if chord_length.to_mm() == 0f64 {
-        return Err(StepperError::MoveNotValid);
-    }
-    let th: f64 = 2.0 * asin(chord_length.to_mm() / (2.0 * radius.to_mm())).to_radians();
-    let arc_length = Distance::from_mm(radius.to_mm() * th);
+    let arc_length = compute_arc_length(xy_src, xy_center, xy_dest, direction, full_circle_enabled);
+
     let time = arc_length.to_mm() / speed.to_mm_per_second();
 
     let z_delta = dest.get_z().sub(&stepper_c.get_position());
@@ -374,7 +369,7 @@ pub async fn arc_move_3d_e_radius<
     let center_offset_x = Distance::from_mm(radius.to_mm() * cos(angle));
     let center_offset_y = Distance::from_mm(radius.to_mm() * sin(angle));
     let center = source.add(&Vector2D::new(center_offset_x, center_offset_y));
-    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest).await
+    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false).await
 }
 
 pub async fn arc_move_3d_e_offset_from_center<
@@ -396,5 +391,5 @@ pub async fn arc_move_3d_e_offset_from_center<
 ) -> Result<(), StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let center = source.add(&offset);
-    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest).await
+    arc_move_3d_e_center(stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true).await
 }
