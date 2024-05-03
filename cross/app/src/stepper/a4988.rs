@@ -51,7 +51,6 @@ pub struct Stepper<'s, S> {
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
     position: Distance,
-    direction: RotationDirection,
 }
 
 impl<'s, S> Stepper<'s, S>
@@ -79,7 +78,6 @@ where
             ),
             speed: Speed::from_mm_per_second(0.0),
             position: Distance::from_mm(0.0),
-            direction: RotationDirection::Clockwise,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
             stepping_mode,
             positive_heading: RotationDirection::Clockwise,
@@ -130,15 +128,10 @@ where
             RotationDirection::CounterClockwise => -distance.to_mm(),
         };
 
-        self.direction = if distance.is_sign_positive() {
-            RotationDirection::Clockwise
+        if distance.is_sign_positive() {
+            self.dir.set_high()
         } else {
-            RotationDirection::CounterClockwise
-        };
-
-        match self.direction {
-            RotationDirection::Clockwise => self.dir.set_high(),
-            RotationDirection::CounterClockwise => self.dir.set_low(),
+            self.dir.set_low()
         };
 
         let steps_n = (abs(distance) / self.distance_per_step.to_mm()) as u64;
@@ -151,7 +144,7 @@ where
             steps_n,
             duration.as_micros(),
             step_duration.as_micros(),
-            u8::from(self.direction)
+            u8::from(self.get_direction())
         );
         // move
         self.step.enable(self.step_ch);
@@ -173,7 +166,11 @@ where
     }
 
     pub fn get_direction(&self) -> RotationDirection {
-        self.direction
+        if self.dir.is_set_high(){
+            RotationDirection::Clockwise
+        }else{
+            RotationDirection::CounterClockwise
+        }
     }
 
     pub fn get_speed(&self) -> Speed {
