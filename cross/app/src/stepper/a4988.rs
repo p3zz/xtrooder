@@ -190,10 +190,10 @@ where
 #[cfg(test)]
 #[defmt_test::tests]
 mod tests {
-    // use defmt_rtt as _;
+    use defmt_rtt as _;
     // use embassy_stm32::{gpio::{Level, Output, OutputType, Speed as PinSpeed}, peripherals::TIM5, time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode}, Peripherals};
     // use math::distance::Distance;
-    // use panic_probe as _;
+    use panic_probe as _;
     // use defmt::assert;
 
     // use crate::stepper::a4988::{Stepper, SteppingMode};
