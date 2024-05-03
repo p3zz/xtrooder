@@ -184,6 +184,60 @@ where
     pub fn reset(&mut self) {
         self.speed = Speed::from_mm_per_second(0.0);
         self.position = Distance::from_mm(0.0);
-        self.direction = RotationDirection::Clockwise;
     }
+}
+
+#[cfg(test)]
+#[defmt_test::tests]
+mod tests {
+    // use defmt_rtt as _;
+    // use embassy_stm32::{gpio::{Level, Output, OutputType, Speed as PinSpeed}, peripherals::TIM5, time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode}, Peripherals};
+    // use math::distance::Distance;
+    // use panic_probe as _;
+    // use defmt::assert;
+
+    // use crate::stepper::a4988::{Stepper, SteppingMode};
+
+    // #[init]
+    // fn init() -> Stepper<'static, TIM5>{
+    //     let p = embassy_stm32::init(embassy_stm32::Config::default());
+
+    //     let step = SimplePwm::new(
+    //         p.TIM5,
+    //         Some(PwmPin::new_ch1(p.PA0, OutputType::PushPull)),
+    //         None,
+    //         None,
+    //         None,
+    //         hz(1),
+    //         CountingMode::EdgeAlignedUp,
+    //     );
+
+    //     let dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
+
+    //     Stepper::new(
+    //         step,
+    //         Channel::Ch1,
+    //         dir,
+    //         200,
+    //         Distance::from_mm(0.15f64),
+    //         SteppingMode::FullStep,
+    //     )
+
+    // }
+
+    // #[test]
+    // fn always_passes(s: &mut Stepper<'static, TIM5>) {
+    //     let dst = Distance::from_mm(20.0);
+    //     s.move_to(dst);
+    // }
+
+    #[test]
+    fn always_passes() {
+        assert!(true);
+    }
+    
+    // #[test]
+    // fn always_passes_3(s: &mut Stepper<'static, TIM5>) {
+    //     assert!(true);
+    // }
 }
