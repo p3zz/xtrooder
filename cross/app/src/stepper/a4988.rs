@@ -8,6 +8,7 @@ use math::common::{abs, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
+use micromath::F32Ext;
 
 use math::common::compute_step_duration;
 
@@ -50,7 +51,7 @@ pub struct Stepper<'s, S> {
     positive_heading: RotationDirection,
     // properties that have to be computed and kept updated during the execution
     speed: Speed,
-    position: Distance,
+    steps: i64,
 }
 
 impl<'s, S> Stepper<'s, S>
@@ -77,7 +78,7 @@ where
                 distance_per_step.to_mm() / (u64::from(stepping_mode) as f64),
             ),
             speed: Speed::from_mm_per_second(0.0),
-            position: Distance::from_mm(0.0),
+            steps: 0,
             bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
             stepping_mode,
             positive_heading: RotationDirection::Clockwise,
@@ -103,11 +104,13 @@ where
     // the stepping is implemented through a pwm,
     // and the frequency is computed using the time for a step to be executed (step duration)
     pub async fn move_for(&mut self, distance: Distance) -> Result<(), StepperError> {
-        if abs(distance.to_mm()) < self.distance_per_step.to_mm() {
+        let steps_n = (distance.div(&self.distance_per_step).unwrap() as f32).floor() as i64;
+        if steps_n == 0{
             return Err(StepperError::MoveTooShort);
         }
+        let steps_next = self.steps + steps_n;
+        let position_next = Distance::from_mm((steps_next as f64) * self.distance_per_step.to_mm());
 
-        let position_next = self.position.add(&distance);
         if position_next.to_mm() < self.bounds.0.to_mm()
             || position_next.to_mm() > self.bounds.1.to_mm()
         {
@@ -123,21 +126,25 @@ where
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
 
-        let distance = match self.positive_heading {
-            RotationDirection::Clockwise => distance.to_mm(),
-            RotationDirection::CounterClockwise => -distance.to_mm(),
+        let steps_n = match self.positive_heading {
+            RotationDirection::Clockwise => steps_n,
+            RotationDirection::CounterClockwise => -steps_n,
         };
 
-        if distance.is_sign_positive() {
+        if steps_n.is_positive() {
             self.dir.set_high()
         } else {
             self.dir.set_low()
         };
 
-        let steps_n = (abs(distance) / self.distance_per_step.to_mm()) as u64;
+        // TODO replace with an abs_i64
+        let mut steps_n_abs = steps_n;
+        if steps_n_abs.is_negative(){
+            steps_n_abs = -steps_n_abs;
+        }
 
         // compute the duration of the move.
-        let duration = Duration::from_micros(steps_n * step_duration.as_micros() as u64);
+        let duration = Duration::from_micros(steps_n_abs as u64 * step_duration.as_micros() as u64);
 
         info!(
             "Steps: {} Total duration: {} Step duration: {} Direction: {}",
@@ -151,18 +158,19 @@ where
         Timer::after(duration).await;
         self.step.disable(self.step_ch);
 
-        self.position = position_next;
+        self.steps = steps_next;
 
         Ok(())
     }
 
     pub async fn move_to(&mut self, dst: Distance) -> Result<(), StepperError> {
-        let delta = dst.sub(&self.position);
+        let curr_position = self.get_position();
+        let delta = dst.sub(&curr_position);
         self.move_for(delta).await
     }
 
     pub fn get_position(&self) -> Distance {
-        self.position
+        Distance::from_mm(self.steps as f64 * self.distance_per_step.to_mm())
     }
 
     pub fn get_direction(&self) -> RotationDirection {
@@ -183,7 +191,7 @@ where
 
     pub fn reset(&mut self) {
         self.speed = Speed::from_mm_per_second(0.0);
-        self.position = Distance::from_mm(0.0);
+        self.steps = 0;
     }
 }
 
