@@ -134,17 +134,17 @@ where
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning),
+            None => no_move(&self.x_stepper, self.positioning)?,
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning),
+            None => no_move(&self.y_stepper, self.positioning)?,
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning),
+            None => no_move(&self.z_stepper, self.positioning)?,
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -173,22 +173,22 @@ where
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning),
+            None => no_move(&self.x_stepper, self.positioning)?,
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning),
+            None => no_move(&self.y_stepper, self.positioning)?,
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning),
+            None => no_move(&self.z_stepper, self.positioning)?,
         };
 
         let e = match e {
             Some(v) => v,
-            None => no_move(&self.e_stepper, self.positioning),
+            None => no_move(&self.e_stepper, self.positioning)?,
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -245,23 +245,23 @@ where
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, Positioning::Absolute),
+            None => no_move(&self.z_stepper, Positioning::Absolute)?,
         };
 
         let e = match e {
             Some(v) => v,
-            None => no_move(&self.z_stepper, Positioning::Relative),
+            None => no_move(&self.z_stepper, Positioning::Relative)?,
         };
 
         if i.is_some() || j.is_some() {
             let x = match x {
                 Some(v) => v,
-                None => no_move(&self.x_stepper, Positioning::Absolute),
+                None => no_move(&self.x_stepper, Positioning::Absolute)?,
             };
 
             let y = match y {
                 Some(v) => v,
-                None => no_move(&self.y_stepper, Positioning::Absolute),
+                None => no_move(&self.y_stepper, Positioning::Absolute)?,
             };
 
             let dst = Vector3D::new(x, y, z);
@@ -298,12 +298,12 @@ where
 
             let x = match x {
                 Some(v) => v,
-                None => no_move(&self.x_stepper, Positioning::Absolute),
+                None => no_move(&self.x_stepper, Positioning::Absolute)?,
             };
 
             let y = match y {
                 Some(v) => v,
-                None => no_move(&self.y_stepper, Positioning::Absolute),
+                None => no_move(&self.y_stepper, Positioning::Absolute)?,
             };
 
             let dst = Vector3D::new(x, y, z);

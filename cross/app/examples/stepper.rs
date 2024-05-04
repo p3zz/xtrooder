@@ -40,22 +40,23 @@ async fn main(_spawner: Spawner) {
         step,
         Channel::Ch1,
         dir,
-        200,
-        Distance::from_mm(0.15f64),
-        SteppingMode::FullStep,
     );
 
-    stepper.set_speed(Speed::from_mm_per_second(70.0));
+    if let Err(_) = stepper.set_speed_from_attachment(Speed::from_mm_per_second(70.0)){
+        info!("Missing attachment");
+        loop{}
+    }
 
     let mut d = Distance::from_mm(80.0);
 
     loop {
         info!("Moving to {}mm", d.to_mm());
-        if let Err(e) = stepper.move_to(d).await {
+        if let Err(e) = stepper.move_to_destination(d).await {
             match e {
                 stepper::a4988::StepperError::MoveTooShort => info!("Move too short"),
                 stepper::a4988::StepperError::MoveOutOfBounds => info!("Move out of bounds"),
                 stepper::a4988::StepperError::MoveNotValid => info!("Move not valid"),
+                stepper::a4988::StepperError::MissingAttachment => info!("Missing attachment"),
             }
         };
 

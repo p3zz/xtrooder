@@ -4,7 +4,7 @@ use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::timer::{CaptureCompare16bitInstance, Channel};
 use embassy_time::{Duration, Timer};
-use math::common::{abs, RotationDirection};
+use math::common::{abs, compute_revolutions_per_second, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -12,10 +12,36 @@ use micromath::F32Ext;
 
 use math::common::compute_step_duration;
 
+#[derive(Clone, Copy)]
+pub struct StepperAttachment{
+    pub distance_per_step: Distance,
+}
+
+impl Default for StepperAttachment{
+    fn default() -> Self {
+        Self { distance_per_step: Distance::from_mm(1.0) }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct StepperOptions{
+    pub steps_per_revolution: u64,
+    pub stepping_mode: SteppingMode,
+    pub bounds: Option<(i64, i64)>,
+    pub positive_position: RotationDirection,
+}
+
+impl Default for StepperOptions{
+    fn default() -> Self {
+        Self { steps_per_revolution: 200, stepping_mode: SteppingMode::FullStep, bounds: None, positive_position: RotationDirection::Clockwise }
+    }
+}
+
 pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
     MoveNotValid,
+    MissingAttachment
 }
 
 #[derive(Clone, Copy)]
@@ -44,13 +70,11 @@ pub struct Stepper<'s, S> {
     step: SimplePwm<'s, S>,
     step_ch: Channel,
     dir: Output<'s>,
-    steps_per_revolution: u64,
-    distance_per_step: Distance,
-    bounds: (Distance, Distance),
-    stepping_mode: SteppingMode,
-    positive_heading: RotationDirection,
+    options: StepperOptions,
+    attachment: Option<StepperAttachment>,
     // properties that have to be computed and kept updated during the execution
-    speed: Speed,
+    // we need to keep the set speed because we can't get the frequency from the pwm pin to compute the speed
+    step_duration: Duration,
     steps: i64,
 }
 
@@ -62,9 +86,6 @@ where
         mut step: SimplePwm<'s, S>,
         step_ch: Channel,
         dir: Output<'s>,
-        steps_per_revolution: u64,
-        distance_per_step: Distance,
-        stepping_mode: SteppingMode,
     ) -> Stepper<'s, S> {
         // the duty is 50% (in order to have high/low pin for the same amount of time)
         // TODO do we really need to set the duty to 50%?
@@ -73,23 +94,11 @@ where
             step,
             step_ch,
             dir,
-            steps_per_revolution,
-            distance_per_step: Distance::from_mm(
-                distance_per_step.to_mm() / (u64::from(stepping_mode) as f64),
-            ),
-            speed: Speed::from_mm_per_second(0.0),
+            options: StepperOptions::default(),
+            attachment: None,
+            step_duration: Duration::from_secs(1),
             steps: 0,
-            bounds: (Distance::from_mm(-12_000.0), Distance::from_mm(12_000.0)),
-            stepping_mode,
-            positive_heading: RotationDirection::Clockwise,
         }
-    }
-
-    // select how the stepper has to move (clockwise or counter-clockwise) in order to
-    // perform a positive move. Use this if the stepper is mounted so that a positive move
-    // is done with a counter-clockwise rotation
-    pub fn set_positive_heading(&mut self, direction: RotationDirection) {
-        self.positive_heading = direction;
     }
 
     /*
@@ -97,80 +106,32 @@ where
     pwm frequency: count of PWM interval periods per second
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
-    pub fn set_speed(&mut self, speed: Speed) {
-        self.speed = speed;
-    }
-
-    // the stepping is implemented through a pwm,
-    // and the frequency is computed using the time for a step to be executed (step duration)
-    pub async fn move_for(&mut self, distance: Distance) -> Result<(), StepperError> {
-        let steps_n = (distance.div(&self.distance_per_step).unwrap() as f32).floor() as i64;
-        if steps_n == 0{
-            return Err(StepperError::MoveTooShort);
-        }
-        let steps_next = self.steps + steps_n;
-        let position_next = Distance::from_mm((steps_next as f64) * self.distance_per_step.to_mm());
-
-        if position_next.to_mm() < self.bounds.0.to_mm()
-            || position_next.to_mm() > self.bounds.1.to_mm()
-        {
-            return Err(StepperError::MoveOutOfBounds);
-        }
-
+    pub fn set_speed(&mut self, revolutions_per_second: f64) {
         let step_duration = compute_step_duration(
-            self.steps_per_revolution * u64::from(self.stepping_mode),
-            self.distance_per_step,
-            self.speed,
+            revolutions_per_second,
+            self.options.steps_per_revolution
         );
         let step_duration = step_duration.expect("Invalid step duration");
+        self.step_duration = Duration::from_micros(step_duration.as_micros() as u64); 
         let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
+    }
 
-        let steps_n = match self.positive_heading {
-            RotationDirection::Clockwise => steps_n,
-            RotationDirection::CounterClockwise => -steps_n,
-        };
-
-        if steps_n.is_positive() {
-            self.dir.set_high()
-        } else {
-            self.dir.set_low()
-        };
-
-        // TODO replace with an abs_i64
-        let mut steps_n_abs = steps_n;
-        if steps_n_abs.is_negative(){
-            steps_n_abs = -steps_n_abs;
+    pub fn set_speed_from_attachment(&mut self, speed: Speed) -> Result<(), StepperError> {
+        if self.attachment.is_none(){
+            return Err(StepperError::MissingAttachment);
         }
-
-        // compute the duration of the move.
-        let duration = Duration::from_micros(steps_n_abs as u64 * step_duration.as_micros() as u64);
-
-        info!(
-            "Steps: {} Total duration: {} Step duration: {} Direction: {}",
-            steps_n,
-            duration.as_micros(),
-            step_duration.as_micros(),
-            u8::from(self.get_direction())
-        );
-        // move
-        self.step.enable(self.step_ch);
-        Timer::after(duration).await;
-        self.step.disable(self.step_ch);
-
-        self.steps = steps_next;
-
+        let attachment = self.attachment.unwrap();
+        let rps = speed.to_revolutions_per_second(self.options.steps_per_revolution, attachment.distance_per_step);
+        self.set_speed(rps);
         Ok(())
     }
 
-    pub async fn move_to(&mut self, dst: Distance) -> Result<(), StepperError> {
-        let curr_position = self.get_position();
-        let delta = dst.sub(&curr_position);
-        self.move_for(delta).await
-    }
-
-    pub fn get_position(&self) -> Distance {
-        Distance::from_mm(self.steps as f64 * self.distance_per_step.to_mm())
+    pub fn set_direction(&mut self, direction: RotationDirection){
+        match direction{
+            RotationDirection::Clockwise => self.dir.set_high(),
+            RotationDirection::CounterClockwise => self.dir.set_low(),
+        };
     }
 
     pub fn get_direction(&self) -> RotationDirection {
@@ -181,16 +142,87 @@ where
         }
     }
 
-    pub fn get_speed(&self) -> Speed {
-        self.speed
+    // the stepping is implemented through a pwm,
+    // and the frequency is computed using the time for a step to be executed (step duration)
+    pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
+        let s = match self.get_direction(){
+            RotationDirection::Clockwise => steps as i64,
+            RotationDirection::CounterClockwise => -(steps as i64),
+        };
+        let steps_next = self.steps + s;
+
+        if let Some((min, max)) = self.options.bounds{
+            if steps_next < min || steps_next > max{
+                return Err(StepperError::MoveOutOfBounds);
+            }
+        }
+        let duration = Duration::from_micros(steps * self.step_duration.as_micros() as u64);
+
+        info!(
+            "Steps: {} Total duration: {} us Step duration: {} us Direction: {}",
+            steps,
+            duration.as_micros(),
+            self.step_duration.as_micros(),
+            u8::from(self.get_direction())
+        );
+
+        self.step.enable(self.step_ch);
+        Timer::after(duration).await;
+        self.step.disable(self.step_ch);
+        
+        self.steps = steps_next;
+
+        Ok(())
+    }
+
+    pub async fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
+        if self.attachment.is_none(){
+            return Err(StepperError::MissingAttachment)
+        }
+        let attachment = self.attachment.unwrap();
+        
+        let steps_n = (distance.div(&attachment.distance_per_step).unwrap() as f32).floor() as i64;
+        
+        let direction = if steps_n.is_positive(){
+            RotationDirection::Clockwise
+        }else{
+            RotationDirection::CounterClockwise
+        };
+
+        self.set_direction(direction);
+
+        let steps_n = if steps_n.is_negative(){
+            -steps_n as u64
+        }else{
+            steps_n as u64
+        };
+
+        self.move_for_steps(steps_n).await
+    }
+
+    pub async fn move_to_destination(&mut self, destination: Distance) -> Result<(), StepperError> {
+        let p = self.get_position()?;
+        let delta = destination.sub(&p);
+        self.move_for_distance(delta).await
+    }
+
+    pub fn get_position(&self) -> Result<Distance, StepperError> {
+        match self.attachment{
+            Some(a) => Ok(Distance::from_mm(self.steps as f64 * a.distance_per_step.to_mm())),
+            None => Err(StepperError::MissingAttachment)
+        }
+    }
+
+    pub fn get_speed(&self) -> f64 {
+        compute_revolutions_per_second(core::time::Duration::from_micros(self.step_duration.as_micros()), self.options.steps_per_revolution)
     }
 
     pub async fn home(&mut self) -> Result<(), StepperError> {
-        self.move_to(Distance::from_mm(0.0)).await
+        self.move_to_destination(Distance::from_mm(0.0)).await
     }
 
     pub fn reset(&mut self) {
-        self.speed = Speed::from_mm_per_second(0.0);
+        self.step_duration = Duration::from_secs(1);
         self.steps = 0;
     }
 }
