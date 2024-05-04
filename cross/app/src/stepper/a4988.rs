@@ -68,7 +68,6 @@ impl From<SteppingMode> for u64 {
 pub struct Stepper<'s, S> {
     // properties that won't change
     step: SimplePwm<'s, S>,
-    step_ch: Channel,
     dir: Output<'s>,
     options: StepperOptions,
     attachment: Option<StepperAttachment>,
@@ -84,15 +83,15 @@ where
 {
     pub fn new(
         mut step: SimplePwm<'s, S>,
-        step_ch: Channel,
         dir: Output<'s>,
     ) -> Stepper<'s, S> {
-        // the duty is 50% (in order to have high/low pin for the same amount of time)
-        // TODO do we really need to set the duty to 50%?
-        step.set_duty(step_ch, (step.get_max_duty() as f64 * 0.5) as u16);
+        step.set_duty(Channel::Ch1, step.get_max_duty() / 2);
+        step.set_duty(Channel::Ch2, step.get_max_duty() / 2);
+        step.set_duty(Channel::Ch3, step.get_max_duty() / 2);
+        step.set_duty(Channel::Ch4, step.get_max_duty() / 2);
+        
         Stepper {
             step,
-            step_ch,
             dir,
             options: StepperOptions::default(),
             attachment: None,
@@ -165,11 +164,19 @@ where
             self.step_duration.as_micros(),
             u8::from(self.get_direction())
         );
-
-        self.step.enable(self.step_ch);
-        Timer::after(duration).await;
-        self.step.disable(self.step_ch);
         
+        self.step.enable(Channel::Ch1);
+        self.step.enable(Channel::Ch2);
+        self.step.enable(Channel::Ch3);
+        self.step.enable(Channel::Ch4);
+
+        Timer::after(duration).await;
+
+        self.step.disable(Channel::Ch1);
+        self.step.disable(Channel::Ch2);
+        self.step.disable(Channel::Ch3);
+        self.step.disable(Channel::Ch4);
+
         self.steps = steps_next;
 
         Ok(())

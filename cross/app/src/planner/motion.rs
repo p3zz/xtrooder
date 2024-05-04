@@ -42,7 +42,7 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     speed: Speed,
 ) -> Result<(), StepperError> {
     let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
-    stepper.set_speed_from_attachment(s);
+    stepper.set_speed_from_attachment(s)?;
     stepper.move_to_destination(dest).await
 }
 

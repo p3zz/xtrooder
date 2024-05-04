@@ -38,7 +38,6 @@ async fn main(_spawner: Spawner) {
 
     let mut stepper = Stepper::new(
         step,
-        Channel::Ch1,
         dir,
     );
 
