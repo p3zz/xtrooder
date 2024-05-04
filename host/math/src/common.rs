@@ -67,7 +67,7 @@ pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: 
     }
     let second_per_revolution = 1.0 / revolutions_per_second;
     let second_per_step = second_per_revolution / (steps_per_revolution as f64);
-    Some(Duration::from_secs_f64(second_per_step / 2.0))
+    Some(Duration::from_secs_f64(second_per_step))
 }
 
 pub fn compute_revolutions_per_second(step_duration: Duration, steps_per_revolution: u64) -> f64 {
@@ -180,51 +180,24 @@ mod tests {
         assert_eq!(speed.to_mm_per_second(), 2000.0);
     }
 
-    // #[test]
-    // fn test_compute_step_duration_1() {
-    //     println!("Test - Compute step duration 1");
-    //     let steps_per_revolution = 200_u64;
-    //     let distance_per_step = Distance::from_mm(1.0);
-    //     let speed =
-    //         Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
-    //     let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
-    //     assert!(duration.is_some());
-    //     assert_eq!(duration.unwrap().as_micros(), 2500);
-    // }
+    #[test]
+    fn test_compute_step_duration_1() {
+        println!("Test - Compute step duration 1");
+        let steps_per_revolution = 200_u64;
+        let revolutions_per_second = 1.0;
+        let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
+        assert!(duration.is_some());
+        assert_eq!(duration.unwrap().as_micros(), 5000);
+    }
 
-    // #[test]
-    // fn test_compute_step_duration_2() {
-    //     println!("Test - Compute step duration 2");
-    //     let steps_per_revolution = 100_u64;
-    //     let distance_per_step = Distance::from_mm(0.1);
-    //     let speed =
-    //         Speed::from_revolutions_per_second(10.0, steps_per_revolution, distance_per_step);
-    //     let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
-    //     assert!(duration.is_some());
-    //     assert_eq!(duration.unwrap().as_micros(), 500);
-    // }
-
-    // #[test]
-    // fn test_compute_step_duration_3() {
-    //     println!("Test - Compute step duration 3");
-    //     let steps_per_revolution = 100_u64;
-    //     let distance_per_step = Distance::from_mm(0.1);
-    //     let speed =
-    //         Speed::from_revolutions_per_second(0.0, steps_per_revolution, distance_per_step);
-    //     let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
-    //     assert!(duration.is_none());
-    // }
-
-    // #[test]
-    // fn test_compute_step_duration_4() {
-    //     println!("Test - Compute step duration 4");
-    //     let steps_per_revolution = 100_u64;
-    //     let distance_per_step = Distance::from_mm(0.0);
-    //     let speed =
-    //         Speed::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
-    //     let duration = compute_step_duration(steps_per_revolution, distance_per_step, speed);
-    //     assert!(duration.is_none());
-    // }
+    #[test]
+    fn test_compute_step_duration_3() {
+        println!("Test - Compute step duration 1");
+        let steps_per_revolution = 200_u64;
+        let revolutions_per_second = 0f64;
+        let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
+        assert!(duration.is_none());
+    }
 
     #[test]
     fn test_compute_arc_destination_clockwise_1() {

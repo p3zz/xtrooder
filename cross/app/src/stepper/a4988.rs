@@ -111,8 +111,10 @@ where
             self.options.steps_per_revolution
         );
         let step_duration = step_duration.expect("Invalid step duration");
-        self.step_duration = Duration::from_micros(step_duration.as_micros() as u64); 
-        let freq = hz(((1.0 / step_duration.as_micros() as f64) * 1_000_000.0) as u32);
+        let duty_ratio = self.step.get_duty(Channel::Ch1) as f64 / self.step.get_max_duty() as f64;
+        let micros = (step_duration.as_micros() as f64 * duty_ratio) as u64;
+        self.step_duration = Duration::from_micros(micros);
+        let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
         self.step.set_frequency(freq);
     }
 
@@ -170,6 +172,7 @@ where
         self.step.enable(Channel::Ch3);
         self.step.enable(Channel::Ch4);
 
+        #[cfg(not(test))]
         Timer::after(duration).await;
 
         self.step.disable(Channel::Ch1);
@@ -181,6 +184,7 @@ where
 
         Ok(())
     }
+    
 
     pub async fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
         if self.attachment.is_none(){
