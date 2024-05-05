@@ -37,6 +37,7 @@ impl Default for StepperOptions{
     }
 }
 
+#[derive(Debug)]
 pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
@@ -137,6 +138,10 @@ where
     // this option must be modifiable so that during the execution we can freely switch between different stepping modes for higher precision
     pub fn set_stepping_mode(&mut self, mode: SteppingMode){
         self.options.stepping_mode = mode;
+    }
+
+    pub fn set_attachment(&mut self, attachment: StepperAttachment){
+        self.attachment = Some(attachment);
     }
 
     pub fn set_direction(&mut self, direction: RotationDirection){
@@ -304,9 +309,11 @@ where
         self.move_to_destination(Distance::from_mm(0.0))
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.step_duration = Duration::from_secs(1);
         self.steps = 0f64;
+        self.options = StepperOptions::default();
+        self.attachment = None;
     }
 }
 
@@ -319,7 +326,7 @@ mod tests {
     use panic_probe as _;
     use defmt::assert;
 
-    use super::{Stepper, SteppingMode};
+    use super::{Stepper, SteppingMode, StepperAttachment};
 
     #[init]
     fn init() -> Stepper<'static, TIM5>{
@@ -437,6 +444,51 @@ mod tests {
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 20.0);
     }
+
+    #[test]
+    fn test_stepper_move_for_distance_no_attachment(s: &mut Stepper<'static, TIM5>) {
+        let distance = Distance::from_mm(20.0);
+        s.reset();
+        let res = s.move_for_distance(distance);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stepper_move_for_distance(s: &mut Stepper<'static, TIM5>) {
+        let distance = Distance::from_mm(10.0);
+        s.reset();
+        s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = s.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 10.0);
+        assert!(s.get_position().is_ok());
+        assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+    }
+
+    #[test]
+    fn test_stepper_move_for_distance_space_wasted(s: &mut Stepper<'static, TIM5>) {
+        let distance = Distance::from_mm(10.5);
+        s.reset();
+        s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = s.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 10.0);
+        assert!(s.get_position().is_ok());
+        assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+    }
+
+    #[test]
+    fn test_stepper_move_for_distance_lower_distance_per_step(s: &mut Stepper<'static, TIM5>) {
+        let distance = Distance::from_mm(10.5);
+        s.reset();
+        s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(0.5) });
+        let res = s.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 21.0);
+        assert!(s.get_position().is_ok());
+        assert_eq!(s.get_position().unwrap().to_mm(), 10.5);
+    }
+
 
     #[test]
     fn always_passes() {
