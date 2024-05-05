@@ -3,7 +3,6 @@ use embassy_time::Timer;
 use math::common::RotationDirection;
 
 use super::motion::{self, no_move, Positioning};
-use crate::planner::motion::{arc_move_3d_e_offset_from_center, arc_move_3d_e_radius};
 use crate::stepper::a4988::{Stepper, StepperError};
 use core::time::Duration;
 use math::distance::{Distance, DistanceUnit};
@@ -45,6 +44,7 @@ where
         }
     }
 
+    #[cfg(not(test))]
     pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
         match command {
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
@@ -122,6 +122,7 @@ where
         self.positioning = Positioning::Relative;
     }
 
+    #[cfg(not(test))]
     pub async fn g0(
         &mut self,
         x: Option<Distance>,
@@ -160,6 +161,7 @@ where
         .await
     }
 
+    #[cfg(not(test))]
     pub async fn g1(
         &mut self,
         x: Option<Distance>,
@@ -219,6 +221,7 @@ where
      * mixing i or j with r will throw an error
      *  
      */
+    #[cfg(not(test))]
     async fn g2_3(
         &mut self,
         x: Option<Distance>,
@@ -277,7 +280,7 @@ where
             };
 
             let offset_from_center = Vector2D::new(i, j);
-            arc_move_3d_e_offset_from_center(
+            motion::arc_move_3d_e_offset_from_center(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -310,7 +313,7 @@ where
 
             let r = r.unwrap();
 
-            arc_move_3d_e_radius(
+            motion::arc_move_3d_e_radius(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -327,6 +330,7 @@ where
         Err(StepperError::MoveNotValid)
     }
 
+    #[cfg(not(test))]
     pub async fn g2(
         &mut self,
         x: Option<Distance>,
@@ -342,6 +346,7 @@ where
             .await
     }
 
+    #[cfg(not(test))]
     pub async fn g3(
         &mut self,
         x: Option<Distance>,

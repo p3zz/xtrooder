@@ -27,6 +27,7 @@ pub fn no_move<T: CaptureCompare16bitInstance>(
 
 // ---------------------------- LINEAR MOVE 1D ----------------------------
 
+#[cfg(not(test))]
 pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     distance: Distance,
@@ -36,6 +37,7 @@ pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     linear_move_to(stepper, dest, speed).await
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     dest: Distance,
@@ -48,6 +50,7 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
 
 // ---------------------------- LINEAR MOVE 2D ----------------------------
 
+#[cfg(not(test))]
 async fn linear_move_to_2d_raw<
     's,
     A: CaptureCompare16bitInstance,
@@ -67,6 +70,7 @@ async fn linear_move_to_2d_raw<
     }
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_to_2d<
     's,
     A: CaptureCompare16bitInstance,
@@ -92,6 +96,7 @@ pub async fn linear_move_to_2d<
 
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
+#[cfg(not(test))]
 pub async fn linear_move_3d<
     's,
     A: CaptureCompare16bitInstance,
@@ -115,6 +120,7 @@ pub async fn linear_move_3d<
     }
 }
 
+#[cfg(not(test))]
 async fn linear_move_to_3d_raw<
     's,
     A: CaptureCompare16bitInstance,
@@ -137,6 +143,7 @@ async fn linear_move_to_3d_raw<
     }
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_to_3d<
     's,
     A: CaptureCompare16bitInstance,
@@ -167,6 +174,7 @@ pub async fn linear_move_to_3d<
     linear_move_to_3d_raw(stepper_a, stepper_b, stepper_c, dest, speed).await
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_for_3d<
     's,
     A: CaptureCompare16bitInstance,
@@ -188,6 +196,7 @@ pub async fn linear_move_for_3d<
     linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed).await
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_3d_e<
     's,
     A: CaptureCompare16bitInstance,
@@ -220,6 +229,7 @@ pub async fn linear_move_3d_e<
     }
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_to_3d_e<
     's,
     A: CaptureCompare16bitInstance,
@@ -255,6 +265,7 @@ pub async fn linear_move_to_3d_e<
     }
 }
 
+#[cfg(not(test))]
 pub async fn linear_move_for_3d_e<
     's,
     A: CaptureCompare16bitInstance,
@@ -292,6 +303,7 @@ pub async fn linear_move_for_3d_e<
 
 // ---------------------------- ARC MOVE 2D ----------------------------
 
+#[cfg(not(test))]
 pub async fn arc_move_2d_arc_length<
     's,
     A: CaptureCompare16bitInstance,
@@ -321,6 +333,7 @@ pub async fn arc_move_2d_arc_length<
     Ok(())
 }
 
+#[cfg(not(test))]
 pub async fn arc_move_3d_e_center<
     's,
     A: CaptureCompare16bitInstance,
@@ -364,6 +377,7 @@ pub async fn arc_move_3d_e_center<
     }
 }
 
+#[cfg(not(test))]
 pub async fn arc_move_3d_e_radius<
     's,
     A: CaptureCompare16bitInstance,
@@ -392,6 +406,7 @@ pub async fn arc_move_3d_e_radius<
     .await
 }
 
+#[cfg(not(test))]
 pub async fn arc_move_3d_e_offset_from_center<
     's,
     A: CaptureCompare16bitInstance,
