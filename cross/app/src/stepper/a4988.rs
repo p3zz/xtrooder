@@ -28,12 +28,12 @@ pub struct StepperOptions{
     pub steps_per_revolution: u64,
     pub stepping_mode: SteppingMode,
     pub bounds: Option<(f64, f64)>,
-    pub positive_position: RotationDirection,
+    pub positive_direction: RotationDirection,
 }
 
 impl Default for StepperOptions{
     fn default() -> Self {
-        Self { steps_per_revolution: 200, stepping_mode: SteppingMode::FullStep, bounds: None, positive_position: RotationDirection::Clockwise }
+        Self { steps_per_revolution: 200, stepping_mode: SteppingMode::FullStep, bounds: None, positive_direction: RotationDirection::Clockwise }
     }
 }
 
@@ -76,6 +76,10 @@ pub struct Stepper<'s, S> {
     step_duration: Duration,
     // a step is a single step in full-step mode. Every step performed in another stepping mode
     // will result in a fraction of a step
+    // steps are positive when the stepper moves in clockwise order
+    // the option positive_direction changes only the sign of the steps retrieved by get_steps and get_position
+    // if the positive_direction is counterclockwise and steps = 100, the value returned by get_steps will be -100
+    // if the positive_direction is clockwise and steps = 100, the value returned by get_steps will be 100
     steps: f64,
 }
 
@@ -130,6 +134,7 @@ where
         Ok(())
     }
 
+    // this option must be modifiable so that during the execution we can freely switch between different stepping modes for higher precision
     pub fn set_stepping_mode(&mut self, mode: SteppingMode){
         self.options.stepping_mode = mode;
     }
@@ -271,14 +276,18 @@ where
 
 
     pub fn get_position(&self) -> Result<Distance, StepperError> {
+        let steps = self.get_steps();
         match self.attachment{
-            Some(a) => Ok(Distance::from_mm(self.steps * a.distance_per_step.to_mm())),
+            Some(a) => Ok(Distance::from_mm(steps * a.distance_per_step.to_mm())),
             None => Err(StepperError::MissingAttachment)
         }
     }
 
     pub fn get_steps(&self) -> f64 {
-        self.steps
+        match self.options.positive_direction{
+            RotationDirection::Clockwise => self.steps,
+            RotationDirection::CounterClockwise => -self.steps,
+        }
     }
 
     pub fn get_speed(&self) -> f64 {
@@ -310,7 +319,7 @@ mod tests {
     use panic_probe as _;
     use defmt::assert;
 
-    use crate::stepper::a4988::{Stepper, SteppingMode};
+    use super::{Stepper, SteppingMode};
 
     #[init]
     fn init() -> Stepper<'static, TIM5>{
@@ -375,6 +384,58 @@ mod tests {
         let res = s.move_for_steps(steps);
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), -10.0);
+    }
+
+    #[test]
+    fn test_stepper_move_clockwise_positive_direction_clockwise(s: &mut Stepper<'static, TIM5>) {
+        let steps = 20;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::Clockwise);
+        // positive direction cannot be modified from api. This is only for test
+        s.options.positive_direction = RotationDirection::Clockwise;
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 20.0);
+    }
+
+    #[test]
+    fn test_stepper_move_clockwise_positive_direction_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+        let steps = 20;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::Clockwise);
+        // positive direction cannot be modified from api. This is only for test
+        s.options.positive_direction = RotationDirection::CounterClockwise;
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), -20.0);
+    }
+
+    #[test]
+    fn test_stepper_move_counterclockwise_positive_direction_clockwise(s: &mut Stepper<'static, TIM5>) {
+        let steps = 20;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        // positive direction cannot be modified from api. This is only for test
+        s.options.positive_direction = RotationDirection::Clockwise;
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), -20.0);
+    }
+
+    #[test]
+    fn test_stepper_move_counterclockwise_positive_direction_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+        let steps = 20;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        // positive direction cannot be modified from api. This is only for test
+        s.options.positive_direction = RotationDirection::CounterClockwise;
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 20.0);
     }
 
     #[test]
