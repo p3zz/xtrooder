@@ -4,7 +4,7 @@ use math::common::RotationDirection;
 
 use super::motion::{self, no_move, Positioning};
 use crate::stepper::a4988::{Stepper, StepperError};
-use core::time::Duration;
+use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
@@ -47,8 +47,8 @@ where
     #[cfg(not(test))]
     pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
         match command {
-            GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await,
-            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await,
+            GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_|()),
+            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await.map(|_|()),
             GCommand::G2 {
                 x,
                 y,
@@ -58,7 +58,7 @@ where
                 i,
                 j,
                 r,
-            } => self.g2(x, y, z, e, f, i, j, r).await,
+            } => self.g2(x, y, z, e, f, i, j, r).await.map(|_|()),
             GCommand::G3 {
                 x,
                 y,
@@ -68,7 +68,7 @@ where
                 i,
                 j,
                 r,
-            } => self.g3(x, y, z, e, f, i, j, r).await,
+            } => self.g3(x, y, z, e, f, i, j, r).await.map(|_|()),
             GCommand::G20 => {
                 self.g20();
                 Ok(())
@@ -94,15 +94,15 @@ where
         }
     }
 
-    async fn g4(&mut self, p: Option<Duration>, s: Option<Duration>) {
+    async fn g4(&mut self, p: Option<core::time::Duration>, s: Option<core::time::Duration>) {
         let d = match (p, s) {
             (None, None) => None,
             (None, Some(_)) | (Some(_), Some(_)) => s,
             (Some(_), None) => p,
         };
         if let Some(duration) = d {
-            let t = embassy_time::Duration::from_millis(duration.as_millis() as u64);
-            Timer::after(t).await;
+            let t = Duration::from_millis(duration.as_millis() as u64);
+            Timer::after(t).await
         }
     }
 
@@ -129,7 +129,7 @@ where
         y: Option<Distance>,
         z: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -169,7 +169,7 @@ where
         z: Option<Distance>,
         e: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -233,7 +233,7 @@ where
         j: Option<Distance>,
         r: Option<Distance>,
         d: RotationDirection,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         match (i, j, r) {
             (Some(_), Some(_), Some(_))
             | (None, None, None)
@@ -280,7 +280,7 @@ where
             };
 
             let offset_from_center = Vector2D::new(i, j);
-            motion::arc_move_3d_e_offset_from_center(
+            return motion::arc_move_3d_e_offset_from_center(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -291,7 +291,7 @@ where
                 d,
                 e,
             )
-            .await?
+            .await;
         }
 
         if r.is_some() {
@@ -313,7 +313,7 @@ where
 
             let r = r.unwrap();
 
-            motion::arc_move_3d_e_radius(
+            return motion::arc_move_3d_e_radius(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -324,7 +324,7 @@ where
                 d,
                 e,
             )
-            .await?
+            .await;
         }
 
         Err(StepperError::MoveNotValid)
@@ -341,7 +341,7 @@ where
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise)
             .await
     }
@@ -357,7 +357,7 @@ where
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
             .await
     }

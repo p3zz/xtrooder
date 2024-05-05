@@ -165,7 +165,7 @@ where
     // the stepper will step by 1 step, and it will be recorded as 1 full-step
     // if the stepping mode is on half-step, the stepper will step by 1 step, and it will be recorded as 1/2 full-step
     #[cfg(not(test))]
-    pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
+    pub async fn move_for_steps(&mut self, steps: u64) -> Result<Duration, StepperError> {
         let duration = self.move_for_steps_inner(steps)?;
         self.step.enable(Channel::Ch1);
         self.step.enable(Channel::Ch2);
@@ -179,13 +179,13 @@ where
         self.step.disable(Channel::Ch3);
         self.step.disable(Channel::Ch4);
         
-        Ok(())
+        Ok(duration)
     }
 
     #[cfg(test)]
-    pub fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        let _duration = self.move_for_steps_inner(steps)?;
-        Ok(())
+    pub fn move_for_steps(&mut self, steps: u64) -> Result<Duration, StepperError> {
+        let duration = self.move_for_steps_inner(steps)?;
+        Ok(duration)
     }
 
     fn move_for_steps_inner(&mut self, steps: u64) -> Result<Duration, StepperError> {
@@ -249,13 +249,13 @@ where
     }
 
     #[cfg(test)]
-    pub fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
+    pub fn move_for_distance(&mut self, distance: Distance) -> Result<Duration, StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps(steps)
     }
 
     #[cfg(not(test))]
-    pub async fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
+    pub async fn move_for_distance(&mut self, distance: Distance) -> Result<Duration, StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps(steps).await
     }
@@ -268,13 +268,13 @@ where
     }
 
     #[cfg(test)]
-    pub fn move_to_destination(&mut self, destination: Distance) -> Result<(), StepperError> {
+    pub fn move_to_destination(&mut self, destination: Distance) -> Result<Duration, StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance(distance)
     }
 
     #[cfg(not(test))]
-    pub async fn move_to_destination(&mut self, destination: Distance) -> Result<(), StepperError> {
+    pub async fn move_to_destination(&mut self, destination: Distance) -> Result<Duration, StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance(distance).await
     }
@@ -300,12 +300,12 @@ where
     }
 
     #[cfg(not(test))]
-    pub async fn home(&mut self) -> Result<(), StepperError> {
+    pub async fn home(&mut self) -> Result<Duration, StepperError> {
         self.move_to_destination(Distance::from_mm(0.0)).await
     }
 
     #[cfg(test)]
-    pub fn home(&mut self) -> Result<(), StepperError> {
+    pub fn home(&mut self) -> Result<Duration, StepperError> {
         self.move_to_destination(Distance::from_mm(0.0))
     }
 

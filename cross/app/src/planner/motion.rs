@@ -6,8 +6,11 @@ use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDir
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
+use math::common::max;
 use math::vector::{Vector2D, Vector3D};
 use micromath::F32Ext;
+use embassy_time::Duration;
+use heapless::Vec;
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -32,7 +35,7 @@ pub async fn linear_move_for<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     distance: Distance,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let dest = stepper.get_position()?.add(&distance);
     linear_move_to(stepper, dest, speed).await
 }
@@ -42,7 +45,7 @@ pub async fn linear_move_to<'s, S: CaptureCompare16bitInstance>(
     stepper: &mut Stepper<'s, S>,
     dest: Distance,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
     stepper.set_speed_from_attachment(s)?;
     stepper.move_to_destination(dest).await
@@ -60,12 +63,16 @@ async fn linear_move_to_2d_raw<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     speed: Vector2D<Speed>,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     match join!(
         linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
         linear_move_to(stepper_b, dest.get_y(), speed.get_y()),
     ) {
-        (Ok(_), Ok(_)) => Ok(()),
+        (Ok(ta), Ok(tb)) => {
+            let duration = max(&[ta.as_micros(), tb.as_micros()]);
+            let duration = Duration::from_micros(duration.unwrap());
+            Ok(duration)
+        },
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -80,7 +87,7 @@ pub async fn linear_move_to_2d<
     stepper_b: &mut Stepper<'s, B>,
     dest: Vector2D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let src = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     let direction = dest.sub(&src).normalize();
     if direction.is_err() {
@@ -109,7 +116,7 @@ pub async fn linear_move_3d<
     dest: Vector3D<Distance>,
     speed: Speed,
     positioning: Positioning,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
             linear_move_for_3d(stepper_a, stepper_b, stepper_c, dest, speed).await
@@ -132,13 +139,17 @@ async fn linear_move_to_3d_raw<
     stepper_c: &mut Stepper<'s, C>,
     dest: Vector3D<Distance>,
     speed: Vector3D<Speed>,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     match join!(
         linear_move_to(stepper_a, dest.get_x(), speed.get_x()),
         linear_move_to(stepper_b, dest.get_y(), speed.get_y()),
         linear_move_to(stepper_c, dest.get_z(), speed.get_z()),
     ) {
-        (Ok(_), Ok(_), Ok(_)) => Ok(()),
+        (Ok(ta), Ok(tb), Ok(tc)) => {
+            let duration = max(&[ta.as_micros(), tb.as_micros(), tc.as_micros()]);
+            let duration = Duration::from_micros(duration.unwrap());
+            Ok(duration)
+        },
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -155,7 +166,7 @@ pub async fn linear_move_to_3d<
     stepper_c: &mut Stepper<'s, C>,
     dest: Vector3D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position()?,
         stepper_b.get_position()?,
@@ -186,7 +197,7 @@ pub async fn linear_move_for_3d<
     stepper_c: &mut Stepper<'s, C>,
     distance: Vector3D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let source = Vector3D::new(
         stepper_a.get_position()?,
         stepper_b.get_position()?,
@@ -212,7 +223,7 @@ pub async fn linear_move_3d_e<
     speed: Speed,
     e_dest: Distance,
     positioning: Positioning,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
             linear_move_for_3d_e(
@@ -244,7 +255,7 @@ pub async fn linear_move_to_3d_e<
     dest: Vector3D<Distance>,
     speed: Speed,
     e_dest: Distance,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position()?,
         stepper_b.get_position()?,
@@ -260,7 +271,11 @@ pub async fn linear_move_to_3d_e<
         linear_move_to_3d(stepper_a, stepper_b, stepper_c, dest, speed),
         linear_move_to(stepper_e, e_dest, e_speed)
     ) {
-        (Ok(_), Ok(_)) => Ok(()),
+        (Ok(t), Ok(te)) => {
+            let duration = max(&[t.as_micros(), te.as_micros()]);
+            let duration = Duration::from_micros(duration.unwrap());
+            Ok(duration)
+        },
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -280,7 +295,7 @@ pub async fn linear_move_for_3d_e<
     distance: Vector3D<Distance>,
     speed: Speed,
     e_distance: Distance,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position()?,
         stepper_b.get_position()?,
@@ -315,11 +330,12 @@ pub async fn arc_move_2d_arc_length<
     center: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let arc_unit_length = Distance::from_mm(1.0);
     if arc_length.to_mm() < arc_unit_length.to_mm() {
         return Err(StepperError::MoveTooShort);
     }
+    let mut duration = 0;
     let mut source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     let arcs_n = (arc_length.div(&arc_unit_length).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
@@ -327,10 +343,11 @@ pub async fn arc_move_2d_arc_length<
             Some(dst) => dst,
             None => return Err(StepperError::MoveNotValid),
         };
-        linear_move_to_2d(stepper_a, stepper_b, arc_dst, speed).await?;
+        let d = linear_move_to_2d(stepper_a, stepper_b, arc_dst, speed).await?;
+        duration += d.as_micros();
         source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     }
-    Ok(())
+    Ok(Duration::from_micros(duration))
 }
 
 #[cfg(not(test))]
@@ -351,7 +368,7 @@ pub async fn arc_move_3d_e_center<
     direction: RotationDirection,
     e_dest: Distance,
     full_circle_enabled: bool,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let xy_dest = Vector2D::new(dest.get_x(), dest.get_y());
     let xy_center = Vector2D::new(center.get_x(), center.get_y());
@@ -372,7 +389,11 @@ pub async fn arc_move_3d_e_center<
         linear_move_to(stepper_c, dest.get_z(), z_speed),
         linear_move_to(stepper_e, e_dest, e_speed)
     ) {
-        (Ok(_), Ok(_), Ok(_)) => Ok(()),
+        (Ok(ta), Ok(tb), Ok(tc)) => {
+            let duration = max(&[ta.as_micros(), tb.as_micros(), tc.as_micros()]);
+            let duration = Duration::from_micros(duration.unwrap());
+            Ok(duration)
+        },
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -394,7 +415,7 @@ pub async fn arc_move_3d_e_radius<
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     let angle = source.get_angle();
     let center_offset_x = Distance::from_mm(radius.to_mm() * cos(angle));
@@ -423,7 +444,7 @@ pub async fn arc_move_3d_e_offset_from_center<
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
-) -> Result<(), StepperError> {
+) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     let center = source.add(&offset);
     arc_move_3d_e_center(

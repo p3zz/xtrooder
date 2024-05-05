@@ -23,6 +23,16 @@ impl From<RotationDirection> for u8 {
     }
 }
 
+pub fn max(other: &[u64]) -> Option<u64>{
+    let mut max = other.get(0)?;
+    for e in other{
+        if e > max{
+            max = e;
+        }
+    }
+    Some(*max)
+}
+
 pub fn abs(value: f64) -> f64 {
     let mut v = value;
     if value.is_sign_negative() {

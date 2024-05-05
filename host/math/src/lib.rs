@@ -1,5 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 
+// TODO use micromath vector instead of this local vector
+
 pub mod angle;
 pub mod common;
 pub mod computable;
