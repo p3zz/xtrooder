@@ -215,15 +215,7 @@ async fn main(_spawner: Spawner) {
 
     // --------- X AXIS -----------------
 
-    let x_step = SimplePwm::new(
-        p.TIM5,
-        Some(PwmPin::new_ch1(p.PA0, OutputType::PushPull)),
-        None,
-        None,
-        None,
-        hz(1),
-        CountingMode::EdgeAlignedUp,
-    );
+    let x_step = Output::new(p.PA0, Level::Low, PinSpeed::Low);
 
     let x_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
@@ -234,15 +226,7 @@ async fn main(_spawner: Spawner) {
 
     // --------- Y AXIS -----------------
 
-    let y_step = SimplePwm::new(
-        p.TIM3,
-        Some(PwmPin::new_ch1(p.PA6, OutputType::PushPull)),
-        None,
-        None,
-        None,
-        hz(1),
-        CountingMode::EdgeAlignedUp,
-    );
+    let y_step = Output::new(p.PA6, Level::Low, PinSpeed::Low);
 
     let y_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
 
@@ -253,15 +237,7 @@ async fn main(_spawner: Spawner) {
 
     // --------- Z AXIS -----------------
 
-    let z_step = SimplePwm::new(
-        p.TIM2,
-        Some(PwmPin::new_ch1(p.PA5, OutputType::PushPull)),
-        None,
-        None,
-        None,
-        hz(1),
-        CountingMode::EdgeAlignedUp,
-    );
+    let z_step = Output::new(p.PA5, Level::Low, PinSpeed::Low);
 
     let z_dir = Output::new(p.PB2, Level::Low, PinSpeed::Low);
 

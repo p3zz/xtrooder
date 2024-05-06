@@ -1,4 +1,3 @@
-use embassy_stm32::timer::CaptureCompare16bitInstance;
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
@@ -11,28 +10,23 @@ use math::vector::{Vector2D, Vector3D};
 use parser::parser::{GCodeParser, GCommand};
 
 // we need to have a triple(s, d, T) for every stepper
-pub struct Planner<'s, X, Y, Z, E> {
+pub struct Planner<'s> {
     feedrate: Speed,
     positioning: Positioning,
-    x_stepper: Stepper<'s, X>,
-    y_stepper: Stepper<'s, Y>,
-    z_stepper: Stepper<'s, Z>,
-    e_stepper: Stepper<'s, E>,
+    x_stepper: Stepper<'s>,
+    y_stepper: Stepper<'s>,
+    z_stepper: Stepper<'s>,
+    e_stepper: Stepper<'s>,
     parser: GCodeParser,
 }
-impl<'s, X, Y, Z, E> Planner<'s, X, Y, Z, E>
-where
-    X: CaptureCompare16bitInstance,
-    Y: CaptureCompare16bitInstance,
-    Z: CaptureCompare16bitInstance,
-    E: CaptureCompare16bitInstance,
+impl<'s> Planner<'s>
 {
     pub fn new(
-        x_stepper: Stepper<'s, X>,
-        y_stepper: Stepper<'s, Y>,
-        z_stepper: Stepper<'s, Z>,
-        e_stepper: Stepper<'s, E>,
-    ) -> Planner<'s, X, Y, Z, E> {
+        x_stepper: Stepper<'s>,
+        y_stepper: Stepper<'s>,
+        z_stepper: Stepper<'s>,
+        e_stepper: Stepper<'s>,
+    ) -> Self {
         Planner {
             x_stepper,
             y_stepper,
@@ -129,7 +123,7 @@ where
         y: Option<Distance>,
         z: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<Duration, StepperError> {
+    ) -> Result<(), StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -169,7 +163,7 @@ where
         z: Option<Distance>,
         e: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<Duration, StepperError> {
+    ) -> Result<(), StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -233,7 +227,7 @@ where
         j: Option<Distance>,
         r: Option<Distance>,
         d: RotationDirection,
-    ) -> Result<Duration, StepperError> {
+    ) -> Result<(), StepperError> {
         match (i, j, r) {
             (Some(_), Some(_), Some(_))
             | (None, None, None)
@@ -341,7 +335,7 @@ where
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<Duration, StepperError> {
+    ) -> Result<(), StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise)
             .await
     }
@@ -357,7 +351,7 @@ where
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<Duration, StepperError> {
+    ) -> Result<(), StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
             .await
     }

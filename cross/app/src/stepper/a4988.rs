@@ -66,9 +66,9 @@ impl From<SteppingMode> for u8 {
     }
 }
 
-pub struct Stepper<'s, S> {
+pub struct Stepper<'s> {
     // properties that won't change
-    step: SimplePwm<'s, S>,
+    step: Output<'s>,
     dir: Output<'s>,
     options: StepperOptions,
     attachment: Option<StepperAttachment>,
@@ -84,20 +84,14 @@ pub struct Stepper<'s, S> {
     steps: f64,
 }
 
-impl<'s, S> Stepper<'s, S>
-where
-    S: CaptureCompare16bitInstance,
+impl<'s> Stepper<'s>
 {
     pub fn new(
-        mut step: SimplePwm<'s, S>,
+        step: Output<'s>,
         dir: Output<'s>,
-    ) -> Stepper<'s, S> {
-        step.set_duty(Channel::Ch1, step.get_max_duty() / 2);
-        step.set_duty(Channel::Ch2, step.get_max_duty() / 2);
-        step.set_duty(Channel::Ch3, step.get_max_duty() / 2);
-        step.set_duty(Channel::Ch4, step.get_max_duty() / 2);
+    ) -> Self {
         
-        Stepper {
+        Self {
             step,
             dir,
             options: StepperOptions::default(),
@@ -118,11 +112,8 @@ where
             self.options.steps_per_revolution
         );
         let step_duration = step_duration.expect("Invalid step duration");
-        let duty_ratio = self.step.get_duty(Channel::Ch1) as f64 / self.step.get_max_duty() as f64;
-        let micros = (step_duration.as_micros() as f64 * duty_ratio / f64::from(u8::from(self.options.stepping_mode))) as u64;
+        let micros = (step_duration.as_micros() as f64 / f64::from(u8::from(self.options.stepping_mode))) as u64;
         self.step_duration = Duration::from_micros(micros);
-        let freq = hz(((1.0 / self.step_duration.as_micros() as f64) * 1_000_000.0) as u32);
-        self.step.set_frequency(freq);
     }
 
     pub fn set_speed_from_attachment(&mut self, speed: Speed) -> Result<(), StepperError> {
@@ -159,37 +150,32 @@ where
         }
     }
 
-    // the stepping is implemented through a pwm,
-    // and the frequency is computed using the time for a step to be executed (step duration)
-    // here a single step matches with the current stepping mode. If the stepping mode is full-step,
-    // the stepper will step by 1 step, and it will be recorded as 1 full-step
-    // if the stepping mode is on half-step, the stepper will step by 1 step, and it will be recorded as 1/2 full-step
+    pub async fn step(&mut self){
+        self.step.set_high();
+        self.step.set_low();
+        Timer::after(self.step_duration).await
+    }
+
+
     #[cfg(not(test))]
-    pub async fn move_for_steps(&mut self, steps: u64) -> Result<Duration, StepperError> {
-        let duration = self.move_for_steps_inner(steps)?;
-        self.step.enable(Channel::Ch1);
-        self.step.enable(Channel::Ch2);
-        self.step.enable(Channel::Ch3);
-        self.step.enable(Channel::Ch4);
-
-        Timer::after(duration).await;
-
-        self.step.disable(Channel::Ch1);
-        self.step.disable(Channel::Ch2);
-        self.step.disable(Channel::Ch3);
-        self.step.disable(Channel::Ch4);
-        
-        Ok(duration)
+    pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
+        let steps_next = self.check_move_valid(steps)?;
+        info!("Steps: {}, Step duration: {} us", steps, self.step_duration.as_micros());
+        for _ in 0..steps{
+            self.step().await;
+        }
+        self.steps = steps_next;
+        Ok(())
     }
 
     #[cfg(test)]
-    pub fn move_for_steps(&mut self, steps: u64) -> Result<Duration, StepperError> {
-        let duration = self.move_for_steps_inner(steps)?;
-        Ok(duration)
+    pub fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
+        let steps_next = self.check_move_valid(steps)?;
+        self.steps = steps_next;
+        Ok(())
     }
 
-    fn move_for_steps_inner(&mut self, steps: u64) -> Result<Duration, StepperError> {
-        info!("executed");
+    fn check_move_valid(&mut self, steps: u64) -> Result<f64, StepperError> {
         let s = match self.get_direction(){
             RotationDirection::Clockwise => steps as i64,
             RotationDirection::CounterClockwise => -(steps as i64),
@@ -206,20 +192,7 @@ where
             }
         }
 
-        self.steps = steps_next;
-
-        // step exactly the number of steps passed to the function
-        let duration = Duration::from_micros(steps * self.step_duration.as_micros() as u64);
-
-        info!(
-            "Steps: {} Total duration: {} us Step duration: {} us Direction: {}",
-            steps,
-            duration.as_micros(),
-            self.step_duration.as_micros(),
-            u8::from(self.get_direction())
-        );
-
-        Ok(duration)
+        return Ok(steps_next);
     }
     
 
@@ -249,13 +222,13 @@ where
     }
 
     #[cfg(test)]
-    pub fn move_for_distance(&mut self, distance: Distance) -> Result<Duration, StepperError> {
+    pub fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps(steps)
     }
 
     #[cfg(not(test))]
-    pub async fn move_for_distance(&mut self, distance: Distance) -> Result<Duration, StepperError> {
+    pub async fn move_for_distance(&mut self, distance: Distance) -> Result<(), StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps(steps).await
     }
@@ -264,17 +237,16 @@ where
         let p = self.get_position()?;
         let distance = destination.sub(&p);
         Ok(distance)
-        // self.move_for_distance(distance).await
     }
 
     #[cfg(test)]
-    pub fn move_to_destination(&mut self, destination: Distance) -> Result<Duration, StepperError> {
+    pub fn move_to_destination(&mut self, destination: Distance) -> Result<(), StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance(distance)
     }
 
     #[cfg(not(test))]
-    pub async fn move_to_destination(&mut self, destination: Distance) -> Result<Duration, StepperError> {
+    pub async fn move_to_destination(&mut self, destination: Distance) -> Result<(), StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance(distance).await
     }
@@ -300,12 +272,12 @@ where
     }
 
     #[cfg(not(test))]
-    pub async fn home(&mut self) -> Result<Duration, StepperError> {
+    pub async fn home(&mut self) -> Result<(), StepperError> {
         self.move_to_destination(Distance::from_mm(0.0)).await
     }
 
     #[cfg(test)]
-    pub fn home(&mut self) -> Result<Duration, StepperError> {
+    pub fn home(&mut self) -> Result<(), StepperError> {
         self.move_to_destination(Distance::from_mm(0.0))
     }
 
@@ -321,7 +293,7 @@ where
 #[defmt_test::tests]
 mod tests {
     use defmt_rtt as _;
-    use embassy_stm32::{gpio::{Level, Output, OutputType, Speed as PinSpeed}, peripherals::TIM5, time::hz, timer::{simple_pwm::{PwmPin, SimplePwm}, Channel, CountingMode}, Peripherals};
+    use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
     use math::{common::RotationDirection, distance::Distance};
     use panic_probe as _;
     use defmt::assert;
@@ -329,18 +301,10 @@ mod tests {
     use super::{Stepper, SteppingMode, StepperAttachment};
 
     #[init]
-    fn init() -> Stepper<'static, TIM5>{
+    fn init() -> Stepper<'static>{
         let p = embassy_stm32::init(embassy_stm32::Config::default());
 
-        let step = SimplePwm::new(
-            p.TIM5,
-            Some(PwmPin::new_ch1(p.PA0, OutputType::PushPull)),
-            None,
-            None,
-            None,
-            hz(1),
-            CountingMode::EdgeAlignedUp,
-        );
+        let step = Output::new(p.PA0, Level::Low, PinSpeed::Low);
 
         let dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
@@ -352,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_clockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_direction(RotationDirection::Clockwise);
@@ -362,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_direction(RotationDirection::CounterClockwise);
@@ -372,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_microstepping_clockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_microstepping_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::HalfStep);
@@ -383,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_microstepping_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_microstepping_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::HalfStep);
@@ -394,7 +358,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_clockwise_positive_direction_clockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_clockwise_positive_direction_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -407,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_clockwise_positive_direction_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_clockwise_positive_direction_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -420,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_counterclockwise_positive_direction_clockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_counterclockwise_positive_direction_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -433,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_counterclockwise_positive_direction_counterclockwise(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_counterclockwise_positive_direction_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -446,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_no_attachment(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_for_distance_no_attachment(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(20.0);
         s.reset();
         let res = s.move_for_distance(distance);
@@ -454,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_for_distance(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.0);
         s.reset();
         s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
@@ -466,7 +430,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_space_wasted(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_for_distance_space_wasted(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.5);
         s.reset();
         s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
@@ -478,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_lower_distance_per_step(s: &mut Stepper<'static, TIM5>) {
+    fn test_stepper_move_for_distance_lower_distance_per_step(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.5);
         s.reset();
         s.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(0.5) });
