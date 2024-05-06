@@ -30,16 +30,6 @@ pub fn no_move(
 // ---------------------------- LINEAR MOVE 1D ----------------------------
 
 #[cfg(not(test))]
-pub async fn linear_move_for<'s>(
-    stepper: &mut Stepper<'s>,
-    distance: Distance,
-    speed: Speed,
-) -> Result<(), StepperError> {
-    let dest = stepper.get_position()?.add(&distance);
-    linear_move_to(stepper, dest, speed).await
-}
-
-#[cfg(not(test))]
 pub async fn linear_move_to<'s>(
     stepper: &mut Stepper<'s>,
     dest: Distance,
@@ -48,6 +38,17 @@ pub async fn linear_move_to<'s>(
     let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
     stepper.set_speed_from_attachment(s)?;
     stepper.move_to_destination(dest).await
+}
+
+#[cfg(test)]
+pub fn linear_move_to<'s>(
+    stepper: &mut Stepper<'s>,
+    dest: Distance,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
+    stepper.set_speed_from_attachment(s)?;
+    stepper.move_to_destination(dest)
 }
 
 // ---------------------------- LINEAR MOVE 2D ----------------------------
@@ -70,6 +71,53 @@ async fn linear_move_to_2d_raw<
     }
 }
 
+#[cfg(test)]
+fn linear_move_to_2d_raw<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    dest: Vector2D<Distance>,
+    speed: Vector2D<Speed>,
+) -> Result<(), StepperError> {
+    linear_move_to(stepper_a, dest.get_x(), speed.get_x())?;
+    linear_move_to(stepper_b, dest.get_y(), speed.get_y())?;
+    Ok(())
+}
+
+
+fn linear_move_to_2d_inner<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    dest: Vector2D<Distance>,
+    speed: Speed,
+) -> Result<Vector2D<Speed>, StepperError> {
+    let src = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
+    let direction = dest.sub(&src).normalize();
+    if direction.is_err() {
+        return Err(StepperError::MoveNotValid);
+    }
+    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
+    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+
+    Ok(Vector2D::new(speed_x, speed_y))
+}
+
+#[cfg(test)]
+pub fn linear_move_to_2d<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    dest: Vector2D<Distance>,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let speed = linear_move_to_2d_inner(stepper_a, stepper_b, dest, speed)?;
+    linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed)
+}
+
 #[cfg(not(test))]
 pub async fn linear_move_to_2d<
     's,
@@ -79,16 +127,7 @@ pub async fn linear_move_to_2d<
     dest: Vector2D<Distance>,
     speed: Speed,
 ) -> Result<(), StepperError> {
-    let src = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
-    let direction = dest.sub(&src).normalize();
-    if direction.is_err() {
-        return Err(StepperError::MoveNotValid);
-    }
-    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
-
-    let speed = Vector2D::new(speed_x, speed_y);
-
+    let speed = linear_move_to_2d_inner(stepper_a, stepper_b, dest, speed)?;
     linear_move_to_2d_raw(stepper_a, stepper_b, dest, speed).await
 }
 

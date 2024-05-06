@@ -3,7 +3,7 @@
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use app::planner::{
-    motion::{linear_move_for, linear_move_to, linear_move_to_2d},
+    motion::{linear_move_to, linear_move_to_2d},
     planner::Planner,
 };
 use app::stepper::a4988::{Stepper, StepperOptions, SteppingMode};

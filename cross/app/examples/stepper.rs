@@ -48,7 +48,7 @@ async fn main(_spawner: Spawner) {
 
     stepper.set_attachment(StepperAttachment::default());
 
-    stepper.set_speed(1.0);
+    stepper.set_speed(1.0).unwrap();
 
     // let mut d = Distance::from_mm(80.0);
 
