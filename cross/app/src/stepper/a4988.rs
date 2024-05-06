@@ -107,14 +107,17 @@ impl<'s> Stepper<'s>
     pwm frequency: count of PWM interval periods per second
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
-    pub fn set_speed(&mut self, revolutions_per_second: f64) {
-        let step_duration = compute_step_duration(
+    pub fn set_speed(&mut self, revolutions_per_second: f64) -> Result<(), StepperError> {
+        let step_duration = match compute_step_duration(
             revolutions_per_second,
             self.options.steps_per_revolution
-        );
-        let step_duration = step_duration.expect("Invalid step duration");
+        ){
+            Ok(d) => d,
+            Err(_) => return Err(StepperError::MoveNotValid),
+        };
         let micros = (step_duration.as_micros() as f64 / f64::from(u8::from(self.options.stepping_mode))) as u64;
         self.step_duration = Duration::from_micros(micros);
+        Ok(())
     }
 
     pub fn set_speed_from_attachment(&mut self, speed: Speed) -> Result<(), StepperError> {
@@ -123,7 +126,7 @@ impl<'s> Stepper<'s>
         }
         let attachment = self.attachment.unwrap();
         let rps = speed.to_revolutions_per_second(self.options.steps_per_revolution, attachment.distance_per_step);
-        self.set_speed(rps);
+        self.set_speed(rps)?;
         Ok(())
     }
 
@@ -500,14 +503,34 @@ mod tests {
         assert_eq!(s.get_steps(), 0.0);
     }
 
+    #[test]
+    fn test_stepper_set_speed_positive(s: &mut Stepper<'static>) {
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        let res = s.set_speed(1.0);
+        assert!(res.is_ok());
+        assert_eq!(s.get_speed(), 0.9992006394884093);
+    }
+
+    #[test]
+    fn test_stepper_set_speed_zero(s: &mut Stepper<'static>) {
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        let res = s.set_speed(0.0);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stepper_set_speed_negative(s: &mut Stepper<'static>) {
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        let res = s.set_speed(-10.0);
+        assert!(res.is_err());
+    }
 
     #[test]
     fn always_passes() {
         assert!(true);
     }
     
-    // #[test]
-    // fn always_passes_3(s: &mut Stepper<'static, TIM5>) {
-    //     assert!(true);
-    // }
 }

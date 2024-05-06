@@ -71,13 +71,13 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 // spr -> step per revolution
 // dps -> distance per step
 // speed -> mm/s
-pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: u64) -> Option<Duration> {
-    if revolutions_per_second == 0f64 {
-        return None;
+pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: u64) -> Result<Duration, ()> {
+    if revolutions_per_second == 0.0 || revolutions_per_second.is_sign_negative() {
+        return Err(());
     }
     let second_per_revolution = 1.0 / revolutions_per_second;
     let second_per_step = second_per_revolution / (steps_per_revolution as f64);
-    Some(Duration::from_secs_f64(second_per_step))
+    Ok(Duration::from_secs_f64(second_per_step))
 }
 
 pub fn compute_revolutions_per_second(step_duration: Duration, steps_per_revolution: u64) -> f64 {
@@ -162,7 +162,6 @@ mod tests {
 
     #[test]
     fn test_rps_from_mmps_1() {
-        println!("Test - RPS from MMPS 1");
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_mm(1.0);
         let speed =
@@ -172,7 +171,6 @@ mod tests {
 
     #[test]
     fn test_rps_from_mmps_2() {
-        println!("Test - RPS from MMPS 2");
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_mm(1.0);
         let speed =
@@ -182,7 +180,6 @@ mod tests {
 
     #[test]
     fn test_rps_from_mmps_3() {
-        println!("Test - RPS from MMPS 3");
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_mm(0.1);
         let speed =
@@ -191,22 +188,28 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_step_duration_1() {
-        println!("Test - Compute step duration 1");
+    fn test_compute_step_duration_valid() {
         let steps_per_revolution = 200_u64;
         let revolutions_per_second = 1.0;
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_some());
+        assert!(duration.is_ok());
         assert_eq!(duration.unwrap().as_micros(), 5000);
     }
 
     #[test]
-    fn test_compute_step_duration_3() {
-        println!("Test - Compute step duration 1");
+    fn test_compute_step_duration_zero() {
         let steps_per_revolution = 200_u64;
-        let revolutions_per_second = 0f64;
+        let revolutions_per_second = 0.0;
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_none());
+        assert!(duration.is_err());
+    }
+
+    #[test]
+    fn test_compute_step_duration_negative() {
+        let steps_per_revolution = 200_u64;
+        let revolutions_per_second = -2.0;
+        let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
+        assert!(duration.is_err());
     }
 
     #[test]
