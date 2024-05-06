@@ -323,6 +323,7 @@ mod tests {
         let res = s.move_for_steps(steps);
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 20.0);
+        assert_eq!(s.get_speed(), 0.005);
     }
 
     #[test]
