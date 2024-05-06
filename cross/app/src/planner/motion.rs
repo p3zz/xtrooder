@@ -174,8 +174,24 @@ async fn linear_move_to_3d_raw<
     }
 }
 
-#[cfg(not(test))]
-pub async fn linear_move_to_3d<
+#[cfg(test)]
+fn linear_move_to_3d_raw<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    stepper_c: &mut Stepper<'s>,
+    dest: Vector3D<Distance>,
+    speed: Vector3D<Speed>,
+) -> Result<(), StepperError> {
+    linear_move_to(stepper_a, dest.get_x(), speed.get_x())?;
+    linear_move_to(stepper_b, dest.get_y(), speed.get_y())?;
+    linear_move_to(stepper_c, dest.get_z(), speed.get_z())?;
+    Ok(())
+}
+
+
+pub fn linear_move_to_3d_inner<
     's,
 >(
     stepper_a: &mut Stepper<'s>,
@@ -183,7 +199,7 @@ pub async fn linear_move_to_3d<
     stepper_c: &mut Stepper<'s>,
     dest: Vector3D<Distance>,
     speed: Speed,
-) -> Result<(), StepperError> {
+) -> Result<Vector3D<Speed>, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position()?,
         stepper_b.get_position()?,
@@ -197,9 +213,35 @@ pub async fn linear_move_to_3d<
     let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
     let speed_z = Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
 
-    let speed = Vector3D::new(speed_x, speed_y, speed_z);
+    Ok(Vector3D::new(speed_x, speed_y, speed_z))
+}
 
+#[cfg(not(test))]
+pub async fn linear_move_to_3d<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    stepper_c: &mut Stepper<'s>,
+    dest: Vector3D<Distance>,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let speed = linear_move_to_3d_inner(stepper_a, stepper_b, stepper_c, dest, speed)?;
     linear_move_to_3d_raw(stepper_a, stepper_b, stepper_c, dest, speed).await
+}
+
+#[cfg(test)]
+pub fn linear_move_to_3d<
+    's,
+>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    stepper_c: &mut Stepper<'s>,
+    dest: Vector3D<Distance>,
+    speed: Speed,
+) -> Result<(), StepperError> {
+    let speed = linear_move_to_3d_inner(stepper_a, stepper_b, stepper_c, dest, speed)?;
+    linear_move_to_3d_raw(stepper_a, stepper_b, stepper_c, dest, speed)
 }
 
 #[cfg(not(test))]
