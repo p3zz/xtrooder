@@ -456,6 +456,50 @@ mod tests {
         assert_eq!(s.get_position().unwrap().to_mm(), 10.5);
     }
 
+    #[test]
+    fn test_stepper_move_for_steps_outofbounds(s: &mut Stepper<'static>) {
+        let steps = 10;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        s.options.bounds = Some((-10.0, 10.0));
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), -10.0);
+
+        let steps = 15;
+        let res = s.move_for_steps(steps);
+        assert!(res.is_err());
+        assert_eq!(s.get_steps(), -10.0);
+    }
+
+    #[test]
+    fn test_stepper_home(s: &mut Stepper<'static>) {
+        let steps = 10;
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_attachment(StepperAttachment::default());
+
+        s.set_direction(RotationDirection::Clockwise);
+        let res = s.move_for_steps(steps);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 10.0);
+
+        let res = s.home();
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 0.0);
+    }
+
+    #[test]
+    fn test_stepper_home_no_attachment(s: &mut Stepper<'static>) {
+        s.reset();
+        s.set_stepping_mode(SteppingMode::FullStep);
+
+        let res = s.home();
+        assert!(res.is_err());
+        assert_eq!(s.get_steps(), 0.0);
+    }
+
 
     #[test]
     fn always_passes() {
