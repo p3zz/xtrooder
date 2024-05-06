@@ -89,12 +89,13 @@ impl<'s> Stepper<'s>
     pub fn new(
         step: Output<'s>,
         dir: Output<'s>,
+        options: StepperOptions
     ) -> Self {
         
         Self {
             step,
             dir,
-            options: StepperOptions::default(),
+            options,
             attachment: None,
             step_duration: Duration::from_secs(1),
             steps: 0f64,
@@ -298,7 +299,7 @@ mod tests {
     use panic_probe as _;
     use defmt::assert;
 
-    use super::{Stepper, SteppingMode, StepperAttachment};
+    use super::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 
     #[init]
     fn init() -> Stepper<'static>{
@@ -311,6 +312,7 @@ mod tests {
         Stepper::new(
             step,
             dir,
+            StepperOptions::default()
         )
 
     }

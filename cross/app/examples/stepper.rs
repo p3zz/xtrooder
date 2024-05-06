@@ -41,6 +41,7 @@ async fn main(_spawner: Spawner) {
     let mut stepper = Stepper::new(
         step,
         dir,
+        StepperOptions::default()
     );
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);

@@ -6,7 +6,7 @@ use app::planner::{
     motion::{linear_move_for, linear_move_to, linear_move_to_2d},
     planner::Planner,
 };
-use app::stepper::a4988::{Stepper, SteppingMode};
+use app::stepper::a4988::{Stepper, StepperOptions, SteppingMode};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM7, TIM8};
@@ -222,6 +222,7 @@ async fn main(_spawner: Spawner) {
     let mut x_stepper = Stepper::new(
         x_step,
         x_dir,
+        StepperOptions::default()
     );
 
     // --------- Y AXIS -----------------
@@ -233,6 +234,7 @@ async fn main(_spawner: Spawner) {
     let mut y_stepper = Stepper::new(
         y_step,
         y_dir,
+        StepperOptions::default()
     );
 
     // --------- Z AXIS -----------------
@@ -244,6 +246,7 @@ async fn main(_spawner: Spawner) {
     let mut z_stepper = Stepper::new(
         z_step,
         z_dir,
+        StepperOptions::default()
     );
 
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
