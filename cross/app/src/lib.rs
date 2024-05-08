@@ -11,7 +11,7 @@ pub mod utils;
 mod tests {
     use defmt_rtt as _;
     use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
-    use math::{common::RotationDirection, distance::Distance, speed::Speed};
+    use math::{common::RotationDirection, distance::Distance, speed::Speed, vector::Vector2D};
     use panic_probe as _;
     use defmt::assert;
 
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn test_baba(s: &mut (Stepper<'static>, Stepper<'static>)) {
+    fn test_linear_move_to(s: &mut (Stepper<'static>, Stepper<'static>)) {
         let destination = Distance::from_mm(10.0);
         let speed = Speed::from_mm_per_second(10.0);
         s.0.reset();
@@ -277,6 +277,57 @@ mod tests {
         assert!(res.is_ok());
         assert_eq!(s.0.get_steps(), 10.0);
         assert_eq!(s.0.get_position().unwrap().to_mm(), 10.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
+    }
+
+    #[test]
+    fn test_linear_move_to_negative_speed(s: &mut (Stepper<'static>, Stepper<'static>)) {
+        let destination = Distance::from_mm(-10.0);
+        let speed = Speed::from_mm_per_second(-10.0);
+        s.0.reset();
+        s.1.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = motion::linear_move_to(&mut s.0, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), -10.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), -10.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+    }
+
+    #[test]
+    fn test_linear_move_to_2d(s: &mut (Stepper<'static>, Stepper<'static>)) {
+        let destination = Vector2D::new(Distance::from_mm(-10.0), Distance::from_mm(-10.0));
+        let speed = Speed::from_mm_per_second(-10.0);
+        s.0.reset();
+        s.1.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.1.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = motion::linear_move_to_2d(&mut s.0, &mut s.1, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), -10.0);
+        assert_eq!(s.1.get_steps(), -10.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), -10.0);
+        assert_eq!(s.1.get_position().unwrap().to_mm(), -10.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::CounterClockwise);
+    }
+
+    #[test]
+    fn test_linear_move_to_2d_2(s: &mut (Stepper<'static>, Stepper<'static>)) {
+        let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
+        let speed = Speed::from_mm_per_second(10.0);
+        s.0.reset();
+        s.1.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.1.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = motion::linear_move_to_2d(&mut s.0, &mut s.1, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), -5.0);
+        assert_eq!(s.1.get_steps(), 5.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), -5.0);
+        assert_eq!(s.1.get_position().unwrap().to_mm(), 5.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
     }
     
 }
