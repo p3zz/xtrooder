@@ -282,6 +282,14 @@ impl<'s> Stepper<'s>
         compute_revolutions_per_second(core::time::Duration::from_micros(self.step_duration.as_micros()), self.options.steps_per_revolution)
     }
 
+    pub fn get_speed_from_attachment(&self) -> Result<Speed, StepperError>{
+        if let Some(attachment) = self.attachment{
+            let rev_per_second = self.get_speed() / f64::from(u8::from(self.options.stepping_mode));
+            return Ok(Speed::from_revolutions_per_second(rev_per_second, self.options.steps_per_revolution, attachment.distance_per_step));
+        }
+        Err(StepperError::MissingAttachment)
+    }
+
     #[cfg(not(test))]
     pub async fn home(&mut self) -> Result<(), StepperError> {
         self.move_to_destination(Distance::from_mm(0.0)).await

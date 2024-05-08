@@ -8,7 +8,7 @@ use crate::{
     vector::Vector2D,
 };
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum RotationDirection {
     Clockwise,
     CounterClockwise,
@@ -149,10 +149,10 @@ pub fn compute_arc_destination(
 #[cfg(test)]
 mod tests {
     use assert_float_eq::*;
-    use core::f64::consts::PI;
+    use core::{f64::consts::PI, time::Duration};
 
     use crate::{
-        common::{abs, compute_arc_length, compute_step_duration, RotationDirection},
+        common::{abs, compute_arc_length, compute_revolutions_per_second, compute_step_duration, RotationDirection},
         distance::Distance,
         speed::Speed,
         vector::Vector2D,
@@ -210,6 +210,14 @@ mod tests {
         let revolutions_per_second = -2.0;
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
         assert!(duration.is_err());
+    }
+
+    #[test]
+    fn test_compute_revolutions_per_second() {
+        let steps_per_revolution = 200_u64;
+        let step_duration = Duration::from_micros(5000);
+        let revolutions_per_second = compute_revolutions_per_second(step_duration, steps_per_revolution);
+        assert_eq!(revolutions_per_second, 1.0);
     }
 
     #[test]

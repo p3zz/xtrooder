@@ -1,6 +1,9 @@
+use core::f64::consts::PI;
+
 use crate::stepper::a4988::{Stepper, StepperError};
+use defmt::info;
 use futures::join;
-use math::angle::{cos, sin};
+use math::angle::{cos, sin, Angle};
 use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
@@ -95,12 +98,9 @@ fn linear_move_to_2d_inner<
     speed: Speed,
 ) -> Result<Vector2D<Speed>, StepperError> {
     let src = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
-    let direction = dest.sub(&src).normalize();
-    if direction.is_err() {
-        return Err(StepperError::MoveNotValid);
-    }
-    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
+    let angle = dest.sub(&src).get_angle();
+    let speed_x = Speed::from_mm_per_second(cos(angle) * speed.to_mm_per_second());
+    let speed_y = Speed::from_mm_per_second(sin(angle) * speed.to_mm_per_second());
 
     Ok(Vector2D::new(speed_x, speed_y))
 }
@@ -205,13 +205,12 @@ pub fn linear_move_to_3d_inner<
         stepper_b.get_position()?,
         stepper_c.get_position()?,
     );
-    let direction = dest.sub(&src).normalize();
-    if direction.is_err() {
-        return Err(StepperError::MoveNotValid);
-    }
-    let speed_x = Speed::from_mm_per_second(direction.unwrap().get_x() * speed.to_mm_per_second());
-    let speed_y = Speed::from_mm_per_second(direction.unwrap().get_y() * speed.to_mm_per_second());
-    let speed_z = Speed::from_mm_per_second(direction.unwrap().get_z() * speed.to_mm_per_second());
+    let delta = dest.sub(&src);
+    let xy_angle = Vector2D::new(delta.get_x(), delta.get_y()).get_angle();
+    let xz_angle = Vector2D::new(delta.get_x(), delta.get_z()).get_angle();
+    let speed_x = Speed::from_mm_per_second(cos(xy_angle) * speed.to_mm_per_second());
+    let speed_y = Speed::from_mm_per_second(sin(xy_angle) * speed.to_mm_per_second());
+    let speed_z = Speed::from_mm_per_second(sin(xz_angle) * speed.to_mm_per_second());
 
     Ok(Vector3D::new(speed_x, speed_y, speed_z))
 }
