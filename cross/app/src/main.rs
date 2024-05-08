@@ -222,7 +222,8 @@ async fn main(_spawner: Spawner) {
     let mut x_stepper = Stepper::new(
         x_step,
         x_dir,
-        StepperOptions::default()
+        StepperOptions::default(),
+        None
     );
 
     // --------- Y AXIS -----------------
@@ -234,7 +235,8 @@ async fn main(_spawner: Spawner) {
     let mut y_stepper = Stepper::new(
         y_step,
         y_dir,
-        StepperOptions::default()
+        StepperOptions::default(),
+        None
     );
 
     // --------- Z AXIS -----------------
@@ -246,7 +248,8 @@ async fn main(_spawner: Spawner) {
     let mut z_stepper = Stepper::new(
         z_step,
         z_dir,
-        StepperOptions::default()
+        StepperOptions::default(),
+        None
     );
 
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);

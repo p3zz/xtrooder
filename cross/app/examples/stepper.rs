@@ -41,12 +41,11 @@ async fn main(_spawner: Spawner) {
     let mut stepper = Stepper::new(
         step,
         dir,
-        StepperOptions::default()
+        StepperOptions::default(),
+        Some(StepperAttachment::default())
     );
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);
-
-    stepper.set_attachment(StepperAttachment::default());
 
     stepper.set_speed(1.0).unwrap();
 
