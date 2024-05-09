@@ -236,6 +236,18 @@ mod tests {
     }
 
     #[test]
+    fn test_stepper_move_for_distance_zero(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        let distance = Distance::from_mm(0.0);
+        s.0.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(0.5) });
+        let res = s.0.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), 0.0);
+        assert!(s.0.get_position().is_ok());
+        assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
+    }
+
+    #[test]
     fn test_stepper_move_for_steps_outofbounds(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
         let steps = 10;
         s.0.reset();
@@ -303,6 +315,37 @@ mod tests {
         s.0.reset();
         s.0.set_stepping_mode(SteppingMode::FullStep);
         let res = s.0.set_speed(-10.0);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stepper_set_speed_from_attachment_no_attachment(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        let res = s.0.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stepper_set_speed_from_attachment_positive(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = s.0.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_stepper_set_speed_from_attachment_negative(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = s.0.set_speed_from_attachment(Speed::from_mm_per_second(-3.0));
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_stepper_set_speed_from_attachment_zero(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = s.0.set_speed_from_attachment(Speed::from_mm_per_second(0.0));
         assert!(res.is_err());
     }
 

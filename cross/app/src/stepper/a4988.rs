@@ -124,8 +124,7 @@ impl<'s> Stepper<'s>
         }
         let attachment = self.attachment.unwrap();
         let rps = speed.to_revolutions_per_second(self.options.steps_per_revolution, attachment.distance_per_step);
-        self.set_speed(rps)?;
-        Ok(())
+        self.set_speed(rps)
     }
 
     // this option must be modifiable so that during the execution we can freely switch between different stepping modes for higher precision
