@@ -161,32 +161,51 @@ impl<'s> Stepper<'s>
         }
     }
 
+    pub fn step_inner(&mut self){
+        let mut step = 1.0 / f64::from(u8::from(self.options.stepping_mode));
+        if self.get_direction() == RotationDirection::CounterClockwise{
+            step = -step;
+        }
+        self.steps += step;
+    }
+
+    #[cfg(not(test))]
     pub async fn step(&mut self){
         self.step.set_high();
         self.step.set_low();
-        Timer::after(self.step_duration).await
+        Timer::after(self.step_duration).await;
+        self.step_inner();
     }
 
+    #[cfg(test)]
+    pub fn step(&mut self){
+        self.step_inner();
+    }
 
     #[cfg(not(test))]
     pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        let steps_next = self.check_move_valid(steps)?;
+        if !self.check_move_valid(steps){
+            return Err(StepperError::MoveOutOfBounds);
+        };
         info!("Steps: {}, Step duration: {} us", steps, self.step_duration.as_micros());
         for _ in 0..steps{
             self.step().await;
         }
-        self.steps = steps_next;
         Ok(())
     }
 
     #[cfg(test)]
     pub fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        let steps_next = self.check_move_valid(steps)?;
-        self.steps = steps_next;
+        if !self.check_move_valid(steps){
+            return Err(StepperError::MoveOutOfBounds);
+        };
+        for _ in 0..steps{
+            self.step();
+        }
         Ok(())
     }
 
-    fn check_move_valid(&mut self, steps: u64) -> Result<f64, StepperError> {
+    fn check_move_valid(&mut self, steps: u64) -> bool {
         let s = match self.get_direction(){
             RotationDirection::Clockwise => steps as i64,
             RotationDirection::CounterClockwise => -(steps as i64),
@@ -199,11 +218,11 @@ impl<'s> Stepper<'s>
 
         if let Some((min, max)) = self.options.bounds{
             if steps_next < min || steps_next > max{
-                return Err(StepperError::MoveOutOfBounds);
+                return false;
             }
         }
 
-        return Ok(steps_next);
+        return true;
     }
     
 
