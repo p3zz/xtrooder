@@ -72,7 +72,7 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 // dps -> distance per step
 // speed -> mm/s
 pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: u64) -> Result<Duration, ()> {
-    if revolutions_per_second == 0.0 || revolutions_per_second.is_sign_negative() {
+    if revolutions_per_second == 0.0 || revolutions_per_second.is_sign_negative() || steps_per_revolution == 0 {
         return Err(());
     }
     let second_per_revolution = 1.0 / revolutions_per_second;
