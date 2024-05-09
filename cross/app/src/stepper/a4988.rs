@@ -78,9 +78,6 @@ pub struct Stepper<'s> {
     // a step is a single step in full-step mode. Every step performed in another stepping mode
     // will result in a fraction of a step
     // steps are positive when the stepper moves in clockwise order
-    // the option positive_direction changes only the sign of the steps retrieved by get_steps and get_position
-    // if the positive_direction is counterclockwise and steps = 100, the value returned by get_steps will be -100
-    // if the positive_direction is clockwise and steps = 100, the value returned by get_steps will be 100
     steps: f64,
 }
 
@@ -161,70 +158,54 @@ impl<'s> Stepper<'s>
         }
     }
 
-    pub fn step_inner(&mut self){
+    pub fn step_inner(&mut self) -> Result<(), StepperError>{
         let mut step = 1.0 / f64::from(u8::from(self.options.stepping_mode));
-        if self.get_direction() == RotationDirection::CounterClockwise{
-            step = -step;
+        // if we are going counterclockwise but the positive direction is counterclockwise, the step is positive
+        // if we are going clockwise but the positive direction is clockwise, the step is positive
+        // if we are going counterclockwise but the positive direction is clockwise, the step is negative
+        // if we are going clockwise but the positive direction is counterclockwise, the step is negative
+        let dir = i8::from(self.options.positive_direction) * i8::from(self.get_direction());
+        step *= f64::from(dir);
+        let steps_next = self.steps + step;
+        if let Some((min, max)) = self.options.bounds{
+            if steps_next < min || steps_next > max{
+                return Err(StepperError::MoveOutOfBounds);
+            }
         }
-        self.steps += step;
+        self.steps = steps_next;
+        Ok(())
     }
 
     #[cfg(not(test))]
-    pub async fn step(&mut self){
+    pub async fn step(&mut self) -> Result<(), StepperError> {
+        self.step_inner()?;
         self.step.set_high();
         self.step.set_low();
         Timer::after(self.step_duration).await;
-        self.step_inner();
+        Ok(())
     }
 
     #[cfg(test)]
-    pub fn step(&mut self){
-        self.step_inner();
+    pub fn step(&mut self) -> Result<(), StepperError> {
+        self.step_inner()
     }
 
     #[cfg(not(test))]
     pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        if !self.check_move_valid(steps){
-            return Err(StepperError::MoveOutOfBounds);
-        };
         info!("Steps: {}, Step duration: {} us", steps, self.step_duration.as_micros());
         for _ in 0..steps{
-            self.step().await;
+            self.step().await?;
         }
         Ok(())
     }
 
     #[cfg(test)]
     pub fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        if !self.check_move_valid(steps){
-            return Err(StepperError::MoveOutOfBounds);
-        };
         for _ in 0..steps{
-            self.step();
+            self.step()?;
         }
         Ok(())
     }
-
-    fn check_move_valid(&mut self, steps: u64) -> bool {
-        let s = match self.get_direction(){
-            RotationDirection::Clockwise => steps as i64,
-            RotationDirection::CounterClockwise => -(steps as i64),
-        };
-
-        // compute the steps as a fraction of a full step, using the stepping mode.
-        // this way we can keep track of steps in different step modes
-        let s = (s as f64)/ (f64::from(u8::from(self.options.stepping_mode)));
-        let steps_next = self.steps + s;
-
-        if let Some((min, max)) = self.options.bounds{
-            if steps_next < min || steps_next > max{
-                return false;
-            }
-        }
-
-        return true;
-    }
-    
 
     fn move_for_distance_inner(&mut self, distance: Distance) -> Result<u64, StepperError> {
         if self.attachment.is_none(){
@@ -291,10 +272,7 @@ impl<'s> Stepper<'s>
     }
 
     pub fn get_steps(&self) -> f64 {
-        match self.options.positive_direction{
-            RotationDirection::Clockwise => self.steps,
-            RotationDirection::CounterClockwise => -self.steps,
-        }
+        self.steps
     }
 
     pub fn get_speed(&self) -> f64 {

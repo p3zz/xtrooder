@@ -14,11 +14,11 @@ pub enum RotationDirection {
     CounterClockwise,
 }
 
-impl From<RotationDirection> for u8 {
+impl From<RotationDirection> for i8 {
     fn from(value: RotationDirection) -> Self {
         match value {
-            RotationDirection::Clockwise => 0,
-            RotationDirection::CounterClockwise => 1,
+            RotationDirection::Clockwise => 1,
+            RotationDirection::CounterClockwise => -1,
         }
     }
 }
