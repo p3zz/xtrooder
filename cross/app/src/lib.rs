@@ -59,6 +59,28 @@ mod tests {
     }
 
     #[test]
+    fn test_stepper_step(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        s.0.set_direction(RotationDirection::Clockwise);
+        let res = s.0.step();
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), 1.0);
+    }
+
+    #[test]
+    fn test_stepper_step_out_of_bounds(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        s.0.reset();
+        let mut options = StepperOptions::default();
+        options.bounds = Some((-1.0, 1.0));
+        s.0.set_options(options);
+        s.0.set_direction(RotationDirection::Clockwise);
+        let res = s.0.step();
+        let res = s.0.step();
+        assert!(res.is_err());
+        assert_eq!(s.0.get_steps(), 1.0);
+    }
+
+    #[test]
     fn test_stepper_move_clockwise(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
         let steps = 20;
         s.0.reset();
