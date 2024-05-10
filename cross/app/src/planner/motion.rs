@@ -2,17 +2,17 @@ use core::f64::consts::PI;
 
 use crate::stepper::a4988::{Stepper, StepperError};
 use defmt::info;
+use embassy_time::Duration;
 use futures::join;
+use heapless::Vec;
 use math::angle::{cos, sin, Angle};
+use math::common::max;
 use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
-use math::common::max;
 use math::vector::{Vector2D, Vector3D};
 use micromath::F32Ext;
-use embassy_time::Duration;
-use heapless::Vec;
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -20,10 +20,7 @@ pub enum Positioning {
     Absolute,
 }
 
-pub fn no_move(
-    stepper: &Stepper,
-    positioning: Positioning,
-) -> Result<Distance, StepperError> {
+pub fn no_move(stepper: &Stepper, positioning: Positioning) -> Result<Distance, StepperError> {
     match positioning {
         Positioning::Relative => Ok(Distance::from_mm(0.0)),
         Positioning::Absolute => stepper.get_position(),
@@ -57,9 +54,7 @@ pub fn linear_move_to<'s>(
 // ---------------------------- LINEAR MOVE 2D ----------------------------
 
 #[cfg(not(test))]
-async fn linear_move_to_2d_raw<
-    's,
->(
+async fn linear_move_to_2d_raw<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     dest: Vector2D<Distance>,
@@ -75,9 +70,7 @@ async fn linear_move_to_2d_raw<
 }
 
 #[cfg(test)]
-fn linear_move_to_2d_raw<
-    's,
->(
+fn linear_move_to_2d_raw<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     dest: Vector2D<Distance>,
@@ -88,10 +81,7 @@ fn linear_move_to_2d_raw<
     Ok(())
 }
 
-
-fn linear_move_to_2d_inner<
-    's,
->(
+fn linear_move_to_2d_inner<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     dest: Vector2D<Distance>,
@@ -106,9 +96,7 @@ fn linear_move_to_2d_inner<
 }
 
 #[cfg(test)]
-pub fn linear_move_to_2d<
-    's,
->(
+pub fn linear_move_to_2d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     dest: Vector2D<Distance>,
@@ -119,9 +107,7 @@ pub fn linear_move_to_2d<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_to_2d<
-    's,
->(
+pub async fn linear_move_to_2d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     dest: Vector2D<Distance>,
@@ -134,9 +120,7 @@ pub async fn linear_move_to_2d<
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
 #[cfg(not(test))]
-pub async fn linear_move_3d<
-    's,
->(
+pub async fn linear_move_3d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -155,9 +139,7 @@ pub async fn linear_move_3d<
 }
 
 #[cfg(not(test))]
-async fn linear_move_to_3d_raw<
-    's,
->(
+async fn linear_move_to_3d_raw<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -175,9 +157,7 @@ async fn linear_move_to_3d_raw<
 }
 
 #[cfg(test)]
-fn linear_move_to_3d_raw<
-    's,
->(
+fn linear_move_to_3d_raw<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -190,10 +170,7 @@ fn linear_move_to_3d_raw<
     Ok(())
 }
 
-
-pub fn linear_move_to_3d_inner<
-    's,
->(
+pub fn linear_move_to_3d_inner<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -216,9 +193,7 @@ pub fn linear_move_to_3d_inner<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_to_3d<
-    's,
->(
+pub async fn linear_move_to_3d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -230,9 +205,7 @@ pub async fn linear_move_to_3d<
 }
 
 #[cfg(test)]
-pub fn linear_move_to_3d<
-    's,
->(
+pub fn linear_move_to_3d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -244,9 +217,7 @@ pub fn linear_move_to_3d<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_for_3d<
-    's,
->(
+pub async fn linear_move_for_3d<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -263,9 +234,7 @@ pub async fn linear_move_for_3d<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_3d_e<
-    's,
->(
+pub async fn linear_move_3d_e<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -292,9 +261,7 @@ pub async fn linear_move_3d_e<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_to_3d_e<
-    's,
->(
+pub async fn linear_move_to_3d_e<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -324,9 +291,7 @@ pub async fn linear_move_to_3d_e<
 }
 
 #[cfg(not(test))]
-pub async fn linear_move_for_3d_e<
-    's,
->(
+pub async fn linear_move_for_3d_e<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -358,9 +323,7 @@ pub async fn linear_move_for_3d_e<
 // ---------------------------- ARC MOVE 2D ----------------------------
 
 #[cfg(not(test))]
-pub async fn arc_move_2d_arc_length<
-    's,
->(
+pub async fn arc_move_2d_arc_length<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     arc_length: Distance,
@@ -386,9 +349,7 @@ pub async fn arc_move_2d_arc_length<
 }
 
 #[cfg(not(test))]
-pub async fn arc_move_3d_e_center<
-    's,
->(
+pub async fn arc_move_3d_e_center<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -426,9 +387,7 @@ pub async fn arc_move_3d_e_center<
 }
 
 #[cfg(not(test))]
-pub async fn arc_move_3d_e_radius<
-    's,
->(
+pub async fn arc_move_3d_e_radius<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,
@@ -451,9 +410,7 @@ pub async fn arc_move_3d_e_radius<
 }
 
 #[cfg(not(test))]
-pub async fn arc_move_3d_e_offset_from_center<
-    's,
->(
+pub async fn arc_move_3d_e_offset_from_center<'s>(
     stepper_a: &mut Stepper<'s>,
     stepper_b: &mut Stepper<'s>,
     stepper_c: &mut Stepper<'s>,

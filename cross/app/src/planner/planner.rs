@@ -19,8 +19,7 @@ pub struct Planner<'s> {
     e_stepper: Stepper<'s>,
     parser: GCodeParser,
 }
-impl<'s> Planner<'s>
-{
+impl<'s> Planner<'s> {
     pub fn new(
         x_stepper: Stepper<'s>,
         y_stepper: Stepper<'s>,
@@ -41,8 +40,8 @@ impl<'s> Planner<'s>
     #[cfg(not(test))]
     pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
         match command {
-            GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_|()),
-            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await.map(|_|()),
+            GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_| ()),
+            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await.map(|_| ()),
             GCommand::G2 {
                 x,
                 y,
@@ -52,7 +51,7 @@ impl<'s> Planner<'s>
                 i,
                 j,
                 r,
-            } => self.g2(x, y, z, e, f, i, j, r).await.map(|_|()),
+            } => self.g2(x, y, z, e, f, i, j, r).await.map(|_| ()),
             GCommand::G3 {
                 x,
                 y,
@@ -62,28 +61,28 @@ impl<'s> Planner<'s>
                 i,
                 j,
                 r,
-            } => self.g3(x, y, z, e, f, i, j, r).await.map(|_|()),
+            } => self.g3(x, y, z, e, f, i, j, r).await.map(|_| ()),
             GCommand::G20 => {
                 self.g20();
                 Ok(())
-            },
+            }
             GCommand::G21 => {
                 self.g21();
                 Ok(())
-            },
+            }
             GCommand::G90 => {
                 self.g90();
                 Ok(())
-            },
+            }
             GCommand::G91 => {
                 self.g91();
                 Ok(())
-            },
+            }
             GCommand::M104 { s } => todo!(),
             GCommand::G4 { p, s } => {
                 self.g4(p, s).await;
                 Ok(())
-            },
+            }
             GCommand::M149 => todo!(),
         }
     }

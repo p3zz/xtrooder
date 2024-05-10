@@ -42,7 +42,7 @@ async fn main(_spawner: Spawner) {
         step,
         dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default())
+        Some(StepperAttachment::default()),
     );
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);
@@ -53,7 +53,7 @@ async fn main(_spawner: Spawner) {
 
     loop {
         stepper.set_direction(RotationDirection::CounterClockwise);
-        if let Err(_) = stepper.move_for_steps(50).await{
+        if let Err(_) = stepper.move_for_steps(50).await {
             info!("Cannot move");
         };
 
@@ -61,10 +61,10 @@ async fn main(_spawner: Spawner) {
 
         stepper.set_direction(RotationDirection::Clockwise);
 
-        if let Err(_) = stepper.move_for_steps(50).await{
+        if let Err(_) = stepper.move_for_steps(50).await {
             info!("Cannot move");
         };
-        
+
         // info!("Moving to {}mm", d.to_mm());
         // if let Err(e) = stepper.move_to_destination(d).await {
         //     match e {

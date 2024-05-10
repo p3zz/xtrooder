@@ -219,12 +219,7 @@ async fn main(_spawner: Spawner) {
 
     let x_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
-    let mut x_stepper = Stepper::new(
-        x_step,
-        x_dir,
-        StepperOptions::default(),
-        None
-    );
+    let mut x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
 
     // --------- Y AXIS -----------------
 
@@ -232,12 +227,7 @@ async fn main(_spawner: Spawner) {
 
     let y_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
 
-    let mut y_stepper = Stepper::new(
-        y_step,
-        y_dir,
-        StepperOptions::default(),
-        None
-    );
+    let mut y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
 
     // --------- Z AXIS -----------------
 
@@ -245,12 +235,7 @@ async fn main(_spawner: Spawner) {
 
     let z_dir = Output::new(p.PB2, Level::Low, PinSpeed::Low);
 
-    let mut z_stepper = Stepper::new(
-        z_step,
-        z_dir,
-        StepperOptions::default(),
-        None
-    );
+    let mut z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
 
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
     led.set_high();
