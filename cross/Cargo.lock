@@ -32,6 +32,7 @@ dependencies = [
  "pid-lite",
  "rand_core",
  "static_cell",
+ "stepper",
  "stm32-fmc",
 ]
 
@@ -805,6 +806,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa6ba4cf83bf80d3eb25f098ea5e790a0a1fcb5e357442259b231e412c2d3ca0"
 dependencies = [
  "portable-atomic",
+]
+
+[[package]]
+name = "stepper"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt",
+ "defmt-rtt",
+ "defmt-test",
+ "embassy-stm32",
+ "embassy-time",
+ "math",
+ "micromath",
+ "panic-probe",
+ "stepper",
 ]
 
 [[package]]

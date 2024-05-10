@@ -2,7 +2,7 @@ use embassy_time::Timer;
 use math::common::RotationDirection;
 
 use super::motion::{self, no_move, Positioning};
-use crate::stepper::a4988::{Stepper, StepperError};
+use stepper::{Stepper, StepperError};
 use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;

@@ -6,7 +6,7 @@ use app::planner::{
     motion::{linear_move_to, linear_move_to_2d},
     planner::Planner,
 };
-use app::stepper::a4988::{Stepper, StepperOptions, SteppingMode};
+use stepper::{Stepper, StepperOptions, SteppingMode};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM7, TIM8};

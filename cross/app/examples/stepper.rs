@@ -1,10 +1,7 @@
 #![no_std]
 #![no_main]
 
-use app::stepper::{
-    self,
-    a4988::{Stepper, StepperAttachment, StepperOptions, SteppingMode},
-};
+use stepper::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use defmt::info;
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed as PinSpeed},

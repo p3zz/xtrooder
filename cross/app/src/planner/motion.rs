@@ -1,6 +1,6 @@
 use core::f64::consts::PI;
 
-use crate::stepper::a4988::{Stepper, StepperError};
+use stepper::{Stepper, StepperError};
 use defmt::info;
 use embassy_time::Duration;
 use futures::join;
