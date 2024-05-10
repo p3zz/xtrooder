@@ -66,15 +66,21 @@ pub fn sin(angle: Angle) -> f64 {
 }
 
 pub fn atan2(y: f64, x: f64) -> Angle {
-    let th = (y as f32).atan2(x as f32) as f64;
+    let mut th = (y as f32).atan2(x as f32) as f64;
+    if th.is_nan(){
+        th = 0.0;
+    }
     Angle::from_radians(th)
 }
 
+
+// TODO check nan
 pub fn acos(value: f64) -> Angle {
     let th = (value as f32).acos() as f64;
     Angle::from_radians(th)
 }
 
+// TODO check nan
 pub fn asin(value: f64) -> Angle {
     let th = (value as f32).asin() as f64;
     Angle::from_radians(th)
