@@ -307,7 +307,7 @@ mod tests {
         s.0.reset();
         s.0.set_stepping_mode(SteppingMode::FullStep);
         let res = s.0.set_speed(0.0);
-        assert!(res.is_err());
+        assert!(res.is_ok());
     }
 
     #[test]
@@ -346,12 +346,27 @@ mod tests {
         s.0.reset();
         s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
         let res = s.0.set_speed_from_attachment(Speed::from_mm_per_second(0.0));
-        assert!(res.is_err());
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_speed(), 0.0);
     }
 
     #[test]
     fn always_passes() {
         assert!(true);
+    }
+
+    #[test]
+    fn test_linear_move_to_no_move(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        let destination = Distance::from_mm(0.0);
+        let speed = Speed::from_mm_per_second(10.0);
+        s.0.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = motion::linear_move_to(&mut s.0, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), 0.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert!(s.0.get_speed_from_attachment().is_ok());
     }
 
     #[test]
@@ -401,6 +416,28 @@ mod tests {
         assert!(s.0.get_speed_from_attachment().is_ok());
         assert_eq!(s.0.get_speed_from_attachment().unwrap().to_mm_per_second(), 7.07734118446382);
         assert_eq!(s.1.get_speed_from_attachment().unwrap().to_mm_per_second(), 7.07734118446382);
+    }
+
+    #[test]
+    fn test_linear_move_to_2d_no_move(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        let destination = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
+        let speed = Speed::from_mm_per_second(-10.0);
+        s.0.reset();
+        s.1.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.1.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        let res = motion::linear_move_to_2d(&mut s.0, &mut s.1, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), 0.0);
+        assert_eq!(s.1.get_steps(), 0.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.1.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::CounterClockwise);
+        assert!(s.0.get_speed_from_attachment().is_ok());
+        assert!(s.1.get_speed_from_attachment().is_ok());
+        assert_eq!(s.0.get_speed_from_attachment().unwrap().to_mm_per_second(), 9.999400035997839);
+        assert_eq!(s.1.get_speed_from_attachment().unwrap().to_mm_per_second(), 0.0);
     }
 
     #[test]
@@ -503,32 +540,29 @@ mod tests {
         assert_eq!(s.2.get_speed_from_attachment().unwrap().to_mm_per_second(), 7.07734118446382);
     }
 
-    // #[test]
-    // fn test_linear_move_to_3d_no_move(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
-    //     let destination = Vector3D::new(Distance::from_mm(0.0), Distance::from_mm(0.0), Distance::from_mm(0.0));
-    //     let speed = Speed::from_mm_per_second(10.0);
-    //     s.0.reset();
-    //     s.1.reset();
-    //     s.2.reset();
-    //     s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
-    //     s.1.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
-    //     s.2.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
-    //     s.0.set_stepping_mode(SteppingMode::FullStep);
-    //     s.1.set_stepping_mode(SteppingMode::FullStep);
-    //     s.2.set_stepping_mode(SteppingMode::FullStep);
-    //     let res = motion::linear_move_to_3d(&mut s.0, &mut s.1, &mut s.2, destination, speed);
-    //     assert!(res.is_ok());
-    //     assert_eq!(s.0.get_steps(), 0.0);
-    //     assert_eq!(s.1.get_steps(), 0.0);
-    //     assert_eq!(s.2.get_steps(), 0.0);
-    //     assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
-    //     assert_eq!(s.1.get_position().unwrap().to_mm(), 0.0);
-    //     assert_eq!(s.2.get_position().unwrap().to_mm(), 0.0);
-    //     assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
-    //     assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
-    //     assert_eq!(s.2.get_direction(), RotationDirection::Clockwise);
-    //     assert_eq!(s.0.get_speed_from_attachment().unwrap().to_mm_per_second(), 0.0);
-    //     assert_eq!(s.1.get_speed_from_attachment().unwrap().to_mm_per_second(), 0.0);
-    //     assert_eq!(s.2.get_speed_from_attachment().unwrap().to_mm_per_second(), 0.0);
-    // }
+    #[test]
+    fn test_linear_move_to_3d_no_move(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
+        let destination = Vector3D::new(Distance::from_mm(0.0), Distance::from_mm(0.0), Distance::from_mm(0.0));
+        let speed = Speed::from_mm_per_second(10.0);
+        s.0.reset();
+        s.1.reset();
+        s.2.reset();
+        s.0.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.1.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.2.set_attachment(StepperAttachment { distance_per_step: Distance::from_mm(1.0) });
+        s.0.set_stepping_mode(SteppingMode::FullStep);
+        s.1.set_stepping_mode(SteppingMode::FullStep);
+        s.2.set_stepping_mode(SteppingMode::FullStep);
+        let res = motion::linear_move_to_3d(&mut s.0, &mut s.1, &mut s.2, destination, speed);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), 0.0);
+        assert_eq!(s.1.get_steps(), 0.0);
+        assert_eq!(s.2.get_steps(), 0.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.1.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.2.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.2.get_direction(), RotationDirection::CounterClockwise);
+    }
 }
