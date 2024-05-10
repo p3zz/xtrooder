@@ -95,7 +95,7 @@ impl<'s> Stepper<'s>
             dir,
             options,
             attachment: None,
-            step_duration: Duration::from_secs(1),
+            step_duration: Duration::from_secs(0),
             steps: 0f64,
         }
     }
@@ -157,7 +157,7 @@ impl<'s> Stepper<'s>
         }
     }
 
-    pub fn step_inner(&mut self) -> Result<(), StepperError>{
+    fn step_inner(&mut self) -> Result<(), StepperError>{
         let mut step = 1.0 / f64::from(u8::from(self.options.stepping_mode));
         // if we are going counterclockwise but the positive direction is counterclockwise, the step is positive
         // if we are going clockwise but the positive direction is clockwise, the step is positive
@@ -175,31 +175,36 @@ impl<'s> Stepper<'s>
         Ok(())
     }
 
-    #[cfg(not(test))]
-    pub async fn step(&mut self) -> Result<(), StepperError> {
+    pub fn step(&mut self) -> Result<(), StepperError> {
         self.step_inner()?;
         self.step.set_high();
         self.step.set_low();
-        Timer::after(self.step_duration).await;
         Ok(())
-    }
-
-    #[cfg(test)]
-    pub fn step(&mut self) -> Result<(), StepperError> {
-        self.step_inner()
     }
 
     #[cfg(not(test))]
     pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
-        info!("Steps: {}, Step duration: {} us", steps, self.step_duration.as_micros());
+        if steps == 0{
+            return Ok(());
+        }
+        if self.step_duration.as_micros() == 0 {
+            return Err(StepperError::MoveNotValid);
+        }
         for _ in 0..steps{
-            self.step().await?;
+            self.step()?;
+            Timer::after(self.step_duration).await;
         }
         Ok(())
     }
 
     #[cfg(test)]
     pub fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
+        if steps == 0{
+            return Ok(());
+        }
+        if self.step_duration.as_micros() == 0 {
+            return Err(StepperError::MoveNotValid);
+        }
         for _ in 0..steps{
             self.step()?;
         }
