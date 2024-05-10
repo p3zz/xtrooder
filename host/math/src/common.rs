@@ -72,8 +72,11 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 // dps -> distance per step
 // speed -> mm/s
 pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: u64) -> Result<Duration, ()> {
-    if revolutions_per_second == 0.0 || revolutions_per_second.is_sign_negative() || steps_per_revolution == 0 {
+    if revolutions_per_second.is_sign_negative() || steps_per_revolution == 0 {
         return Err(());
+    }
+    if revolutions_per_second == 0.0{
+        return Ok(Duration::ZERO);
     }
     let second_per_revolution = 1.0 / revolutions_per_second;
     let second_per_step = second_per_revolution / (steps_per_revolution as f64);
@@ -83,6 +86,9 @@ pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: 
 pub fn compute_revolutions_per_second(step_duration: Duration, steps_per_revolution: u64) -> f64 {
     let second_per_step = step_duration.as_secs_f64();
     let second_per_revolution = second_per_step * steps_per_revolution as f64;
+    if second_per_revolution == 0.0{
+        return 0.0;
+    }
     1.0 / second_per_revolution
 }
 
@@ -201,7 +207,8 @@ mod tests {
         let steps_per_revolution = 200_u64;
         let revolutions_per_second = 0.0;
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_err());
+        assert!(duration.is_ok());
+        assert!(duration.unwrap().is_zero());
     }
 
     #[test]
