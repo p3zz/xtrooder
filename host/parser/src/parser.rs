@@ -67,7 +67,7 @@ enum GCommandType {
 }
 
 fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
-    extract_token_as_number(cmd, key).map(|value|Speed::from_unit(value, unit))
+    extract_token_as_number(cmd, key).map(|value| Speed::from_unit(value, unit))
 }
 
 fn extract_distance(
@@ -75,7 +75,7 @@ fn extract_distance(
     key: &str,
     unit: DistanceUnit,
 ) -> Option<Distance> {
-    extract_token_as_number(cmd, key).map(|value|Distance::from_unit(value, unit))
+    extract_token_as_number(cmd, key).map(|value| Distance::from_unit(value, unit))
 }
 
 fn extract_duration(
@@ -95,7 +95,7 @@ fn extract_temperature(
     key: &str,
     unit: TemperatureUnit,
 ) -> Option<Temperature> {
-    extract_token_as_number(cmd, key).map(|value|Temperature::from_unit(value, unit))
+    extract_token_as_number(cmd, key).map(|value| Temperature::from_unit(value, unit))
 }
 
 fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64> {
@@ -115,7 +115,7 @@ fn extract_token_as_string(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option
 fn get_command_type(cmd: &LinearMap<&str, &str, 16>) -> Option<(GCommandType, u64)> {
     match extract_token_as_number(cmd, "G") {
         Some(code) => Some((GCommandType::G, code as u64)),
-        None => extract_token_as_number(cmd, "M").map(|code|(GCommandType::M, code as u64))
+        None => extract_token_as_number(cmd, "M").map(|code| (GCommandType::M, code as u64)),
     }
 }
 

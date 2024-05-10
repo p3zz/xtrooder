@@ -23,10 +23,10 @@ impl From<RotationDirection> for i8 {
     }
 }
 
-pub fn max(other: &[u64]) -> Option<u64>{
+pub fn max(other: &[u64]) -> Option<u64> {
     let mut max = other.get(0)?;
-    for e in other{
-        if e > max{
+    for e in other {
+        if e > max {
             max = e;
         }
     }
@@ -71,11 +71,14 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 // spr -> step per revolution
 // dps -> distance per step
 // speed -> mm/s
-pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: u64) -> Result<Duration, ()> {
+pub fn compute_step_duration(
+    revolutions_per_second: f64,
+    steps_per_revolution: u64,
+) -> Result<Duration, ()> {
     if revolutions_per_second.is_sign_negative() || steps_per_revolution == 0 {
         return Err(());
     }
-    if revolutions_per_second == 0.0{
+    if revolutions_per_second == 0.0 {
         return Ok(Duration::ZERO);
     }
     let second_per_revolution = 1.0 / revolutions_per_second;
@@ -86,7 +89,7 @@ pub fn compute_step_duration(revolutions_per_second: f64, steps_per_revolution: 
 pub fn compute_revolutions_per_second(step_duration: Duration, steps_per_revolution: u64) -> f64 {
     let second_per_step = step_duration.as_secs_f64();
     let second_per_revolution = second_per_step * steps_per_revolution as f64;
-    if second_per_revolution == 0.0{
+    if second_per_revolution == 0.0 {
         return 0.0;
     }
     1.0 / second_per_revolution
@@ -158,7 +161,10 @@ mod tests {
     use core::{f64::consts::PI, time::Duration};
 
     use crate::{
-        common::{abs, compute_arc_length, compute_revolutions_per_second, compute_step_duration, RotationDirection},
+        common::{
+            abs, compute_arc_length, compute_revolutions_per_second, compute_step_duration,
+            RotationDirection,
+        },
         distance::Distance,
         speed::Speed,
         vector::Vector2D,
@@ -223,7 +229,8 @@ mod tests {
     fn test_compute_revolutions_per_second() {
         let steps_per_revolution = 200_u64;
         let step_duration = Duration::from_micros(5000);
-        let revolutions_per_second = compute_revolutions_per_second(step_duration, steps_per_revolution);
+        let revolutions_per_second =
+            compute_revolutions_per_second(step_duration, steps_per_revolution);
         assert_eq!(revolutions_per_second, 1.0);
     }
 
