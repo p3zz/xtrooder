@@ -99,7 +99,7 @@ impl<'s> Stepper<'s> {
             step,
             dir,
             options,
-            attachment: None,
+            attachment: attachment,
             step_duration: Duration::from_secs(0),
             steps: 0f64,
         }

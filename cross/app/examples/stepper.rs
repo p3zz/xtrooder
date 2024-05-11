@@ -44,23 +44,26 @@ async fn main(_spawner: Spawner) {
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);
 
-    stepper.set_speed(1.0).unwrap();
+    stepper.set_speed(3.0).unwrap();
 
     // let mut d = Distance::from_mm(80.0);
 
     loop {
         stepper.set_direction(RotationDirection::CounterClockwise);
-        if let Err(_) = stepper.move_for_steps(50).await {
+        if let Err(_) = stepper.move_for_steps(400).await {
             info!("Cannot move");
         };
+        info!("Position: {}", stepper.get_position().unwrap().to_mm());
 
-        Timer::after(Duration::from_millis(100)).await;
+        // Timer::after(Duration::from_millis(100)).await;
 
         stepper.set_direction(RotationDirection::Clockwise);
 
-        if let Err(_) = stepper.move_for_steps(50).await {
+        if let Err(_) = stepper.move_for_steps(400).await {
             info!("Cannot move");
         };
+
+        info!("Position: {}", stepper.get_position().unwrap().to_mm());
 
         // info!("Moving to {}mm", d.to_mm());
         // if let Err(e) = stepper.move_to_destination(d).await {
@@ -74,6 +77,6 @@ async fn main(_spawner: Spawner) {
 
         // d = Distance::from_mm(-d.to_mm());
 
-        Timer::after(Duration::from_millis(100)).await;
+        // Timer::after(Duration::from_millis(100)).await;
     }
 }
