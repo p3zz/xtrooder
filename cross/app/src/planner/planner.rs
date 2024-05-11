@@ -1,7 +1,7 @@
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
-use super::motion::{self, no_move, Positioning};
+use motion::{self, no_move, Positioning};
 use stepper::{Stepper, StepperError};
 use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};

@@ -32,10 +32,10 @@ pid-lite = {version="1.2.0", default-features = false}
 math = {path="../../host/math"}
 parser = {path="../../host/parser"}
 stepper = {path="../stepper"}
+motion = {path="../motion"}
 
 [dev-dependencies]
 defmt-test = "0.3.2"
-stepper = {path="../stepper", features = ["mock"]}
 
 [lib]
 harness = false

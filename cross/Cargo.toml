@@ -2,7 +2,8 @@
 resolver = "2"
 members = [
     "app",
-    "stepper"
+    "stepper",
+    "motion"
 ]
 
 # cargo build/run

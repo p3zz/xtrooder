@@ -2,10 +2,8 @@
 #![no_main]
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
-use app::planner::{
-    motion::{linear_move_to, linear_move_to_2d},
-    planner::Planner,
-};
+use app::planner::planner::Planner;
+use motion::{linear_move_to, linear_move_to_2d, linear_move_to_3d};
 use stepper::{Stepper, StepperOptions, SteppingMode};
 use defmt::*;
 use embassy_executor::Spawner;
@@ -41,8 +39,6 @@ use parser::parser::{GCodeParser, GCommand};
 use {defmt_rtt as _, panic_probe as _};
 
 use core::str;
-
-use app::planner::motion::linear_move_to_3d;
 
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 

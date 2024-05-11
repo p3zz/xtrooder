@@ -27,6 +27,7 @@ dependencies = [
  "heapless",
  "math",
  "micromath",
+ "motion",
  "panic-probe",
  "parser",
  "pid-lite",
@@ -636,6 +637,25 @@ name = "micromath"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c8dda44ff03a2f238717214da50f65d5a53b45cd213a7370424ffdb6fae815"
+
+[[package]]
+name = "motion"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt",
+ "defmt-rtt",
+ "defmt-test",
+ "embassy-stm32",
+ "embassy-time",
+ "futures",
+ "math",
+ "micromath",
+ "panic-probe",
+ "stepper",
+]
 
 [[package]]
 name = "nb"
