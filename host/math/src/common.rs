@@ -2,10 +2,7 @@ use core::{f64::consts::PI, time::Duration};
 use micromath::F32Ext;
 
 use crate::{
-    angle::{asin, cos, sin, Angle},
-    distance::Distance,
-    speed::Speed,
-    vector::Vector2D,
+    angle::{asin, cos, sin, Angle}, computable::Computable, distance::Distance, speed::Speed, vector::Vector2D
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -140,18 +137,17 @@ pub fn compute_arc_destination(
         return None;
     }
 
-    let angle = delta.get_angle();
-
     let l = match direction {
         RotationDirection::Clockwise => Distance::from_mm(-arc_length.to_mm()),
         RotationDirection::CounterClockwise => arc_length,
     };
 
-    // FIXME check if radius=0
-    let angle = Angle::from_radians((angle.to_radians() + l.to_mm()) / radius.to_mm());
-
-    let x = Distance::from_mm(center.get_x().to_mm() + radius.to_mm() * cos(angle));
-    let y = Distance::from_mm(center.get_y().to_mm() + radius.to_mm() * sin(angle));
+    let angle = Angle::from_radians(l.to_mm() / radius.to_mm());
+    
+    let x = center.get_x().to_mm() + (delta.get_x().to_mm() * cos(angle)) - (delta.get_y().to_mm() * sin(angle));
+    let y = center.get_y().to_mm() + (delta.get_x().to_mm() * sin(angle)) + (delta.get_y().to_mm() * cos(angle));
+    let x = Distance::from_mm(x);
+    let y = Distance::from_mm(y);
     Some(Vector2D::new(x, y))
 }
 
@@ -256,6 +252,30 @@ mod tests {
         assert!(dest.is_some());
         assert_float_absolute_eq!(dest.unwrap().get_x().to_mm(), -1.0, 0.000001);
         assert_float_absolute_eq!(dest.unwrap().get_y().to_mm(), -1.0, 0.000001);
+    }
+
+    #[test]
+    fn test_compute_arc_destination_clockwise_3() {
+        let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
+        let center = Vector2D::new(Distance::from_mm(2.0), Distance::from_mm(2.0));
+        let arc_length = Distance::from_mm(PI / 2.0);
+        let direction = RotationDirection::Clockwise;
+        let dest = compute_arc_destination(start, center, arc_length, direction);
+        assert!(dest.is_some());
+        assert_float_absolute_eq!(dest.unwrap().get_x().to_mm(), -0.7539200, 0.000001);
+        assert_float_absolute_eq!(dest.unwrap().get_y().to_mm(), 1.35507822, 0.000001);
+    }
+
+    #[test]
+    fn test_compute_arc_destination_counterclockwise_4() {
+        let start = Vector2D::new(Distance::from_mm(2.0), Distance::from_mm(-6.0));
+        let center = Vector2D::new(Distance::from_mm(3.0), Distance::from_mm(-2.0));
+        let arc_length = Distance::from_mm(PI / 2.0);
+        let direction = RotationDirection::CounterClockwise;
+        let dest = compute_arc_destination(start, center, arc_length, direction);
+        assert!(dest.is_some());
+        assert_float_absolute_eq!(dest.unwrap().get_x().to_mm(), 3.5589966, 0.000001);
+        assert_float_absolute_eq!(dest.unwrap().get_y().to_mm(), -6.0850364, 0.000001);
     }
 
     #[test]
