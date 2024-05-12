@@ -38,6 +38,10 @@ pub fn abs(value: f64) -> f64 {
     v
 }
 
+pub fn floor(value: f64) -> f64 {
+    (value as f32).floor() as f64
+}
+
 pub fn sqrt(value: f64) -> f64 {
     (value as f32).sqrt() as f64
 }
