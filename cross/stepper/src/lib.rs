@@ -5,7 +5,7 @@
 use defmt::info;
 use embassy_stm32::gpio::Output;
 use embassy_time::{Duration, Timer};
-use math::common::{compute_revolutions_per_second, RotationDirection};
+use math::common::{abs, compute_revolutions_per_second, floor, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -233,18 +233,20 @@ impl<'s> Stepper<'s> {
         }
         let attachment = self.attachment.unwrap();
 
-        let steps_n = (distance.div(&attachment.distance_per_step).unwrap() as f32).floor() as i64;
+        let steps_n = abs(distance.to_mm()) / attachment.distance_per_step.to_mm();
+
+        let steps_n = floor(steps_n) as u64;
 
         // the steps number is computed using distance_per_step that is the distance covered by the stepper
         // when running on full-step mode.
         // if the stepping mode is half-step or below, we need to adapt the number of steps to cover the correct
         // distance as well
-        let steps_n = steps_n * i64::from(u8::from(self.options.stepping_mode));
+        let steps_n = steps_n * u64::from(u8::from(self.options.stepping_mode));
 
-        let (steps_n, direction) = if steps_n.is_positive() {
-            (steps_n as u64, RotationDirection::Clockwise)
+        let direction = if distance.to_mm().is_sign_positive() {
+            RotationDirection::Clockwise
         } else {
-            (-steps_n as u64, RotationDirection::CounterClockwise)
+            RotationDirection::CounterClockwise
         };
 
         self.set_direction(direction);
@@ -539,6 +541,38 @@ mod tests {
         assert_eq!(s.get_steps(), 10.0);
         assert!(s.get_position().is_ok());
         assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+    }
+
+    #[test]
+    fn test_stepper_move_for_distance_space_wasted_2(
+        s: &mut Stepper<'static>,
+    ) {
+        let distance = Distance::from_mm(0.5);
+        s.reset();
+        s.set_attachment(StepperAttachment {
+            distance_per_step: Distance::from_mm(1.0),
+        });
+        let res = s.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 0.0);
+        assert!(s.get_position().is_ok());
+        assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
+    }
+
+    #[test]
+    fn test_stepper_move_for_distance_space_wasted_3(
+        s: &mut Stepper<'static>,
+    ) {
+        let distance = Distance::from_mm(-0.5);
+        s.reset();
+        s.set_attachment(StepperAttachment {
+            distance_per_step: Distance::from_mm(1.0),
+        });
+        let res = s.move_for_distance(distance);
+        assert!(res.is_ok());
+        assert_eq!(s.get_steps(), 0.0);
+        assert!(s.get_position().is_ok());
+        assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
     }
 
     #[test]
