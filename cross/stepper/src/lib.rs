@@ -331,6 +331,7 @@ impl<'s> Stepper<'s> {
     #[cfg(feature = "mock")]
     pub fn reset(&mut self) {
         self.step_duration = Duration::from_secs(1);
+        self.dir.set_low();
         self.steps = 0f64;
         self.options = StepperOptions::default();
         self.attachment = None;
