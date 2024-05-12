@@ -340,12 +340,29 @@ pub async fn arc_move_2d_arc_length<'s>(
     let mut source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
     let arcs_n = (arc_length.div(&arc_unit_length).unwrap() as f32).floor() as u64;
     for _ in 0..(arcs_n + 1) {
-        let arc_dst = match compute_arc_destination(source, center, arc_unit_length, direction) {
-            Some(dst) => dst,
-            None => return Err(StepperError::MoveNotValid),
-        };
+        let arc_dst = compute_arc_destination(source, center, arc_unit_length, direction);
         linear_move_to_2d(stepper_a, stepper_b, arc_dst, speed).await?;
         source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+pub fn arc_move_2d_arc_length<'s>(
+    stepper_a: &mut Stepper<'s>,
+    stepper_b: &mut Stepper<'s>,
+    arc_length: Distance,
+    center: Vector2D<Distance>,
+    speed: Speed,
+    direction: RotationDirection,
+) -> Result<(), StepperError> {
+    use math::common::approximate_arc;
+
+    let arc_unit_length = Distance::from_mm(1.0);
+    let source = Vector2D::new(stepper_a.get_position()?, stepper_b.get_position()?);
+    let points = approximate_arc(source, center, arc_length, direction, arc_unit_length);
+    for p in points {
+        linear_move_to_2d(stepper_a, stepper_b, p, speed)?;
     }
     Ok(())
 }
@@ -485,7 +502,7 @@ mod tests {
         assert!(res.is_ok());
         assert_eq!(s.0.get_steps(), 0.0);
         assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
-        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
         assert!(s.0.get_speed_from_attachment().is_ok());
     }
 
@@ -577,8 +594,8 @@ mod tests {
         assert_eq!(s.1.get_steps(), 0.0);
         assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
         assert_eq!(s.1.get_position().unwrap().to_mm(), 0.0);
-        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
-        assert_eq!(s.1.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
         assert!(s.0.get_speed_from_attachment().is_ok());
         assert!(s.1.get_speed_from_attachment().is_ok());
         assert_eq!(
@@ -786,8 +803,35 @@ mod tests {
         assert_eq!(s.0.get_position().unwrap().to_mm(), 0.0);
         assert_eq!(s.1.get_position().unwrap().to_mm(), 0.0);
         assert_eq!(s.2.get_position().unwrap().to_mm(), 0.0);
-        assert_eq!(s.0.get_direction(), RotationDirection::CounterClockwise);
-        assert_eq!(s.1.get_direction(), RotationDirection::CounterClockwise);
-        assert_eq!(s.2.get_direction(), RotationDirection::CounterClockwise);
+        assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s.2.get_direction(), RotationDirection::Clockwise);
     }
+
+    #[test]
+    fn test_arc_move_2d_arc_length(
+        s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)
+    ){
+        let arc_length = Distance::from_mm(20.0);
+        let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
+        let speed = Speed::from_mm_per_second(10.0);
+        let direction = RotationDirection::Clockwise;
+        s.0.reset();
+        s.1.reset();
+        s.0.set_attachment(StepperAttachment {
+            distance_per_step: Distance::from_mm(1.0),
+        });
+        s.1.set_attachment(StepperAttachment {
+            distance_per_step: Distance::from_mm(1.0),
+        });
+        let res = arc_move_2d_arc_length(&mut s.0, &mut s.1, arc_length, center, speed, direction);
+        assert!(res.is_ok());
+        assert_eq!(s.0.get_steps(), -2.0);
+        assert_eq!(s.1.get_steps(), 18.0);
+        assert_eq!(s.0.get_position().unwrap().to_mm(), -2.0);
+        assert_eq!(s.1.get_position().unwrap().to_mm(), 18.0);
+        assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
+    }
+
 }

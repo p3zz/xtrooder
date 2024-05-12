@@ -403,6 +403,23 @@ mod tests {
         assert_float_absolute_eq!(points.get(20).unwrap().get_x().to_mm(), -1.437096, 0.00001);
         assert_float_absolute_eq!(points.get(20).unwrap().get_y().to_mm(), 18.318222, 0.00001);
     }
+
+    #[test]
+    fn test_approximate_arc_2(){
+        let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
+        let end = Vector2D::new(Distance::from_mm(20.0), Distance::from_mm(20.0));
+        let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
+        let direction = RotationDirection::Clockwise;
+        let arc_length = compute_arc_length(start, center, end, direction, false);
+        assert_float_absolute_eq!(arc_length.to_mm(), 44.428828, 0.00001);
+        let unit_length = Distance::from_mm(1.0);
+        let points = approximate_arc(start, center, arc_length, direction, unit_length);
+        assert_eq!(points.len(), 45);
+        assert_float_absolute_eq!(points.get(0).unwrap().get_x().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.get(0).unwrap().get_y().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.get(44).unwrap().get_x().to_mm(), 19.692222, 0.00001);
+        assert_float_absolute_eq!(points.get(44).unwrap().get_y().to_mm(), 20.298583, 0.00001);
+    }
 }
 
 // pub struct StopWatch {
