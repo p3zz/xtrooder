@@ -6,6 +6,7 @@
         "./cross/stepper/Cargo.toml",
         "./cross/motion/Cargo.toml",
         "./cross/app/Cargo.toml",
+        "./cross/fs/Cargo.toml",
         "./host/Cargo.toml",
         "./host/math/Cargo.toml",
         "./host/parser/Cargo.toml",
