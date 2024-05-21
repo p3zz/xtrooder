@@ -1,7 +1,9 @@
-//! Block Device support
-//!
-//! Generic code for handling block devices, such as types for identifying
-//! a particular block on a block device by its index.
+use embassy_stm32::sdmmc::{DataBlock, Error, Instance, Sdmmc, SdmmcDma};
+
+// Block Device support
+//
+// Generic code for handling block devices, such as types for identifying
+// a particular block on a block device by its index.
 
 /// Represents a standard 512 byte block (also known as a sector). IBM PC
 /// formatted 5.25" and 3.5" floppy disks, SD/MMC cards up to 1 GiB in size
@@ -11,8 +13,7 @@
 /// bytes.
 #[derive(Clone)]
 pub struct Block {
-    /// The 512 bytes in this block (or sector).
-    pub contents: [u8; Block::LEN],
+    inner: DataBlock,
 }
 
 /// Represents the linear numeric address of a block (or sector). The first
@@ -34,22 +35,43 @@ pub struct BlockIter {
     current: BlockIdx,
 }
 
-/// Represents a block device - a device which can read and write blocks (or
-/// sectors). Only supports devices which are <= 2 TiB in size.
 pub trait BlockDevice {
-    /// The errors that the `BlockDevice` can return. Must be debug formattable.
-    type Error: core::fmt::Debug;
-    /// Read one or more blocks, starting at the given block index.
-    fn read(
+    async fn read(
         &self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
         reason: &str,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), Error>;
     /// Write one or more blocks, starting at the given block index.
-    fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Self::Error>;
+    async fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>;
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, Self::Error>;
+    async fn num_blocks(&self) -> Result<BlockCount, Error>;
+}
+
+/// Represents a block device - a device which can read and write blocks (or
+/// sectors). Only supports devices which are <= 2 TiB in size.
+pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
+    inner: Sdmmc<'d, T, Dma>
+}
+
+impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma>{
+    /// Read one or more blocks, starting at the given block index.
+    async fn read(
+        &self,
+        blocks: &mut [Block],
+        start_block_idx: BlockIdx,
+        reason: &str,
+    ) -> Result<(), Error>{
+        todo!()
+    }
+    /// Write one or more blocks, starting at the given block index.
+    async fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
+        todo!()
+    }
+    /// Determine how many blocks this device can hold.
+    async fn num_blocks(&self) -> Result<BlockCount, Error>{
+        todo!()
+    }
 }
 
 impl Block {
@@ -64,7 +86,7 @@ impl Block {
     /// Create a new block full of zeros.
     pub fn new() -> Block {
         Block {
-            contents: [0u8; Self::LEN],
+            inner: DataBlock([0u8; Self::LEN]),
         }
     }
 }
@@ -130,20 +152,20 @@ impl core::ops::SubAssign<BlockCount> for BlockCount {
 impl core::ops::Deref for Block {
     type Target = [u8; 512];
     fn deref(&self) -> &[u8; 512] {
-        &self.contents
+        self.inner.deref()
     }
 }
 
 impl core::ops::DerefMut for Block {
     fn deref_mut(&mut self) -> &mut [u8; 512] {
-        &mut self.contents
+        self.inner.deref_mut()
     }
 }
 
 impl core::fmt::Debug for Block {
     fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
         writeln!(fmt, "Block:")?;
-        for line in self.contents.chunks(32) {
+        for line in self.inner.chunks(32) {
             for b in line {
                 write!(fmt, "{:02x}", b)?;
             }
