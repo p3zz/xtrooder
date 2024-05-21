@@ -5,3 +5,4 @@ version = "0.1.0"
 
 [dependencies]
 embassy-stm32 = { version = "0.1.0", git="https://github.com/embassy-rs/embassy", features = ["defmt", "stm32h753zi", "time-driver-any", "exti", "memory-x", "unstable-pac", "chrono"] }
+byteorder = {version = "1", default-features = false}
