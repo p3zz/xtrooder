@@ -35,26 +35,13 @@ pub struct BlockIter {
     current: BlockIdx,
 }
 
-pub trait BlockDevice {
-    async fn read(
-        &self,
-        blocks: &mut [Block],
-        start_block_idx: BlockIdx,
-        reason: &str,
-    ) -> Result<(), Error>;
-    /// Write one or more blocks, starting at the given block index.
-    async fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>;
-    /// Determine how many blocks this device can hold.
-    async fn num_blocks(&self) -> Result<BlockCount, Error>;
-}
-
 /// Represents a block device - a device which can read and write blocks (or
 /// sectors). Only supports devices which are <= 2 TiB in size.
 pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
     inner: Sdmmc<'d, T, Dma>
 }
 
-impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma>{
+impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &self,
