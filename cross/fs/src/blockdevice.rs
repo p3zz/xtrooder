@@ -1,5 +1,4 @@
 use embassy_stm32::sdmmc::{DataBlock, Error, Instance, Sdmmc, SdmmcDma};
-
 // Block Device support
 //
 // Generic code for handling block devices, such as types for identifying
@@ -44,20 +43,26 @@ pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
 impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
     /// Read one or more blocks, starting at the given block index.
     async fn read(
-        &self,
+        &mut self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
-        reason: &str,
     ) -> Result<(), Error>{
-        todo!()
+        for block in blocks.iter_mut() {
+            self.inner.read_block(start_block_idx.0, &mut block.inner).await?;
+        }
+        Ok(())
     }
     /// Write one or more blocks, starting at the given block index.
-    async fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
-        todo!()
+    async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
+        for block in blocks.iter() {
+            self.inner.write_block(start_block_idx.0, &block.inner).await?;
+        }
+        Ok(())
     }
     /// Determine how many blocks this device can hold.
     async fn num_blocks(&self) -> Result<BlockCount, Error>{
-        todo!()
+        let count = self.inner.card()?.csd.block_count();
+        Ok(BlockCount(count))
     }
 }
 
