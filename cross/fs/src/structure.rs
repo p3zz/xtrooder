@@ -45,6 +45,7 @@ macro_rules! define_field {
     ($name:ident, u16, $offset:expr) => {
         /// Get the value from the $name field
         pub fn $name(&self) -> u16 {
+            use byteorder::LittleEndian;
             LittleEndian::read_u16(&self.data[$offset..$offset+2])
         }
     };
@@ -52,6 +53,7 @@ macro_rules! define_field {
     ($name:ident, u32, $offset:expr) => {
         /// Get the $name field
         pub fn $name(&self) -> u32 {
+            use byteorder::LittleEndian;
             LittleEndian::read_u32(&self.data[$offset..$offset+4])
         }
     };

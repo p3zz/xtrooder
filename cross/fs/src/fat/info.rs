@@ -1,4 +1,4 @@
-use crate::{blockdevice::{BlockCount, BlockIdx}, cluster::ClusterId};
+use crate::{blockdevice::{BlockCount, BlockIdx}, filesystem::cluster::ClusterId};
 
 /// Indentifies the supported types of FAT format
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]

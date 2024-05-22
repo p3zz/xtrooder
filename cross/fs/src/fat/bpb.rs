@@ -2,8 +2,10 @@
 
 use crate::{
     blockdevice::BlockCount,
-    fat::{FatType, OnDiskDirEntry},
+    fat::FatType,
 };
+
+use super::ondiskdirentry::OnDiskDirEntry;
 
 /// Represents a Boot Parameter Block. This is the first sector of a FAT
 /// formatted partition, and it describes various properties of the FAT
