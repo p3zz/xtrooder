@@ -1,4 +1,6 @@
-use embassy_stm32::sdmmc::{DataBlock, Error, Instance, Sdmmc, SdmmcDma};
+use embassy_stm32::sdmmc::{DataBlock, Instance, Sdmmc, SdmmcDma};
+
+use crate::DeviceError;
 // Block Device support
 //
 // Generic code for handling block devices, such as types for identifying
@@ -12,7 +14,7 @@ use embassy_stm32::sdmmc::{DataBlock, Error, Instance, Sdmmc, SdmmcDma};
 /// bytes.
 #[derive(Clone)]
 pub struct Block {
-    inner: DataBlock,
+    pub inner: DataBlock,
 }
 
 /// Represents the linear numeric address of a block (or sector). The first
@@ -46,22 +48,22 @@ impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
         &mut self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
-    ) -> Result<(), Error>{
+    ) -> Result<(), DeviceError>{
         for block in blocks.iter_mut() {
-            self.inner.read_block(start_block_idx.0, &mut block.inner).await?;
+            self.inner.read_block(start_block_idx.0, &mut block.inner).await.map_err(|e|DeviceError::DeviceError(e))?;
         }
         Ok(())
     }
     /// Write one or more blocks, starting at the given block index.
-    pub async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
+    pub async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), DeviceError>{
         for block in blocks.iter() {
-            self.inner.write_block(start_block_idx.0, &block.inner).await?;
+            self.inner.write_block(start_block_idx.0, &block.inner).await.map_err(|e|DeviceError::DeviceError(e))?;
         }
         Ok(())
     }
     /// Determine how many blocks this device can hold.
-    pub async fn num_blocks(&self) -> Result<BlockCount, Error>{
-        let count = self.inner.card()?.csd.block_count();
+    pub async fn num_blocks(&self) -> Result<BlockCount, DeviceError>{
+        let count = self.inner.card().map_err(|e|DeviceError::DeviceError(e))?.csd.block_count();
         Ok(BlockCount(count))
     }
 }
@@ -81,6 +83,7 @@ impl Block {
             inner: DataBlock([0u8; Self::LEN]),
         }
     }
+
 }
 
 impl Default for Block {

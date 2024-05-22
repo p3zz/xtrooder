@@ -3,7 +3,8 @@
 //! The volume manager handles partitions and open files on a block device.
 
 use byteorder::{ByteOrder, LittleEndian};
-use embassy_stm32::sdmmc::{Error, Instance, SdmmcDma};
+use embassy_stm32::sdmmc::{Instance, SdmmcDma};
+use crate::DeviceError;
 use core::convert::TryFrom;
 
 use crate::{blockdevice::{Block, BlockCount, BlockIdx, SdmmcDevice}, fat::{self, ondiskdirentry::OnDiskDirEntry, volume::{parse_volume, FatVolume}, BlockCache, FatType, RESERVED_ENTRIES}, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, Directory, DirectoryInfo, RawDirectory}, filename::{ShortFileName, ToShortFileName}, files::{FileInfo, Mode, RawFile}, search_id::{SearchId, SearchIdGenerator}, timestamp::TimeSource, MAX_FILE_SIZE}, PARTITION_ID_FAT16, PARTITION_ID_FAT16_LBA, PARTITION_ID_FAT32_CHS_LBA, PARTITION_ID_FAT32_LBA};
@@ -76,7 +77,7 @@ where
     /// use `open_file_in_dir`.
     pub fn open_root_dir(
         &mut self,
-    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error> {
+    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
         let d = self.volume_mgr.open_root_dir(self.raw_volume)?;
         Ok(d.to_directory(self.volume_mgr))
     }
@@ -92,7 +93,7 @@ where
     /// to using [`core::mem::drop`] or letting the `Volume` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), Error> {
+    pub fn close(self) -> Result<(), DeviceError> {
         let result = self.volume_mgr.close_volume(self.raw_volume);
         core::mem::forget(self);
         result
@@ -223,7 +224,7 @@ where
     pub fn open_volume(
         &mut self,
         volume_idx: VolumeIdx,
-    ) -> Result<Volume<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error> {
+    ) -> Result<Volume<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
         let v = self.open_raw_volume(volume_idx)?;
         Ok(v.to_volume(self))
     }
@@ -235,7 +236,7 @@ where
     ///
     /// This function gives you a `RawVolume` and you must close the volume by
     /// calling `VolumeManager::close_volume`.
-    pub async fn open_raw_volume(&mut self, volume_idx: VolumeIdx) -> Result<RawVolume, Error> {
+    pub async fn open_raw_volume(&mut self, volume_idx: VolumeIdx) -> Result<RawVolume, DeviceError> {
         const PARTITION1_START: usize = 446;
         const PARTITION2_START: usize = PARTITION1_START + PARTITION_INFO_LENGTH;
         const PARTITION3_START: usize = PARTITION2_START + PARTITION_INFO_LENGTH;
@@ -250,13 +251,13 @@ where
 
         if self.open_volumes.is_full() {
             // TODO replace error
-            return Err(Error::Crc);
+            return Err(DeviceError::TooManyOpenVolumes);
         }
 
         for v in self.open_volumes.iter() {
             if v.idx == volume_idx {
                 // TODO replace error
-                return Err(Error::Crc);
+                return Err(DeviceError::VolumeAlreadyOpen);
             }
         }
 
@@ -269,7 +270,7 @@ where
             // GUID Partition Table (GPT)
             if LittleEndian::read_u16(&block[FOOTER_START..FOOTER_START + 2]) != FOOTER_VALUE {
                 // TODO replace error
-                return Err(Error::Crc);
+                return Err(DeviceError::FormatError("Invalid MBR signature"));
             }
             let partition = match volume_idx {
                 VolumeIdx(0) => {
@@ -286,13 +287,13 @@ where
                 }
                 _ => {
                     // TODO replace error
-                    return Err(Error::Crc);
+                    return Err(DeviceError::NoSuchVolume);
                 }
             };
             // Only 0x80 and 0x00 are valid (bootable, and non-bootable)
             if (partition[PARTITION_INFO_STATUS_INDEX] & 0x7F) != 0x00 {
                 // TODO replace error
-                return Err(Error::Crc);
+                return Err(DeviceError::FormatError("Invalid partition status"));
             }
             let lba_start = LittleEndian::read_u32(
                 &partition[PARTITION_INFO_LBA_START_INDEX..(PARTITION_INFO_LBA_START_INDEX + 4)],
@@ -323,7 +324,7 @@ where
                 Ok(id)
             }
             // TODO replace error
-            _ => Err(Error::Crc),
+            _ => Err(DeviceError::FormatError("Partition type not supported")),
         }
     }
 
@@ -331,7 +332,7 @@ where
     ///
     /// You can then read the directory entries with `iterate_dir`, or you can
     /// use `open_file_in_dir`.
-    pub fn open_root_dir(&mut self, volume: RawVolume) -> Result<RawDirectory, Error> {
+    pub fn open_root_dir(&mut self, volume: RawVolume) -> Result<RawDirectory, DeviceError> {
         // Opening a root directory twice is OK
 
         let directory_id = RawDirectory(self.id_generator.get());
@@ -343,7 +344,7 @@ where
 
         self.open_dirs
             .push(dir_info)
-            .map_err(|_| Error::TooManyOpenDirs)?;
+            .map_err(|_| DeviceError::TooManyOpenDirs)?;
 
         Ok(directory_id)
     }
@@ -357,18 +358,18 @@ where
         &mut self,
         parent_dir: RawDirectory,
         name: N,
-    ) -> Result<RawDirectory, Error>
+    ) -> Result<RawDirectory, DeviceError>
     where
         N: ToShortFileName,
     {
         if self.open_dirs.is_full() {
-            return Err(Error::TooManyOpenDirs);
+            return Err(DeviceError::TooManyOpenDirs);
         }
 
         // Find dir by ID
         let parent_dir_idx = self.get_dir_by_id(parent_dir)?;
         let volume_idx = self.get_volume_by_id(self.open_dirs[parent_dir_idx].volume_id)?;
-        let short_file_name = name.to_short_filename().map_err(Error::FilenameError)?;
+        let short_file_name = name.to_short_filename().map_err(DeviceError::FilenameError)?;
         let parent_dir_info = &self.open_dirs[parent_dir_idx];
 
         // Open the directory
@@ -383,7 +384,7 @@ where
 
             self.open_dirs
                 .push(dir_info)
-                .map_err(|_| Error::TooManyOpenDirs)?;
+                .map_err(|_| DeviceError::TooManyOpenDirs)?;
 
             return Ok(directory_id);
         }
@@ -397,7 +398,7 @@ where
         // debug!("Found dir entry: {:?}", dir_entry);
 
         if !dir_entry.attributes.is_directory() {
-            return Err(Error::OpenedFileAsDir);
+            return Err(DeviceError::OpenedFileAsDir);
         }
 
         // We don't check if the directory is already open - directories hold
@@ -413,36 +414,36 @@ where
 
         self.open_dirs
             .push(dir_info)
-            .map_err(|_| Error::TooManyOpenDirs)?;
+            .map_err(|_| DeviceError::TooManyOpenDirs)?;
 
         Ok(directory_id)
     }
 
     /// Close a directory. You cannot perform operations on an open directory
     /// and so must close it if you want to do something with it.
-    pub fn close_dir(&mut self, directory: RawDirectory) -> Result<(), Error> {
+    pub fn close_dir(&mut self, directory: RawDirectory) -> Result<(), DeviceError> {
         for (idx, info) in self.open_dirs.iter().enumerate() {
             if directory == info.directory_id {
                 self.open_dirs.swap_remove(idx);
                 return Ok(());
             }
         }
-        Err(Error::BadHandle)
+        Err(DeviceError::BadHandle)
     }
 
     /// Close a volume
     ///
     /// You can't close it if there are any files or directories open on it.
-    pub fn close_volume(&mut self, volume: RawVolume) -> Result<(), Error> {
+    pub fn close_volume(&mut self, volume: RawVolume) -> Result<(), DeviceError> {
         for f in self.open_files.iter() {
             if f.volume_id == volume {
-                return Err(Error::VolumeStillInUse);
+                return Err(DeviceError::VolumeStillInUse);
             }
         }
 
         for d in self.open_dirs.iter() {
             if d.volume_id == volume {
-                return Err(Error::VolumeStillInUse);
+                return Err(DeviceError::VolumeStillInUse);
             }
         }
 
@@ -457,7 +458,7 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<DirEntry, Error>
+    ) -> Result<DirEntry, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -465,7 +466,7 @@ where
         let volume_idx = self.get_volume_by_id(self.open_dirs[directory_idx].volume_id)?;
         match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => {
-                let sfn = name.to_short_filename().map_err(Error::FilenameError)?;
+                let sfn = name.to_short_filename().map_err(DeviceError::FilenameError)?;
                 fat.find_directory_entry(self.block_device, &self.open_dirs[directory_idx], &sfn)
             }
         }
@@ -476,7 +477,7 @@ where
         &mut self,
         directory: RawDirectory,
         func: F,
-    ) -> Result<(), Error>
+    ) -> Result<(), DeviceError>
     where
         F: FnMut(&DirEntry),
     {
@@ -500,23 +501,23 @@ where
         volume: RawVolume,
         dir_entry: DirEntry,
         mode: Mode,
-    ) -> Result<RawFile, Error> {
+    ) -> Result<RawFile, DeviceError> {
         // This check is load-bearing - we do an unchecked push later.
         if self.open_files.is_full() {
-            return Err(Error::TooManyOpenFiles);
+            return Err(DeviceError::TooManyOpenFiles);
         }
 
         if dir_entry.attributes.is_read_only() && mode != Mode::ReadOnly {
-            return Err(Error::ReadOnly);
+            return Err(DeviceError::ReadOnly);
         }
 
         if dir_entry.attributes.is_directory() {
-            return Err(Error::OpenedDirAsFile);
+            return Err(DeviceError::OpenedDirAsFile);
         }
 
         // Check it's not already open
         if self.file_is_open(volume, &dir_entry) {
-            return Err(Error::FileAlreadyOpen);
+            return Err(DeviceError::FileAlreadyOpen);
         }
 
         let mode = solve_mode_variant(mode, true);
@@ -572,7 +573,7 @@ where
 
                 file
             }
-            _ => return Err(Error::Unsupported),
+            _ => return Err(DeviceError::Unsupported),
         };
 
         // Remember this open file - can't be full as we checked already
@@ -589,13 +590,13 @@ where
         directory: RawDirectory,
         name: N,
         mode: Mode,
-    ) -> Result<RawFile, Error>
+    ) -> Result<RawFile, DeviceError>
     where
         N: ToShortFileName,
     {
         // This check is load-bearing - we do an unchecked push later.
         if self.open_files.is_full() {
-            return Err(Error::TooManyOpenFiles);
+            return Err(DeviceError::TooManyOpenFiles);
         }
 
         let directory_idx = self.get_dir_by_id(directory)?;
@@ -603,7 +604,7 @@ where
         let volume_id = self.open_dirs[directory_idx].volume_id;
         let volume_idx = self.get_volume_by_id(volume_id)?;
         let volume_info = &self.open_volumes[volume_idx];
-        let sfn = name.to_short_filename().map_err(Error::FilenameError)?;
+        let sfn = name.to_short_filename().map_err(DeviceError::FilenameError)?;
 
         let dir_entry = match &volume_info.volume_type {
             VolumeType::Fat(fat) => {
@@ -627,14 +628,14 @@ where
             }
             _ => {
                 // We are opening a non-existant file, and that's not OK.
-                return Err(Error::NotFound);
+                return Err(DeviceError::NotFound);
             }
         };
 
         // Check if it's open already
         if let Some(dir_entry) = &dir_entry {
             if self.file_is_open(volume_info.volume_id, dir_entry) {
-                return Err(Error::FileAlreadyOpen);
+                return Err(DeviceError::FileAlreadyOpen);
             }
         }
 
@@ -643,7 +644,7 @@ where
         match mode {
             Mode::ReadWriteCreate => {
                 if dir_entry.is_some() {
-                    return Err(Error::FileAlreadyExists);
+                    return Err(DeviceError::FileAlreadyExists);
                 }
                 let att = Attributes::create_from_fat(0);
                 let volume_idx = self.get_volume_by_id(volume_id)?;
@@ -690,25 +691,25 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<(), Error>
+    ) -> Result<(), DeviceError>
     where
         N: ToShortFileName,
     {
         let dir_idx = self.get_dir_by_id(directory)?;
         let dir_info = &self.open_dirs[dir_idx];
         let volume_idx = self.get_volume_by_id(dir_info.volume_id)?;
-        let sfn = name.to_short_filename().map_err(Error::FilenameError)?;
+        let sfn = name.to_short_filename().map_err(DeviceError::FilenameError)?;
 
         let dir_entry = match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => fat.find_directory_entry(self.block_device, dir_info, &sfn),
         }?;
 
         if dir_entry.attributes.is_directory() {
-            return Err(Error::DeleteDirAsFile);
+            return Err(DeviceError::DeleteDirAsFile);
         }
 
         if self.file_is_open(dir_info.volume_id, &dir_entry) {
-            return Err(Error::FileAlreadyOpen);
+            return Err(DeviceError::FileAlreadyOpen);
         }
 
         let volume_idx = self.get_volume_by_id(dir_info.volume_id)?;
@@ -737,7 +738,7 @@ where
     }
 
     /// Read from an open file.
-    pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, Error> {
+    pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
         // Calculate which file block the current offset lies within
@@ -773,7 +774,7 @@ where
     }
 
     /// Write to a open file.
-    pub async fn write(&mut self, file: RawFile, buffer: &[u8]) -> Result<(), Error> {
+    pub async fn write(&mut self, file: RawFile, buffer: &[u8]) -> Result<(), DeviceError> {
         // #[cfg(feature = "defmt-log")]
         // debug!("write(file={:?}, buffer={:x}", file, buffer);
 
@@ -787,7 +788,7 @@ where
 
         if self.open_files[file_idx].mode == Mode::ReadOnly {
             // TODO replace error
-            return Err(Error::Crc);
+            return Err(DeviceError::ReadOnly);
         }
 
         self.open_files[file_idx].dirty = true;
@@ -817,7 +818,7 @@ where
         // TODO replace error
         let bytes_until_max =
             usize::try_from(MAX_FILE_SIZE - self.open_files[file_idx].current_offset)
-                .map_err(|_| Error::Crc)?;
+                .map_err(|_| DeviceError::ConversionError)?;
         let bytes_to_write = core::cmp::min(buffer.len(), bytes_until_max);
         let mut written = 0;
 
@@ -837,7 +838,7 @@ where
                         // );
                         vars
                     }
-                    Err(Error::EndOfFile) => {
+                    Err(DeviceError::EndOfFile) => {
                         // debug!("Extending file");
                         match self.open_volumes[volume_idx].volume_type {
                             VolumeType::Fat(ref mut fat) => {
@@ -846,10 +847,9 @@ where
                                         self.block_device,
                                         Some(current_cluster.1),
                                         false,
-                                    )
-                                    .is_err()
+                                    ).await.is_err()
                                 {
-                                    return Err(Error::DiskFull);
+                                    return Err(DeviceError::DiskFull);
                                 }
                                 // debug!("Allocated new FAT cluster, finding offsets...");
                                 let new_offset = self
@@ -858,7 +858,7 @@ where
                                         &mut current_cluster,
                                         self.open_files[file_idx].current_offset,
                                     )
-                                    .map_err(|_| Error::AllocationError)?;
+                                    .map_err(|_| DeviceError::AllocationError)?;
                                 // debug!("New offset {:?}", new_offset);
                                 new_offset
                             }
@@ -899,7 +899,7 @@ where
     }
 
     /// Close a file with the given raw file handle.
-    pub fn close_file(&mut self, file: RawFile) -> Result<(), Error> {
+    pub fn close_file(&mut self, file: RawFile) -> Result<(), DeviceError> {
         let flush_result = self.flush_file(file);
         let file_idx = self.get_file_by_id(file)?;
         self.open_files.swap_remove(file_idx);
@@ -907,12 +907,12 @@ where
     }
 
     /// Flush (update the entry) for a file with the given raw file handle.
-    pub fn flush_file(&mut self, file: RawFile) -> Result<(), Error> {
+    pub fn flush_file(&mut self, file: RawFile) -> Result<(), DeviceError> {
         let file_info = self
             .open_files
             .iter()
             .find(|info| info.file_id == file)
-            .ok_or(Error::BadHandle)?;
+            .ok_or(DeviceError::BadHandle)?;
 
         if file_info.dirty {
             let volume_idx = self.get_volume_by_id(file_info.volume_id)?;
@@ -943,7 +943,7 @@ where
     }
 
     /// Check if a file is at End Of File.
-    pub fn file_eof(&self, file: RawFile) -> Result<bool, Error> {
+    pub fn file_eof(&self, file: RawFile) -> Result<bool, DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].eof())
     }
@@ -953,11 +953,11 @@ where
         &mut self,
         file: RawFile,
         offset: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_start(offset)
-            .map_err(|_| Error::InvalidOffset)?;
+            .map_err(|_| DeviceError::InvalidOffset)?;
         Ok(())
     }
 
@@ -966,11 +966,11 @@ where
         &mut self,
         file: RawFile,
         offset: i32,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_current(offset)
-            .map_err(|_| Error::InvalidOffset)?;
+            .map_err(|_| DeviceError::InvalidOffset)?;
         Ok(())
     }
 
@@ -979,22 +979,22 @@ where
         &mut self,
         file: RawFile,
         offset: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_end(offset)
-            .map_err(|_| Error::InvalidOffset)?;
+            .map_err(|_| DeviceError::InvalidOffset)?;
         Ok(())
     }
 
     /// Get the length of a file
-    pub fn file_length(&self, file: RawFile) -> Result<u32, Error> {
+    pub fn file_length(&self, file: RawFile) -> Result<u32, DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].length())
     }
 
     /// Get the current offset of a file
-    pub fn file_offset(&self, file: RawFile) -> Result<u32, Error> {
+    pub fn file_offset(&self, file: RawFile) -> Result<u32, DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].current_offset)
     }
@@ -1004,13 +1004,13 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<(), Error>
+    ) -> Result<(), DeviceError>
     where
         N: ToShortFileName,
     {
         // This check is load-bearing - we do an unchecked push later.
         if self.open_dirs.is_full() {
-            return Err(Error::TooManyOpenDirs);
+            return Err(DeviceError::TooManyOpenDirs);
         }
 
         let parent_directory_idx = self.get_dir_by_id(directory)?;
@@ -1018,7 +1018,7 @@ where
         let volume_id = self.open_dirs[parent_directory_idx].volume_id;
         let volume_idx = self.get_volume_by_id(volume_id)?;
         let volume_info = &self.open_volumes[volume_idx];
-        let sfn = name.to_short_filename().map_err(Error::FilenameError)?;
+        let sfn = name.to_short_filename().map_err(DeviceError::FilenameError)?;
 
         // debug!("Creating directory '{}'", sfn);
         // debug!(
@@ -1035,12 +1035,12 @@ where
 
         match maybe_dir_entry {
             Ok(entry) if entry.attributes.is_directory() => {
-                return Err(Error::DirAlreadyExists);
+                return Err(DeviceError::DirAlreadyExists);
             }
             Ok(_entry) => {
-                return Err(Error::FileAlreadyExists);
+                return Err(DeviceError::FileAlreadyExists);
             }
-            Err(Error::NotFound) => {
+            Err(DeviceError::NotFound) => {
                 // perfect, let's make it
             }
             Err(e) => {
@@ -1119,7 +1119,7 @@ where
 
                 self.block_device
                     .write(&blocks, new_dir_start_block)
-                    .map_err(Error::DeviceError)?;
+                    .map_err(DeviceError::DeviceError)?;
 
                 // Now zero the rest of the cluster
                 for b in blocks[0].iter_mut() {
@@ -1131,7 +1131,7 @@ where
                 {
                     self.block_device
                         .write(&blocks, block)
-                        .map_err(Error::DeviceError)?;
+                        .map_err(DeviceError::DeviceError)?;
                 }
             }
         };
@@ -1139,31 +1139,31 @@ where
         Ok(())
     }
 
-    fn get_volume_by_id(&self, volume: RawVolume) -> Result<usize, Error> {
+    fn get_volume_by_id(&self, volume: RawVolume) -> Result<usize, DeviceError> {
         for (idx, v) in self.open_volumes.iter().enumerate() {
             if v.volume_id == volume {
                 return Ok(idx);
             }
         }
-        Err(Error::BadHandle)
+        Err(DeviceError::BadHandle)
     }
 
-    fn get_dir_by_id(&self, directory: RawDirectory) -> Result<usize, Error> {
+    fn get_dir_by_id(&self, directory: RawDirectory) -> Result<usize, DeviceError> {
         for (idx, d) in self.open_dirs.iter().enumerate() {
             if d.directory_id == directory {
                 return Ok(idx);
             }
         }
-        Err(Error::BadHandle)
+        Err(DeviceError::BadHandle)
     }
 
-    fn get_file_by_id(&self, file: RawFile) -> Result<usize, Error> {
+    fn get_file_by_id(&self, file: RawFile) -> Result<usize, DeviceError> {
         for (idx, f) in self.open_files.iter().enumerate() {
             if f.file_id == file {
                 return Ok(idx);
             }
         }
-        Err(Error::BadHandle)
+        Err(DeviceError::BadHandle)
     }
 
     /// This function turns `desired_offset` into an appropriate block to be
@@ -1174,7 +1174,7 @@ where
         volume_idx: usize,
         start: &mut (u32, ClusterId),
         desired_offset: u32,
-    ) -> Result<(BlockIdx, usize, usize), Error> {
+    ) -> Result<(BlockIdx, usize, usize), DeviceError> {
         let bytes_per_cluster = match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => fat.bytes_per_cluster(),
         };

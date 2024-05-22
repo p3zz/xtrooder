@@ -29,7 +29,7 @@ impl BlockCache {
         &mut self,
         block_device: &mut SdmmcDevice<'d, T, Dma>,
         block_idx: BlockIdx,
-    ) -> Result<&Block, Error>
+    ) -> Result<&Block, DeviceError>
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
@@ -43,9 +43,9 @@ pub mod bpb;
 pub mod info;
 pub mod ondiskdirentry;
 pub mod volume;
-use embassy_stm32::sdmmc::{Error, Instance, SdmmcDma};
+use embassy_stm32::sdmmc::{Instance, SdmmcDma};
 
-use crate::blockdevice::{Block, BlockIdx, SdmmcDevice};
+use crate::{blockdevice::{Block, BlockIdx, SdmmcDevice}, DeviceError};
 
 // ****************************************************************************
 //
