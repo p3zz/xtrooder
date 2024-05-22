@@ -42,7 +42,7 @@ pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
 
 impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
     /// Read one or more blocks, starting at the given block index.
-    async fn read(
+    pub async fn read(
         &mut self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
@@ -53,14 +53,14 @@ impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
         Ok(())
     }
     /// Write one or more blocks, starting at the given block index.
-    async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
+    pub async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Error>{
         for block in blocks.iter() {
             self.inner.write_block(start_block_idx.0, &block.inner).await?;
         }
         Ok(())
     }
     /// Determine how many blocks this device can hold.
-    async fn num_blocks(&self) -> Result<BlockCount, Error>{
+    pub async fn num_blocks(&self) -> Result<BlockCount, Error>{
         let count = self.inner.card()?.csd.block_count();
         Ok(BlockCount(count))
     }

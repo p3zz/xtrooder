@@ -14,7 +14,7 @@ pub enum FatType {
     Fat32,
 }
 
-pub(crate) struct BlockCache {
+pub struct BlockCache {
     block: Block,
     idx: Option<BlockIdx>,
 }
@@ -25,20 +25,15 @@ impl BlockCache {
             idx: None,
         }
     }
-    pub(crate) fn read<D>(
+    pub async fn read<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
         &mut self,
-        block_device: &D,
+        block_device: &mut SdmmcDevice<'d, T, Dma>,
         block_idx: BlockIdx,
-        reason: &str,
     ) -> Result<&Block, Error>
-    where
-        D: BlockDevice,
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
-            block_device
-                .read(core::slice::from_mut(&mut self.block), block_idx, reason)
-                .map_err(Error::DeviceError)?;
+            block_device.read(core::slice::from_mut(&mut self.block), block_idx).await?;
         }
         Ok(&self.block)
     }
@@ -48,9 +43,9 @@ pub mod bpb;
 pub mod info;
 pub mod ondiskdirentry;
 pub mod volume;
-use embassy_stm32::sdmmc::Error;
+use embassy_stm32::sdmmc::{Error, Instance, SdmmcDma};
 
-use crate::blockdevice::{Block, BlockIdx};
+use crate::blockdevice::{Block, BlockIdx, SdmmcDevice};
 
 // ****************************************************************************
 //
