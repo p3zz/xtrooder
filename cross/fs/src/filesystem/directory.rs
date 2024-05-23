@@ -1,6 +1,6 @@
 use core::convert::TryFrom;
 
-use embassy_stm32::sdmmc::Error;
+use embassy_stm32::sdmmc::{Instance, SdmmcDma};
 
 use crate::blockdevice::BlockIdx;
 use crate::fat::ondiskdirentry::OnDiskDirEntry;
@@ -9,6 +9,7 @@ use crate::fat::{FatType};
 use crate::filesystem::filename::ToShortFileName;
 use crate::volume_mgr::RawVolume;
 use crate::volume_mgr::VolumeManager;
+use crate::DeviceError;
 
 use super::attributes::Attributes;
 use super::cluster::ClusterId;
@@ -63,18 +64,21 @@ pub struct RawDirectory(pub(crate) SearchId);
 impl RawDirectory {
     /// Convert a raw directory into a droppable [`Directory`]
     pub fn to_directory<
-        D,
+        'd,
+        TS,
         T,
+        Dma,
         const MAX_DIRS: usize,
         const MAX_FILES: usize,
         const MAX_VOLUMES: usize,
     >(
         self,
-        volume_mgr: &mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
     where
-        D: crate::BlockDevice,
-        T: TimeSource,
+        T: Instance,
+        TS: TimeSource,
+        Dma: SdmmcDma<T> + 'd
     {
         Directory::new(self, volume_mgr)
     }
@@ -89,32 +93,35 @@ impl RawDirectory {
 /// any error that may occur will be ignored. To handle potential errors, use
 /// the [`Directory::close`] method.
 pub struct Directory<
-    'a,
-    D,
+    'd,
+    TS,
     T,
+    Dma,
     const MAX_DIRS: usize,
     const MAX_FILES: usize,
     const MAX_VOLUMES: usize,
 > where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd
 {
     raw_directory: RawDirectory,
-    volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 }
 
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
+    Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd,
 {
     /// Create a new `Directory` from a `RawDirectory`
     pub fn new(
         raw_directory: RawDirectory,
-        volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES> {
-        Directory {
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> Self {
+        Self {
             raw_directory,
             volume_mgr,
         }
@@ -124,9 +131,9 @@ where
     ///
     /// You can then read the directory entries with `iterate_dir` and `open_file_in_dir`.
     pub fn open_dir<N>(
-        &mut self,
+        &'d mut self,
         name: N,
-    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error>
+    ) -> Result<Self, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -137,7 +144,7 @@ where
     /// Change to a directory, mutating this object.
     ///
     /// You can then read the directory entries with `iterate_dir` and `open_file_in_dir`.
-    pub fn change_dir<N>(&mut self, name: N) -> Result<(), Error>
+    pub fn change_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
     where
         N: ToShortFileName,
     {
@@ -148,7 +155,7 @@ where
     }
 
     /// Look in a directory for a named file.
-    pub fn find_directory_entry<N>(&mut self, name: N) -> Result<DirEntry, Error>
+    pub fn find_directory_entry<N>(&mut self, name: N) -> Result<DirEntry, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -157,7 +164,7 @@ where
     }
 
     /// Call a callback function for each directory entry in a directory.
-    pub fn iterate_dir<F>(&mut self, func: F) -> Result<(), Error>
+    pub fn iterate_dir<F>(&mut self, func: F) -> Result<(), DeviceError>
     where
         F: FnMut(&DirEntry),
     {
@@ -166,10 +173,10 @@ where
 
     /// Open a file with the given full path. A file can only be opened once.
     pub fn open_file_in_dir<N>(
-        &mut self,
+        &'d mut self,
         name: N,
         mode: Mode,
-    ) -> Result<File<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, Error>
+    ) -> Result<File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -180,7 +187,7 @@ where
     }
 
     /// Delete a closed file with the given filename, if it exists.
-    pub fn delete_file_in_dir<N>(&mut self, name: N) -> Result<(), Error>
+    pub fn delete_file_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
     where
         N: ToShortFileName,
     {
@@ -188,7 +195,7 @@ where
     }
 
     /// Make a directory inside this directory
-    pub fn make_dir_in_dir<N>(&mut self, name: N) -> Result<(), Error>
+    pub fn make_dir_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
     where
         N: ToShortFileName,
     {
@@ -206,44 +213,22 @@ where
     /// to using [`core::mem::drop`] or letting the `Directory` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), Error> {
+    pub fn close(self) -> Result<(), DeviceError> {
         let result = self.volume_mgr.close_dir(self.raw_directory);
         core::mem::forget(self);
         result
     }
 }
 
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
-    for Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
+    for Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd,
 {
     fn drop(&mut self) {
         _ = self.volume_mgr.close_dir(self.raw_directory)
-    }
-}
-
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    core::fmt::Debug for Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: TimeSource,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Directory({})", self.raw_directory.0 .0)
-    }
-}
-
-#[cfg(feature = "defmt-log")]
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    defmt::Format for Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: TimeSource,
-{
-    fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "Directory({})", self.raw_directory.0 .0)
     }
 }
 

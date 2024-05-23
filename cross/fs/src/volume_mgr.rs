@@ -5,7 +5,7 @@
 use byteorder::{ByteOrder, LittleEndian};
 use embassy_stm32::sdmmc::{Instance, SdmmcDma};
 use crate::DeviceError;
-use core::convert::TryFrom;
+use core::{convert::TryFrom, marker::PhantomData};
 
 use crate::{blockdevice::{Block, BlockCount, BlockIdx, SdmmcDevice}, fat::{self, ondiskdirentry::OnDiskDirEntry, volume::{parse_volume, FatVolume}, BlockCache, FatType, RESERVED_ENTRIES}, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, Directory, DirectoryInfo, RawDirectory}, filename::{ShortFileName, ToShortFileName}, files::{FileInfo, Mode, RawFile}, search_id::{SearchId, SearchIdGenerator}, timestamp::TimeSource, MAX_FILE_SIZE}, PARTITION_ID_FAT16, PARTITION_ID_FAT16_LBA, PARTITION_ID_FAT32_CHS_LBA, PARTITION_ID_FAT32_LBA};
 
@@ -28,7 +28,7 @@ impl RawVolume {
         const MAX_VOLUMES: usize,
     >(
         self,
-        volume_mgr: &mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
     ) -> Volume<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
     {
         Volume::new(self, volume_mgr)
@@ -63,7 +63,7 @@ where
     /// Create a new `Volume` from a `RawVolume`
     pub fn new(
         raw_volume: RawVolume,
-        volume_mgr: &mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
     ) -> Self {
         Volume {
             raw_volume,
@@ -77,7 +77,7 @@ where
     /// use `open_file_in_dir`.
     pub fn open_root_dir(
         &mut self,
-    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
+    ) -> Result<Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
         let d = self.volume_mgr.open_root_dir(self.raw_volume)?;
         Ok(d.to_directory(self.volume_mgr))
     }
@@ -143,7 +143,6 @@ pub struct VolumeIdx(pub usize);
 
 /// A `VolumeManager` wraps a block device and gives access to the FAT-formatted
 /// volumes within it.
-#[derive(Debug)]
 pub struct VolumeManager<
     'd,
     TS: TimeSource,
@@ -175,7 +174,7 @@ where
     /// This creates a `VolumeManager` with default values
     /// MAX_DIRS = 4, MAX_FILES = 4, MAX_VOLUMES = 1. Call `VolumeManager::new_with_limits(block_device, time_source)`
     /// if you need different limits.
-    pub fn new(block_device: &mut SdmmcDevice<'d, T, Dma>, time_source: TS) -> Self {
+    pub fn new(block_device: &'d mut SdmmcDevice<'d, T, Dma>, time_source: TS) -> Self {
         // Pick a random starting point for the IDs that's not zero, because
         // zero doesn't stand out in the logs.
         Self::new_with_limits(block_device, time_source, 5000)
@@ -197,8 +196,8 @@ where
     /// generates, which might help you find the IDs in your logs when
     /// debugging.
     pub fn new_with_limits(
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
-        time_source: T,
+        block_device: &'d mut SdmmcDevice<'d, T, Dma>,
+        time_source: TS,
         id_offset: u32,
     ) -> Self {
         // debug!("Creating new embedded-sdmmc::VolumeManager");
@@ -221,11 +220,11 @@ where
     ///
     /// We do not support GUID Partition Table disks. Nor do we support any
     /// concept of drive letters - that is for a higher layer to handle.
-    pub fn open_volume(
+    pub async fn open_volume(
         &mut self,
         volume_idx: VolumeIdx,
     ) -> Result<Volume<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
-        let v = self.open_raw_volume(volume_idx)?;
+        let v = self.open_raw_volume(volume_idx).await?;
         Ok(v.to_volume(self))
     }
 

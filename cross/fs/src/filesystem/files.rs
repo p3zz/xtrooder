@@ -1,6 +1,6 @@
-use embassy_stm32::sdmmc::Error;
+use embassy_stm32::sdmmc::{Instance, SdmmcDma};
 
-use crate::{volume_mgr::RawVolume, volume_mgr::VolumeManager};
+use crate::{volume_mgr::{RawVolume, VolumeManager}, DeviceError};
 
 use super::{cluster::ClusterId, directory::DirEntry, search_id::SearchId, timestamp::TimeSource};
 
@@ -26,13 +26,14 @@ pub struct RawFile(pub(crate) SearchId);
 
 impl RawFile {
     /// Convert a raw file into a droppable [`File`]
-    pub fn to_file<D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>(
+    pub fn to_file<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>(
         self,
-        volume_mgr: &mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> File<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
     where
-        D: crate::BlockDevice,
-        T: TimeSource,
+        T: Instance,
+        TS: TimeSource,
+        Dma: SdmmcDma<T> + 'd
     {
         File::new(self, volume_mgr)
     }
@@ -46,26 +47,28 @@ impl RawFile {
 /// If you drop a value of this type, it closes the file automatically, and but
 /// error that may occur will be ignored. To handle potential errors, use
 /// the [`File::close`] method.
-pub struct File<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
+pub struct File<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
 where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd
 {
     raw_file: RawFile,
-    volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 }
 
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    File<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
+    File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd
 {
     /// Create a new `File` from a `RawFile`
     pub fn new(
         raw_file: RawFile,
-        volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> File<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES> {
+        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES> {
         File {
             raw_file,
             volume_mgr,
@@ -75,13 +78,13 @@ where
     /// Read from the file
     ///
     /// Returns how many bytes were read, or an error.
-    pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize, Error> {
-        self.volume_mgr.read(self.raw_file, buffer)
+    pub async fn read(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError> {
+        self.volume_mgr.read(self.raw_file, buffer).await
     }
 
     /// Write to the file
-    pub fn write(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        self.volume_mgr.write(self.raw_file, buffer)
+    pub async fn write(&mut self, buffer: &[u8]) -> Result<(), DeviceError> {
+        self.volume_mgr.write(self.raw_file, buffer).await
     }
 
     /// Check if a file is at End Of File.
@@ -92,18 +95,18 @@ where
     }
 
     /// Seek a file with an offset from the current position.
-    pub fn seek_from_current(&mut self, offset: i32) -> Result<(), Error> {
+    pub fn seek_from_current(&mut self, offset: i32) -> Result<(), DeviceError> {
         self.volume_mgr
             .file_seek_from_current(self.raw_file, offset)
     }
 
     /// Seek a file with an offset from the start of the file.
-    pub fn seek_from_start(&mut self, offset: u32) -> Result<(), Error> {
+    pub fn seek_from_start(&mut self, offset: u32) -> Result<(), DeviceError> {
         self.volume_mgr.file_seek_from_start(self.raw_file, offset)
     }
 
     /// Seek a file with an offset back from the end of the file.
-    pub fn seek_from_end(&mut self, offset: u32) -> Result<(), Error> {
+    pub fn seek_from_end(&mut self, offset: u32) -> Result<(), DeviceError> {
         self.volume_mgr.file_seek_from_end(self.raw_file, offset)
     }
 
@@ -129,7 +132,7 @@ where
     }
 
     /// Flush any written data by updating the directory entry.
-    pub fn flush(&mut self) -> Result<(), Error> {
+    pub fn flush(&mut self) -> Result<(), DeviceError> {
         self.volume_mgr.flush_file(self.raw_file)
     }
 
@@ -137,44 +140,22 @@ where
     /// to using [`core::mem::drop`] or letting the `File` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), Error> {
+    pub fn close(self) -> Result<(), DeviceError> {
         let result = self.volume_mgr.close_file(self.raw_file);
         core::mem::forget(self);
         result
     }
 }
 
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
-    for File<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
+    for File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    D: crate::BlockDevice,
-    T: TimeSource,
+    T: Instance,
+    TS: TimeSource,
+    Dma: SdmmcDma<T> + 'd
 {
     fn drop(&mut self) {
         _ = self.volume_mgr.close_file(self.raw_file);
-    }
-}
-
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    core::fmt::Debug for File<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: TimeSource,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "File({})", self.raw_file.0 .0)
-    }
-}
-
-#[cfg(feature = "defmt-log")]
-impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    defmt::Format for File<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
-where
-    D: crate::BlockDevice,
-    T: TimeSource,
-{
-    fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "File({})", self.raw_file.0 .0)
     }
 }
 
