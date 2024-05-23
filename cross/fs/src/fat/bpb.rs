@@ -5,6 +5,7 @@ use crate::{
     fat::FatType,
 };
 
+use byteorder::{ByteOrder, LittleEndian};
 use super::ondiskdirentry::OnDiskDirEntry;
 
 /// Represents a Boot Parameter Block. This is the first sector of a FAT

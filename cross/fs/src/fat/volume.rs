@@ -2,7 +2,7 @@
 
 use byteorder::{ByteOrder, LittleEndian};
 use embassy_stm32::sdmmc::{Instance, SdmmcDma};
-use core::convert::TryFrom;
+use core::{convert::TryFrom, ptr::slice_from_raw_parts};
 
 use crate::{blockdevice::{Block, BlockCount, BlockIdx, SdmmcDevice}, fat::RESERVED_ENTRIES, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, DirectoryInfo}, filename::ShortFileName, timestamp::TimeSource}, volume_mgr::VolumeType, DeviceError};
 
@@ -766,12 +766,13 @@ impl FatVolume {
         for entry in 0..Block::LEN / OnDiskDirEntry::LEN {
             let start = entry * OnDiskDirEntry::LEN;
             let end = (entry + 1) * OnDiskDirEntry::LEN;
-            let dir_entry = OnDiskDirEntry::new(&blocks[0][start..end]);
+            let data = &blocks[0].inner[start..end];
+            let dir_entry = OnDiskDirEntry::new(data);
             if dir_entry.is_end() {
                 // Can quit early
                 break;
             } else if dir_entry.matches(match_name) {
-                let mut blocks = blocks;
+                let mut blocks = blocks.clone();
                 blocks[0].inner[start] = 0xE5;
                 block_device
                     .write(&blocks, block).await?;
