@@ -17,6 +17,34 @@ pub struct Block {
     pub inner: DataBlock,
 }
 
+pub trait BlockTrait{
+    const LEN: usize = 512;
+
+    const LEN_U32: u32 = 512;
+
+    fn new() -> Self;
+
+    fn content_mut(&mut self) -> &mut [u8; 512];
+
+    fn content(&self) -> &[u8; 512];
+}
+
+impl BlockTrait for Block {
+    fn new() -> Self {
+        Self {
+            inner: DataBlock([0u8; Self::LEN]),
+        }
+    }
+
+    fn content_mut(&mut self) -> &mut [u8; 512] {
+        &mut self.inner.0
+    }
+    
+    fn content(&self) -> &[u8; 512] {
+        &self.inner.0
+    }
+}
+
 /// Represents the linear numeric address of a block (or sector). The first
 /// block on a disk gets `BlockIdx(0)` (which usually contains the Master Boot
 /// Record).
@@ -39,16 +67,17 @@ pub struct BlockIter {
 /// Represents a block device - a device which can read and write blocks (or
 /// sectors). Only supports devices which are <= 2 TiB in size.
 pub trait BlockDevice {
+    type B: BlockTrait;
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &mut self,
-        blocks: &mut [Block],
+        blocks: &mut [Self::B],
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError>;
     /// Write one or more blocks, starting at the given block index.
     async fn write(
         &mut self,
-        blocks: &[Block],
+        blocks: &[Self::B],
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError>;
     /// Determine how many blocks this device can hold.
@@ -68,10 +97,11 @@ pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
 }
 
 impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma> {
+    type B = Block;
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &mut self,
-        blocks: &mut [Block],
+        blocks: &mut [Self::B],
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError> {
         for block in blocks.iter_mut() {
@@ -85,7 +115,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
     /// Write one or more blocks, starting at the given block index.
     async fn write(
         &mut self,
-        blocks: &[Block],
+        blocks: &[Self::B],
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError> {
         for block in blocks.iter() {
@@ -106,23 +136,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
             .block_count();
         Ok(BlockCount(count))
     }
-}
-
-impl Block {
-    /// All our blocks are a fixed length of 512 bytes. We do not support
-    /// 'Advanced Format' Hard Drives with 4 KiB blocks, nor weird old
-    /// pre-3.5-inch floppy disk formats.
-    pub const LEN: usize = 512;
-
-    /// Sometimes we want `LEN` as a `u32` and the casts don't look nice.
-    pub const LEN_U32: u32 = 512;
-
-    /// Create a new block full of zeros.
-    pub fn new() -> Block {
-        Block {
-            inner: DataBlock([0u8; Self::LEN]),
-        }
-    }
+    
 }
 
 impl Default for Block {

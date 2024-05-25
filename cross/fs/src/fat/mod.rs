@@ -14,14 +14,14 @@ pub enum FatType {
     Fat32,
 }
 
-pub struct BlockCache {
-    block: Block,
+pub struct BlockCache<B: BlockTrait> {
+    block: B,
     idx: Option<BlockIdx>,
 }
-impl BlockCache {
+impl <B: BlockTrait> BlockCache<B> {
     pub fn empty() -> Self {
         BlockCache {
-            block: Block::new(),
+            block: B::new(),
             idx: None,
         }
     }
@@ -29,12 +29,12 @@ impl BlockCache {
         &mut self,
         block_device: &mut D,
         block_idx: BlockIdx,
-    ) -> Result<&Block, DeviceError>
+    ) -> Result<&B, DeviceError>
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
             block_device
-                .read(core::slice::from_mut(&mut self.block), block_idx)
+                .read(core::slice::from_mut(&mut D::B::new()), block_idx)
                 .await?;
         }
         Ok(&self.block)
@@ -47,7 +47,7 @@ pub mod ondiskdirentry;
 pub mod volume;
 
 use crate::{
-    blockdevice::{Block, BlockDevice, BlockIdx},
+    blockdevice::{Block, BlockDevice, BlockIdx, BlockTrait},
     DeviceError,
 };
 

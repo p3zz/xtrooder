@@ -2,7 +2,7 @@
 //!
 //! The volume manager handles partitions and open files on a block device.
 
-use crate::{blockdevice::BlockDevice, DeviceError};
+use crate::{blockdevice::{BlockDevice, BlockTrait}, DeviceError};
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::{
@@ -275,27 +275,28 @@ where
         }
 
         let (part_type, lba_start, num_blocks) = {
-            let mut blocks = [Block::new()];
+            let mut blocks = [D::B::new()];
             self.block_device.read(&mut blocks, BlockIdx(0)).await?;
             let block = &blocks[0];
             // We only support Master Boot Record (MBR) partitioned cards, not
             // GUID Partition Table (GPT)
-            if LittleEndian::read_u16(&block[FOOTER_START..FOOTER_START + 2]) != FOOTER_VALUE {
+            let content = block.content();
+            if LittleEndian::read_u16(&content[FOOTER_START..FOOTER_START + 2]) != FOOTER_VALUE {
                 // TODO replace error
                 return Err(DeviceError::FormatError("Invalid MBR signature"));
             }
             let partition = match volume_idx {
                 VolumeIdx(0) => {
-                    &block[PARTITION1_START..(PARTITION1_START + PARTITION_INFO_LENGTH)]
+                    &content[PARTITION1_START..(PARTITION1_START + PARTITION_INFO_LENGTH)]
                 }
                 VolumeIdx(1) => {
-                    &block[PARTITION2_START..(PARTITION2_START + PARTITION_INFO_LENGTH)]
+                    &content[PARTITION2_START..(PARTITION2_START + PARTITION_INFO_LENGTH)]
                 }
                 VolumeIdx(2) => {
-                    &block[PARTITION3_START..(PARTITION3_START + PARTITION_INFO_LENGTH)]
+                    &content[PARTITION3_START..(PARTITION3_START + PARTITION_INFO_LENGTH)]
                 }
                 VolumeIdx(3) => {
-                    &block[PARTITION4_START..(PARTITION4_START + PARTITION_INFO_LENGTH)]
+                    &content[PARTITION4_START..(PARTITION4_START + PARTITION_INFO_LENGTH)]
                 }
                 _ => {
                     // TODO replace error
@@ -793,14 +794,14 @@ where
             )
             .await?;
         self.open_files[file_idx].current_cluster = current_cluster;
-        let mut blocks = [Block::new()];
+        let mut blocks = [D::B::new()];
         self.block_device.read(&mut blocks, block_idx).await?;
         
         if block_avail == 0 || self.open_files[file_idx].left() == 0{
             return Err(DeviceError::EndOfFile);
         }
 
-        let b = blocks[0].inner[block_offset + 1];
+        let b = blocks[0].content()[block_offset + 1];
         self.open_files[file_idx]
             .seek_from_current(1 as i32)
             .unwrap();
@@ -828,7 +829,7 @@ where
                 )
                 .await?;
             self.open_files[file_idx].current_cluster = current_cluster;
-            let mut blocks = [Block::new()];
+            let mut blocks = [D::B::new()];
             self.block_device.read(&mut blocks, block_idx).await?;
             let block = &blocks[0];
             let to_copy = block_avail
@@ -836,7 +837,7 @@ where
                 .min(self.open_files[file_idx].left() as usize);
             assert!(to_copy != 0);
             buffer[read..read + to_copy]
-                .copy_from_slice(&block[block_offset..block_offset + to_copy]);
+                .copy_from_slice(&block.content()[block_offset..block_offset + to_copy]);
             read += to_copy;
             space -= to_copy;
             self.open_files[file_idx]
@@ -944,14 +945,14 @@ where
                 }
                 Err(e) => return Err(e),
             };
-            let mut blocks = [Block::new()];
+            let mut blocks = [D::B::new()];
             let to_copy = core::cmp::min(block_avail, bytes_to_write - written);
             if block_offset != 0 {
                 // debug!("Partial block write");
                 self.block_device.read(&mut blocks, block_idx).await?;
             }
             let block = &mut blocks[0];
-            block[block_offset..block_offset + to_copy]
+            block.content_mut()[block_offset..block_offset + to_copy]
                 .copy_from_slice(&buffer[written..written + to_copy]);
             // debug!("Writing block {:?}", block_idx);
             self.block_device.write(&blocks, block_idx).await?;
@@ -1149,7 +1150,7 @@ where
                 let now = self.time_source.get_timestamp();
                 let fat_type = fat.get_fat_type();
                 // A blank block
-                let mut blocks = [Block::new()];
+                let mut blocks = [D::B::new()];
                 // make the "." entry
                 let dot_entry_in_child = DirEntry {
                     name: ShortFileName::this_dir(),
@@ -1164,7 +1165,7 @@ where
                 };
                 // debug!("New dir has {:?}", dot_entry_in_child);
                 let mut offset = 0;
-                blocks[0][offset..offset + OnDiskDirEntry::LEN]
+                blocks[0].content_mut()[offset..offset + OnDiskDirEntry::LEN]
                     .copy_from_slice(&dot_entry_in_child.serialize(fat_type)[..]);
                 offset += OnDiskDirEntry::LEN;
                 // make the ".." entry
@@ -1190,7 +1191,7 @@ where
                     entry_offset: OnDiskDirEntry::LEN_U32,
                 };
                 // debug!("New dir has {:?}", dot_dot_entry_in_child);
-                blocks[0][offset..offset + OnDiskDirEntry::LEN]
+                blocks[0].content_mut()[offset..offset + OnDiskDirEntry::LEN]
                     .copy_from_slice(&dot_dot_entry_in_child.serialize(fat_type)[..]);
 
                 self.block_device
@@ -1198,7 +1199,7 @@ where
                     .await?;
 
                 // Now zero the rest of the cluster
-                for b in blocks[0].iter_mut() {
+                for b in blocks[0].content_mut().iter_mut() {
                     *b = 0;
                 }
                 for block in new_dir_start_block
