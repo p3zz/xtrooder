@@ -4,12 +4,12 @@
 use app::utils::stopwatch::Clock;
 use defmt::{info, panic};
 use embassy_executor::Spawner;
-use embassy_stm32::sdmmc::{DataBlock, Sdmmc};
+use embassy_stm32::sdmmc::Sdmmc;
 use embassy_stm32::time::mhz;
 use embassy_stm32::{bind_interrupts, peripherals, sdmmc, Config};
 use fs::blockdevice::SdmmcDevice;
 use fs::filesystem::files::Mode;
-use fs::volume_mgr::{RawVolume, VolumeIdx, VolumeManager};
+use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -60,7 +60,7 @@ async fn main(_spawner: Spawner) -> ! {
     sdmmc.init_card(mhz(25)).await.unwrap();
 
     let clock = Clock::new();
-    let mut device = SdmmcDevice::new(sdmmc);
+    let device = SdmmcDevice::new(sdmmc);
 
     let mut volume_mgr = VolumeManager::new(device, clock);
 

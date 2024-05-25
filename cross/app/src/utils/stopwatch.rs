@@ -1,10 +1,15 @@
-use chrono::Timelike;
 use embassy_time::{Duration, Instant};
 use fs::filesystem::timestamp::{TimeSource, Timestamp};
 
 #[derive(Clone, Copy)]
 pub struct Clock {
     last_ticks: u64,
+}
+
+impl Default for Clock {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Clock {

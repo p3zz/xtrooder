@@ -2,20 +2,12 @@
 #![no_main]
 
 use defmt::info;
-use embassy_stm32::{
-    gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    time::hz,
-    timer::{
-        simple_pwm::{PwmPin, SimplePwm},
-        Channel, CountingMode,
-    },
-};
+use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
 use stepper::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Timer};
-use math::{common::RotationDirection, distance::Distance, speed::Speed};
+use math::common::RotationDirection;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {

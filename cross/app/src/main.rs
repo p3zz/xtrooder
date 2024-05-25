@@ -2,18 +2,15 @@
 #![no_main]
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
-use app::planner::planner::Planner;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::{ADC2, PC8, TIM7, TIM8};
+use embassy_stm32::peripherals::{ADC2, PC8, TIM8};
 use embassy_stm32::{
-    adc::{Adc, AdcPin, Resolution},
+    adc::Resolution,
     bind_interrupts,
-    dma::NoDma,
-    gpio::{AnyPin, Level, Output, OutputType, Speed as PinSpeed},
+    gpio::{Level, Output, OutputType, Speed as PinSpeed},
     peripherals::{
-        ADC1, DMA1_CH0, DMA1_CH1, PA1, PA2, PA3, PA4, PA5, PB10, PB11, PB8, PB9, PC0, PD8, PD9,
-        TIM1, TIM12, TIM15, TIM2, TIM4, USART1, USART3,
+        ADC1, DMA1_CH0, DMA1_CH1, PA2, PA3, PB10, PB11, PB9, TIM4, USART3,
     },
     time::hz,
     timer::{
@@ -23,19 +20,12 @@ use embassy_stm32::{
     usart::{InterruptHandler, Uart},
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 use heapless::spsc::Queue;
-use heapless::{String, Vec};
-use math::{
-    distance::Distance,
-    speed::Speed as StepperSpeed,
-    temperature::Temperature,
-    vector::{Vector2D, Vector3D},
-};
-use motion::{linear_move_to, linear_move_to_2d, linear_move_to_3d};
+use math::temperature::Temperature;
 use parser::parser::{GCodeParser, GCommand};
-use stepper::{Stepper, StepperOptions, SteppingMode};
+use stepper::{Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
 use core::str;
@@ -215,7 +205,7 @@ async fn main(_spawner: Spawner) {
 
     let x_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
 
-    let mut x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
+    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
 
     // --------- Y AXIS -----------------
 
@@ -223,7 +213,7 @@ async fn main(_spawner: Spawner) {
 
     let y_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
 
-    let mut y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
+    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
 
     // --------- Z AXIS -----------------
 
@@ -231,7 +221,7 @@ async fn main(_spawner: Spawner) {
 
     let z_dir = Output::new(p.PB2, Level::Low, PinSpeed::Low);
 
-    let mut z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
+    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
 
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
     led.set_high();

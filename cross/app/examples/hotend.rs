@@ -6,12 +6,12 @@ use app::hotend::heater::Heater;
 use app::hotend::thermistor::Thermistor;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{Adc, Resolution};
-use embassy_stm32::gpio::{Level, Output, OutputType, Speed};
+use embassy_stm32::adc::Resolution;
+use embassy_stm32::gpio::OutputType;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::{Channel, CountingMode};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Duration, Timer};
 use math::temperature::Temperature;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -52,7 +52,7 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
-    let mut thermistor = Thermistor::new(
+    let thermistor = Thermistor::new(
         p.ADC1,
         p.PA3,
         Resolution::BITS12,
