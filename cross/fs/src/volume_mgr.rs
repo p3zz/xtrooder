@@ -895,15 +895,15 @@ where
                                 return Err(DeviceError::DiskFull);
                             }
                             // debug!("Allocated new FAT cluster, finding offsets...");
-                            let new_offset = self
+                            
+                            // debug!("New offset {:?}", new_offset);
+                            self
                                 .find_data_on_disk(
                                     volume_idx,
                                     &mut current_cluster,
                                     self.open_files[file_idx].current_offset,
                                 )
-                                .await?;
-                            // debug!("New offset {:?}", new_offset);
-                            new_offset
+                                .await?
                         }
                     }
                 }

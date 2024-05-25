@@ -78,7 +78,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
             self.inner
                 .read_block(start_block_idx.0, &mut block.inner)
                 .await
-                .map_err(|e| DeviceError::DeviceError(e))?;
+                .map_err(DeviceError::DeviceError)?;
         }
         Ok(())
     }
@@ -92,7 +92,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
             self.inner
                 .write_block(start_block_idx.0, &block.inner)
                 .await
-                .map_err(|e| DeviceError::DeviceError(e))?;
+                .map_err(DeviceError::DeviceError)?;
         }
         Ok(())
     }
@@ -101,7 +101,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
         let count = self
             .inner
             .card()
-            .map_err(|e| DeviceError::DeviceError(e))?
+            .map_err(DeviceError::DeviceError)?
             .csd
             .block_count();
         Ok(BlockCount(count))
