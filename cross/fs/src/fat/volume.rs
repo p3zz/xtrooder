@@ -506,8 +506,7 @@ impl FatVolume {
         while let Some(cluster) = current_cluster {
             let block_idx = self.cluster_to_block(cluster);
             for block in block_idx.range(BlockCount(u32::from(self.blocks_per_cluster))) {
-                block_device
-                    .read(&mut blocks, block).await;
+                block_device.read(&mut blocks, block).await?;
                 for entry in 0..Block::LEN / OnDiskDirEntry::LEN {
                     let start = entry * OnDiskDirEntry::LEN;
                     let end = (entry + 1) * OnDiskDirEntry::LEN;

@@ -5,7 +5,7 @@
 use byteorder::{ByteOrder, LittleEndian};
 use crate::{blockdevice::BlockDevice, DeviceError};
 
-use crate::{blockdevice::{Block, BlockCount, BlockIdx}, fat::{self, ondiskdirentry::OnDiskDirEntry, volume::{parse_volume, FatVolume}, BlockCache, FatType, RESERVED_ENTRIES}, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, Directory, DirectoryInfo, RawDirectory}, filename::{ShortFileName, ToShortFileName}, files::{FileInfo, Mode, RawFile}, search_id::{SearchId, SearchIdGenerator}, timestamp::TimeSource, MAX_FILE_SIZE}, PARTITION_ID_FAT16, PARTITION_ID_FAT16_LBA, PARTITION_ID_FAT32_CHS_LBA, PARTITION_ID_FAT32_LBA};
+use crate::{blockdevice::{Block, BlockCount, BlockIdx}, fat::{ondiskdirentry::OnDiskDirEntry, volume::{parse_volume, FatVolume}, BlockCache, FatType, RESERVED_ENTRIES}, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, Directory, DirectoryInfo, RawDirectory}, filename::{ShortFileName, ToShortFileName}, files::{FileInfo, Mode, RawFile}, search_id::{SearchId, SearchIdGenerator}, timestamp::TimeSource, MAX_FILE_SIZE}, PARTITION_ID_FAT16, PARTITION_ID_FAT16_LBA, PARTITION_ID_FAT32_CHS_LBA, PARTITION_ID_FAT32_LBA};
 
 use heapless::Vec;
 
@@ -749,8 +749,7 @@ where
             ).await?;
             self.open_files[file_idx].current_cluster = current_cluster;
             let mut blocks = [Block::new()];
-            &mut self.block_device
-                .read(&mut blocks, block_idx).await?;
+            self.block_device.read(&mut blocks, block_idx).await?;
             let block = &blocks[0];
             let to_copy = block_avail
                 .min(space)
