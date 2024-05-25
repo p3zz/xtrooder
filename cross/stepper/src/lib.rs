@@ -5,12 +5,12 @@
 use defmt::info;
 use embassy_stm32::gpio::Output;
 use embassy_time::{Duration, Timer};
+use math::common::compute_step_duration;
 use math::common::{abs, compute_revolutions_per_second, floor, RotationDirection};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
 use micromath::F32Ext;
-use math::common::compute_step_duration;
 
 #[derive(Clone, Copy)]
 pub struct StepperAttachment {
@@ -198,7 +198,6 @@ impl<'s> Stepper<'s> {
         self.step_inner()
     }
 
-
     #[cfg(not(feature = "mock"))]
     pub async fn move_for_steps(&mut self, steps: u64) -> Result<(), StepperError> {
         if steps == 0 {
@@ -343,13 +342,9 @@ impl<'s> Stepper<'s> {
 mod tests {
     use defmt::assert;
     use defmt_rtt as _;
-    
+
     use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
-    use math::{
-        common::RotationDirection,
-        distance::Distance,
-        speed::Speed,
-    };
+    use math::{common::RotationDirection, distance::Distance, speed::Speed};
     use panic_probe as _;
 
     use super::*;
@@ -375,9 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_step_out_of_bounds(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_step_out_of_bounds(s: &mut Stepper<'static>) {
         s.reset();
         let mut options = StepperOptions::default();
         options.bounds = Some((-1.0, 1.0));
@@ -401,9 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_counterclockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_direction(RotationDirection::CounterClockwise);
@@ -413,9 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_microstepping_clockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_microstepping_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::HalfStep);
@@ -426,9 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_microstepping_counterclockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_microstepping_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::HalfStep);
@@ -439,9 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_clockwise_positive_direction_clockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_clockwise_positive_direction_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -455,9 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_clockwise_positive_direction_counterclockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_clockwise_positive_direction_counterclockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -471,9 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_counterclockwise_positive_direction_clockwise(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_counterclockwise_positive_direction_clockwise(s: &mut Stepper<'static>) {
         let steps = 20;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -503,9 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_no_attachment(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_no_attachment(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(20.0);
         s.reset();
         let res = s.move_for_distance(distance);
@@ -513,9 +492,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.0);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -529,9 +506,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_space_wasted(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_space_wasted(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.5);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -545,9 +520,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_space_wasted_2(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_space_wasted_2(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(0.5);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -561,9 +534,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_space_wasted_3(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_space_wasted_3(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(-0.5);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -577,9 +548,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_lower_distance_per_step(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_lower_distance_per_step(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(10.5);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -593,9 +562,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_negative(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_negative(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(-10.5);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -609,9 +576,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_distance_zero(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_distance_zero(s: &mut Stepper<'static>) {
         let distance = Distance::from_mm(0.0);
         s.reset();
         s.set_attachment(StepperAttachment {
@@ -625,9 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_move_for_steps_outofbounds(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_move_for_steps_outofbounds(s: &mut Stepper<'static>) {
         let steps = 10;
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
@@ -663,9 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_home_no_attachment(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_home_no_attachment(s: &mut Stepper<'static>) {
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
 
@@ -675,9 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_set_speed_positive(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_positive(s: &mut Stepper<'static>) {
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
         let res = s.set_speed(1.0);
@@ -694,9 +653,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_set_speed_negative(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_negative(s: &mut Stepper<'static>) {
         s.reset();
         s.set_stepping_mode(SteppingMode::FullStep);
         let res = s.set_speed(-10.0);
@@ -704,51 +661,39 @@ mod tests {
     }
 
     #[test]
-    fn test_stepper_set_speed_from_attachment_no_attachment(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_from_attachment_no_attachment(s: &mut Stepper<'static>) {
         s.reset();
-        let res =
-            s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
+        let res = s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
         assert!(res.is_err());
     }
 
     #[test]
-    fn test_stepper_set_speed_from_attachment_positive(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_from_attachment_positive(s: &mut Stepper<'static>) {
         s.reset();
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res =
-            s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
+        let res = s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
         assert!(res.is_ok());
     }
 
     #[test]
-    fn test_stepper_set_speed_from_attachment_negative(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_from_attachment_negative(s: &mut Stepper<'static>) {
         s.reset();
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res =
-            s.set_speed_from_attachment(Speed::from_mm_per_second(-3.0));
+        let res = s.set_speed_from_attachment(Speed::from_mm_per_second(-3.0));
         assert!(res.is_err());
     }
 
     #[test]
-    fn test_stepper_set_speed_from_attachment_zero(
-        s: &mut Stepper<'static>,
-    ) {
+    fn test_stepper_set_speed_from_attachment_zero(s: &mut Stepper<'static>) {
         s.reset();
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res =
-            s.set_speed_from_attachment(Speed::from_mm_per_second(0.0));
+        let res = s.set_speed_from_attachment(Speed::from_mm_per_second(0.0));
         assert!(res.is_ok());
         assert_eq!(s.get_speed(), 0.0);
     }
@@ -757,5 +702,4 @@ mod tests {
     fn always_passes() {
         assert!(true);
     }
-
 }

@@ -3,8 +3,6 @@
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use app::planner::planner::Planner;
-use motion::{linear_move_to, linear_move_to_2d, linear_move_to_3d};
-use stepper::{Stepper, StepperOptions, SteppingMode};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM7, TIM8};
@@ -35,7 +33,9 @@ use math::{
     temperature::Temperature,
     vector::{Vector2D, Vector3D},
 };
+use motion::{linear_move_to, linear_move_to_2d, linear_move_to_3d};
 use parser::parser::{GCodeParser, GCommand};
+use stepper::{Stepper, StepperOptions, SteppingMode};
 use {defmt_rtt as _, panic_probe as _};
 
 use core::str;

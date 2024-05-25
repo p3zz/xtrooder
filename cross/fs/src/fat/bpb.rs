@@ -1,12 +1,9 @@
 //! Boot Parameter Block
 
-use crate::{
-    blockdevice::BlockCount,
-    fat::FatType,
-};
+use crate::{blockdevice::BlockCount, fat::FatType};
 
-use byteorder::{ByteOrder, LittleEndian};
 use super::ondiskdirentry::OnDiskDirEntry;
+use byteorder::{ByteOrder, LittleEndian};
 
 /// Represents a Boot Parameter Block. This is the first sector of a FAT
 /// formatted partition, and it describes various properties of the FAT

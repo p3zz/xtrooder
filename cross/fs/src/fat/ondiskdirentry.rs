@@ -1,6 +1,13 @@
 //! Directory Entry as stored on-disk
 
-use crate::{blockdevice::BlockIdx, fat::FatType, filesystem::{attributes::Attributes, cluster::ClusterId, directory::DirEntry, filename::ShortFileName, timestamp::Timestamp}};
+use crate::{
+    blockdevice::BlockIdx,
+    fat::FatType,
+    filesystem::{
+        attributes::Attributes, cluster::ClusterId, directory::DirEntry, filename::ShortFileName,
+        timestamp::Timestamp,
+    },
+};
 use byteorder::{ByteOrder, LittleEndian};
 
 /// Represents a 32-byte directory entry as stored on-disk in a directory file.

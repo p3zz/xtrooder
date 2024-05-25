@@ -1,7 +1,6 @@
-
 use crate::blockdevice::{BlockDevice, BlockIdx};
 use crate::fat::ondiskdirentry::OnDiskDirEntry;
-use crate::fat::{FatType};
+use crate::fat::FatType;
 
 use crate::filesystem::filename::ToShortFileName;
 use crate::volume_mgr::RawVolume;
@@ -13,7 +12,7 @@ use super::cluster::ClusterId;
 use super::filename::ShortFileName;
 use super::files::{File, Mode};
 use super::search_id::SearchId;
-use super::timestamp::{Timestamp, TimeSource};
+use super::timestamp::{TimeSource, Timestamp};
 
 /// Represents a directory entry, which tells you about
 /// other files and directories.
@@ -151,7 +150,8 @@ where
         N: ToShortFileName,
     {
         self.volume_mgr
-            .find_directory_entry(self.raw_directory, name).await
+            .find_directory_entry(self.raw_directory, name)
+            .await
     }
 
     /// Call a callback function for each directory entry in a directory.
@@ -173,7 +173,8 @@ where
     {
         let f = self
             .volume_mgr
-            .open_file_in_dir(self.raw_directory, name, mode).await?;
+            .open_file_in_dir(self.raw_directory, name, mode)
+            .await?;
         Ok(f.to_file(self.volume_mgr))
     }
 
@@ -182,7 +183,9 @@ where
     where
         N: ToShortFileName,
     {
-        self.volume_mgr.delete_file_in_dir(self.raw_directory, name).await
+        self.volume_mgr
+            .delete_file_in_dir(self.raw_directory, name)
+            .await
     }
 
     /// Make a directory inside this directory
@@ -190,7 +193,9 @@ where
     where
         N: ToShortFileName,
     {
-        self.volume_mgr.make_dir_in_dir(self.raw_directory, name).await
+        self.volume_mgr
+            .make_dir_in_dir(self.raw_directory, name)
+            .await
     }
 
     /// Convert back to a raw directory
@@ -221,7 +226,6 @@ where
         _ = self.volume_mgr.close_dir(self.raw_directory)
     }
 }
-
 
 /// Holds information about an open file on disk
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]

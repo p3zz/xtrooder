@@ -1,4 +1,7 @@
-use crate::{blockdevice::{BlockCount, BlockIdx}, filesystem::cluster::ClusterId};
+use crate::{
+    blockdevice::{BlockCount, BlockIdx},
+    filesystem::cluster::ClusterId,
+};
 use byteorder::{ByteOrder, LittleEndian};
 
 /// Indentifies the supported types of FAT format

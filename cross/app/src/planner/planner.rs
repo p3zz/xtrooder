@@ -1,13 +1,13 @@
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
-use motion::{self, no_move, Positioning};
-use stepper::{Stepper, StepperError};
 use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
+use motion::{self, no_move, Positioning};
 use parser::parser::{GCodeParser, GCommand};
+use stepper::{Stepper, StepperError};
 
 // we need to have a triple(s, d, T) for every stepper
 pub struct Planner<'s> {

@@ -27,8 +27,7 @@ const PARTITION_ID_FAT32_CHS_LBA: u8 = 0x0B;
 /// Represents all the ways the functions in this crate can fail.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, Clone)]
-pub enum DeviceError
-{
+pub enum DeviceError {
     /// The underlying block device threw an error.
     DeviceError(Error),
     /// The filesystem is badly formatted (or this code is buggy).

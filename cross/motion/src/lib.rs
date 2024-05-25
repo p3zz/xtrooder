@@ -3,7 +3,6 @@
 
 use core::f64::consts::PI;
 
-use stepper::{Stepper, StepperError};
 use defmt::info;
 use embassy_time::Duration;
 use futures::join;
@@ -15,6 +14,7 @@ use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use micromath::F32Ext;
+use stepper::{Stepper, StepperError};
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -451,6 +451,7 @@ pub async fn arc_move_3d_e_offset_from_center<'s>(
 #[cfg(test)]
 #[defmt_test::tests]
 mod tests {
+    use super::*;
     use defmt::assert;
     use defmt_rtt as _;
     use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
@@ -461,7 +462,6 @@ mod tests {
         vector::{Vector2D, Vector3D},
     };
     use panic_probe as _;
-    use super::*;
 
     use stepper::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 
@@ -809,9 +809,7 @@ mod tests {
     }
 
     #[test]
-    fn test_arc_move_2d_arc_length(
-        s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)
-    ){
+    fn test_arc_move_2d_arc_length(s: &mut (Stepper<'static>, Stepper<'static>, Stepper<'static>)) {
         let arc_length = Distance::from_mm(20.0);
         let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
         let speed = Speed::from_mm_per_second(10.0);
@@ -833,5 +831,4 @@ mod tests {
         assert_eq!(s.0.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s.1.get_direction(), RotationDirection::Clockwise);
     }
-
 }

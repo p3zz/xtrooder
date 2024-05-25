@@ -1,5 +1,8 @@
-
-use crate::{blockdevice::BlockDevice, volume_mgr::{RawVolume, VolumeManager}, DeviceError};
+use crate::{
+    blockdevice::BlockDevice,
+    volume_mgr::{RawVolume, VolumeManager},
+    DeviceError,
+};
 
 use super::{cluster::ClusterId, directory::DirEntry, search_id::SearchId, timestamp::TimeSource};
 

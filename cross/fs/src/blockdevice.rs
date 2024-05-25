@@ -46,12 +46,16 @@ pub trait BlockDevice {
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError>;
     /// Write one or more blocks, starting at the given block index.
-    async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), DeviceError>;
+    async fn write(
+        &mut self,
+        blocks: &[Block],
+        start_block_idx: BlockIdx,
+    ) -> Result<(), DeviceError>;
     /// Determine how many blocks this device can hold.
     fn num_blocks(&self) -> Result<BlockCount, DeviceError>;
 }
 
-impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
+impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma> {
     pub fn new(inner: Sdmmc<'d, T, Dma>) -> Self {
         Self { inner }
     }
@@ -60,35 +64,48 @@ impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma>{
 /// Represents a block device - a device which can read and write blocks (or
 /// sectors). Only supports devices which are <= 2 TiB in size.
 pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
-    inner: Sdmmc<'d, T, Dma>
+    inner: Sdmmc<'d, T, Dma>,
 }
 
-impl <'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma>{
-
+impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma> {
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &mut self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError>{
+    ) -> Result<(), DeviceError> {
         for block in blocks.iter_mut() {
-            self.inner.read_block(start_block_idx.0, &mut block.inner).await.map_err(|e|DeviceError::DeviceError(e))?;
+            self.inner
+                .read_block(start_block_idx.0, &mut block.inner)
+                .await
+                .map_err(|e| DeviceError::DeviceError(e))?;
         }
         Ok(())
     }
     /// Write one or more blocks, starting at the given block index.
-    async fn write(&mut self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), DeviceError>{
+    async fn write(
+        &mut self,
+        blocks: &[Block],
+        start_block_idx: BlockIdx,
+    ) -> Result<(), DeviceError> {
         for block in blocks.iter() {
-            self.inner.write_block(start_block_idx.0, &block.inner).await.map_err(|e|DeviceError::DeviceError(e))?;
+            self.inner
+                .write_block(start_block_idx.0, &block.inner)
+                .await
+                .map_err(|e| DeviceError::DeviceError(e))?;
         }
         Ok(())
     }
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError>{
-        let count = self.inner.card().map_err(|e|DeviceError::DeviceError(e))?.csd.block_count();
+    fn num_blocks(&self) -> Result<BlockCount, DeviceError> {
+        let count = self
+            .inner
+            .card()
+            .map_err(|e| DeviceError::DeviceError(e))?
+            .csd
+            .block_count();
         Ok(BlockCount(count))
     }
-    
 }
 
 impl Block {
@@ -106,7 +123,6 @@ impl Block {
             inner: DataBlock([0u8; Self::LEN]),
         }
     }
-
 }
 
 impl Default for Block {

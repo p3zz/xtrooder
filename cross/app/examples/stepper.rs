@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use stepper::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use defmt::info;
 use embassy_stm32::{
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
@@ -11,6 +10,7 @@ use embassy_stm32::{
         Channel, CountingMode,
     },
 };
+use stepper::{Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;

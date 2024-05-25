@@ -36,7 +36,8 @@ impl BlockCache {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
             block_device
-                .read(core::slice::from_mut(&mut self.block), block_idx).await?;
+                .read(core::slice::from_mut(&mut self.block), block_idx)
+                .await?;
         }
         Ok(&self.block)
     }
@@ -47,7 +48,10 @@ pub mod info;
 pub mod ondiskdirentry;
 pub mod volume;
 
-use crate::{blockdevice::{Block, BlockDevice, BlockIdx}, DeviceError};
+use crate::{
+    blockdevice::{Block, BlockDevice, BlockIdx},
+    DeviceError,
+};
 
 // ****************************************************************************
 //

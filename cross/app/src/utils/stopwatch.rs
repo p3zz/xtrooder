@@ -22,15 +22,15 @@ impl Clock {
     }
 }
 
-impl TimeSource for Clock{
+impl TimeSource for Clock {
     fn get_timestamp(&self) -> fs::filesystem::timestamp::Timestamp {
-        Timestamp{
+        Timestamp {
             year_since_1970: 0,
             zero_indexed_day: 0,
             zero_indexed_month: 0,
             hours: 0,
             minutes: 0,
-            seconds: 0
+            seconds: 0,
         }
     }
 }
