@@ -774,6 +774,41 @@ where
         false
     }
 
+    pub async fn read_byte(&mut self, file: RawFile) -> Result<u8, DeviceError>{
+        let file_idx = self.get_file_by_id(file)?;
+        let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
+        // Calculate which file block the current offset lies within
+        // While there is more to read, read the block and copy in to the buffer.
+        // If we need to find the next cluster, walk the FAT.
+        if self.open_files[file_idx].eof() {
+            return Err(DeviceError::EndOfFile);
+        }
+            
+        let mut current_cluster = self.open_files[file_idx].current_cluster;
+        let (block_idx, block_offset, block_avail) = self
+            .find_data_on_disk(
+                volume_idx,
+                &mut current_cluster,
+                self.open_files[file_idx].current_offset,
+            )
+            .await?;
+        self.open_files[file_idx].current_cluster = current_cluster;
+        let mut blocks = [Block::new()];
+        self.block_device.read(&mut blocks, block_idx).await?;
+        
+        if block_avail == 0 || self.open_files[file_idx].left() == 0{
+            return Err(DeviceError::EndOfFile);
+        }
+
+        let b = blocks[0].inner[block_offset + 1];
+        self.open_files[file_idx]
+            .seek_from_current(1 as i32)
+            .unwrap();
+        
+        Ok(b)
+
+    }
+
     /// Read from an open file.
     pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError> {
         let file_idx = self.get_file_by_id(file)?;
