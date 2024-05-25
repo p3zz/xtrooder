@@ -23,6 +23,7 @@ dependencies = [
  "embedded-io-async",
  "embedded-nal-async",
  "embedded-storage",
+ "fs",
  "futures",
  "heapless",
  "math",

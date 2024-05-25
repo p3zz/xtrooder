@@ -25,15 +25,18 @@ impl BlockCache {
             idx: None,
         }
     }
-    pub async fn read<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn read<D: BlockDevice>(
         &mut self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         block_idx: BlockIdx,
     ) -> Result<&Block, DeviceError>
+    where
+        D: BlockDevice,
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
-            block_device.read(core::slice::from_mut(&mut self.block), block_idx).await?;
+            block_device
+                .read(core::slice::from_mut(&mut self.block), block_idx).await?;
         }
         Ok(&self.block)
     }
@@ -43,9 +46,8 @@ pub mod bpb;
 pub mod info;
 pub mod ondiskdirentry;
 pub mod volume;
-use embassy_stm32::sdmmc::{Instance, SdmmcDma};
 
-use crate::{blockdevice::{Block, BlockIdx, SdmmcDevice}, DeviceError};
+use crate::{blockdevice::{Block, BlockDevice, BlockIdx}, DeviceError};
 
 // ****************************************************************************
 //

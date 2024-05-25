@@ -1,10 +1,8 @@
 //! FAT-specific volume support.
 
 use byteorder::{ByteOrder, LittleEndian};
-use embassy_stm32::sdmmc::{Instance, SdmmcDma};
-use core::{convert::TryFrom, ptr::slice_from_raw_parts};
 
-use crate::{blockdevice::{Block, BlockCount, BlockIdx, SdmmcDevice}, fat::RESERVED_ENTRIES, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, DirectoryInfo}, filename::ShortFileName, timestamp::TimeSource}, volume_mgr::VolumeType, DeviceError};
+use crate::{blockdevice::{Block, BlockCount, BlockDevice, BlockIdx}, fat::RESERVED_ENTRIES, filesystem::{attributes::Attributes, cluster::ClusterId, directory::{DirEntry, DirectoryInfo}, filename::ShortFileName, timestamp::TimeSource}, volume_mgr::VolumeType, DeviceError};
 
 use super::{bpb::Bpb, info::{Fat16Info, Fat32Info, FatSpecificInfo, InfoSector}, ondiskdirentry::OnDiskDirEntry, BlockCache, FatType};
 
@@ -61,7 +59,7 @@ pub struct FatVolume {
 
 impl FatVolume {
     /// Write a new entry in the FAT
-    pub async fn update_info_sector<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(&mut self, block_device: &mut SdmmcDevice<'d, T, Dma>) -> Result<(), DeviceError>
+    pub async fn update_info_sector<D: BlockDevice>(&mut self, block_device: &mut D) -> Result<(), DeviceError>
     {
         match &self.fat_specific_info {
             FatSpecificInfo::Fat16(_) => {
@@ -97,9 +95,9 @@ impl FatVolume {
     }
 
     /// Write a new entry in the FAT
-    async fn update_fat<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    async fn update_fat<D: BlockDevice>(
         &mut self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         cluster: ClusterId,
         new_value: ClusterId,
     ) -> Result<(), DeviceError>
@@ -154,9 +152,9 @@ impl FatVolume {
     }
 
     /// Look in the FAT to see which cluster comes next.
-    pub(crate) async fn next_cluster<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn next_cluster<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         cluster: ClusterId,
         fat_block_cache: &mut BlockCache,
     ) -> Result<ClusterId, DeviceError>
@@ -256,9 +254,9 @@ impl FatVolume {
 
     /// Finds a empty entry space and writes the new entry to it, allocates a new cluster if it's
     /// needed
-    pub(crate) async fn write_new_directory_entry<'d, T: Instance, Dma: SdmmcDma<T> + 'd, TS>(
+    pub(crate) async fn write_new_directory_entry<D: BlockDevice, TS>(
         &mut self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         time_source: &TS,
         dir_cluster: ClusterId,
         name: ShortFileName,
@@ -407,9 +405,9 @@ impl FatVolume {
 
     /// Calls callback `func` with every valid entry in the given directory.
     /// Useful for performing directory listings.
-    pub(crate) async fn iterate_dir<'d, T: Instance, Dma: SdmmcDma<T> + 'd, F>(
+    pub(crate) async fn iterate_dir<D: BlockDevice, F>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         dir: &DirectoryInfo,
         func: F,
     ) -> Result<(), DeviceError>
@@ -426,11 +424,11 @@ impl FatVolume {
         }
     }
 
-    async fn iterate_fat16<'d, T: Instance, Dma: SdmmcDma<T> + 'd, F>(
+    async fn iterate_fat16<D: BlockDevice, F>(
         &self,
         dir: &DirectoryInfo,
         fat16_info: &Fat16Info,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         mut func: F,
     ) -> Result<(), DeviceError>
     where
@@ -487,11 +485,11 @@ impl FatVolume {
         Ok(())
     }
 
-    async fn iterate_fat32<'d, T: Instance, Dma: SdmmcDma<T> + 'd, F>(
+    async fn iterate_fat32<D: BlockDevice, F>(
         &self,
         dir: &DirectoryInfo,
         fat32_info: &Fat32Info,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         mut func: F,
     ) -> Result<(), DeviceError>
     where
@@ -534,9 +532,9 @@ impl FatVolume {
     }
 
     /// Get an entry from the given directory
-    pub(crate) async fn find_directory_entry<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn find_directory_entry<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         dir: &DirectoryInfo,
         match_name: &ShortFileName,
     ) -> Result<DirEntry, DeviceError>
@@ -621,9 +619,9 @@ impl FatVolume {
     }
 
     /// Finds an entry in a given block of directory entries.
-    async fn find_entry_in_block<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    async fn find_entry_in_block<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         fat_type: FatType,
         match_name: &ShortFileName,
         block: BlockIdx,
@@ -650,9 +648,9 @@ impl FatVolume {
     }
 
     /// Delete an entry from the given directory
-    pub(crate) async fn delete_directory_entry<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn delete_directory_entry<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         dir: &DirectoryInfo,
         match_name: &ShortFileName,
     ) -> Result<(), DeviceError>
@@ -753,9 +751,9 @@ impl FatVolume {
     ///
     /// Entries are marked as deleted by setting the first byte of the file name
     /// to a special value.
-    async fn delete_entry_in_block<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    async fn delete_entry_in_block<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         match_name: &ShortFileName,
         block: BlockIdx,
     ) -> Result<(), DeviceError>
@@ -782,9 +780,9 @@ impl FatVolume {
     }
 
     /// Finds the next free cluster after the start_cluster and before end_cluster
-    pub(crate) async fn find_next_free_cluster<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn find_next_free_cluster<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         start_cluster: ClusterId,
         end_cluster: ClusterId,
     ) -> Result<ClusterId, DeviceError>
@@ -858,9 +856,9 @@ impl FatVolume {
     }
 
     /// Tries to allocate a cluster
-    pub(crate) async fn alloc_cluster<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn alloc_cluster<D: BlockDevice>(
         &mut self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         prev_cluster: Option<ClusterId>,
         zero: bool,
     ) -> Result<ClusterId, DeviceError>
@@ -940,9 +938,9 @@ impl FatVolume {
     }
 
     /// Marks the input cluster as an EOF and all the subsequent clusters in the chain as free
-    pub(crate) async fn truncate_cluster_chain<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn truncate_cluster_chain<D: BlockDevice>(
         &mut self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         cluster: ClusterId,
     ) -> Result<(), DeviceError>
     {
@@ -987,9 +985,9 @@ impl FatVolume {
     }
 
     /// Writes a Directory Entry to the disk
-    pub(crate) async fn write_entry_to_disk<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
+    pub(crate) async fn write_entry_to_disk<D: BlockDevice>(
         &self,
-        block_device: &mut SdmmcDevice<'d, T, Dma>,
+        block_device: &mut D,
         entry: &DirEntry,
     ) -> Result<(), DeviceError>
     {
@@ -1013,8 +1011,8 @@ impl FatVolume {
 
 /// Load the boot parameter block from the start of the given partition and
 /// determine if the partition contains a valid FAT16 or FAT32 file system.
-pub async fn parse_volume<'d, T: Instance, Dma: SdmmcDma<T> + 'd>(
-    block_device: &mut SdmmcDevice<'d, T, Dma>,
+pub async fn parse_volume<D: BlockDevice>(
+    block_device: &mut D,
     lba_start: BlockIdx,
     num_blocks: BlockCount,
 ) -> Result<VolumeType, DeviceError>

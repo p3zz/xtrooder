@@ -1,8 +1,5 @@
-use core::convert::TryFrom;
 
-use embassy_stm32::sdmmc::{Instance, SdmmcDma};
-
-use crate::blockdevice::BlockIdx;
+use crate::blockdevice::{BlockDevice, BlockIdx};
 use crate::fat::ondiskdirentry::OnDiskDirEntry;
 use crate::fat::{FatType};
 
@@ -64,21 +61,18 @@ pub struct RawDirectory(pub(crate) SearchId);
 impl RawDirectory {
     /// Convert a raw directory into a droppable [`Directory`]
     pub fn to_directory<
-        'd,
-        TS,
+        D,
         T,
-        Dma,
         const MAX_DIRS: usize,
         const MAX_FILES: usize,
         const MAX_VOLUMES: usize,
     >(
         self,
-        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+        volume_mgr: &mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
     where
-        T: Instance,
-        TS: TimeSource,
-        Dma: SdmmcDma<T> + 'd
+        D: BlockDevice,
+        T: TimeSource,
     {
         Directory::new(self, volume_mgr)
     }
@@ -93,35 +87,32 @@ impl RawDirectory {
 /// any error that may occur will be ignored. To handle potential errors, use
 /// the [`Directory::close`] method.
 pub struct Directory<
-    'd,
-    TS,
+    'a,
+    D,
     T,
-    Dma,
     const MAX_DIRS: usize,
     const MAX_FILES: usize,
     const MAX_VOLUMES: usize,
 > where
-    T: Instance,
-    TS: TimeSource,
-    Dma: SdmmcDma<T> + 'd
+    D: BlockDevice,
+    T: TimeSource,
 {
     raw_directory: RawDirectory,
-    volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
 }
 
-impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
-    Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize>
+    Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    T: Instance,
-    TS: TimeSource,
-    Dma: SdmmcDma<T> + 'd,
+    D: BlockDevice,
+    T: TimeSource,
 {
     /// Create a new `Directory` from a `RawDirectory`
     pub fn new(
         raw_directory: RawDirectory,
-        volume_mgr: &'d mut VolumeManager<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
-    ) -> Self {
-        Self {
+        volume_mgr: &'a mut VolumeManager<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>,
+    ) -> Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES> {
+        Directory {
             raw_directory,
             volume_mgr,
         }
@@ -131,9 +122,9 @@ where
     ///
     /// You can then read the directory entries with `iterate_dir` and `open_file_in_dir`.
     pub async fn open_dir<N>(
-        &'d mut self,
+        &mut self,
         name: N,
-    ) -> Result<Self, DeviceError>
+    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -173,10 +164,10 @@ where
 
     /// Open a file with the given full path. A file can only be opened once.
     pub async fn open_file_in_dir<N>(
-        &'d mut self,
+        &mut self,
         name: N,
         mode: Mode,
-    ) -> Result<File<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
+    ) -> Result<File<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
     where
         N: ToShortFileName,
     {
@@ -220,17 +211,17 @@ where
     }
 }
 
-impl<'d, TS, T, Dma, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
-    for Directory<'d, TS, T, Dma, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
+impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop
+    for Directory<'a, D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>
 where
-    T: Instance,
-    TS: TimeSource,
-    Dma: SdmmcDma<T> + 'd,
+    D: BlockDevice,
+    T: TimeSource,
 {
     fn drop(&mut self) {
         _ = self.volume_mgr.close_dir(self.raw_directory)
     }
 }
+
 
 /// Holds information about an open file on disk
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]

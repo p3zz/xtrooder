@@ -1,11 +1,15 @@
 #![no_std]
 #![no_main]
 
-use defmt::*;
+use app::utils::stopwatch::Clock;
+use defmt::{info, panic};
 use embassy_executor::Spawner;
 use embassy_stm32::sdmmc::{DataBlock, Sdmmc};
 use embassy_stm32::time::mhz;
 use embassy_stm32::{bind_interrupts, peripherals, sdmmc, Config};
+use fs::blockdevice::SdmmcDevice;
+use fs::volume_mgr::{RawVolume, VolumeManager, VolumeIdx};
+use fs::filesystem::files::Mode;
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -53,15 +57,42 @@ async fn main(_spawner: Spawner) -> ! {
     // Should print 400kHz for initialization
     info!("Configured clock: {}", sdmmc.clock().0);
 
-    unwrap!(sdmmc.init_card(mhz(25)).await);
+    sdmmc.init_card(mhz(25)).await.unwrap();
 
-    let card = unwrap!(sdmmc.card());
+    let clock = Clock::new();
+    let mut device = SdmmcDevice::new(sdmmc);
 
-    let mut block = DataBlock([0u8;512]);
+    let mut volume_mgr = VolumeManager::new(device, clock);
 
-    sdmmc.read_block(0, &mut block).await;
-
-    // info!("Card: {:#?}", Debug2Format(card));
+    let mut volume0 = match volume_mgr.open_volume(VolumeIdx(0)).await{
+        Ok(v) => v,
+        Err(_) => panic!("Cannot find module"),
+    };
+    
+    // info!("Volume 0: {:?}", volume0);
+    // Open the root directory (mutably borrows from the volume).
+    let mut root_dir = match volume0.open_root_dir(){
+        Ok(d) => d,
+        Err(_) => panic!("Cannot open root dir"),
+    };
+    // Open a file called "MY_FILE.TXT" in the root directory
+    // This mutably borrows the directory.
+    let mut my_file = match root_dir.open_file_in_dir("MY_FILE.TXT", Mode::ReadOnly).await {
+        Ok(f) => f,
+        Err(_) => panic!("Cannot open file"),
+    };
+    // Print the contents of the file
+    while !my_file.is_eof() {
+        let mut buffer = [0u8; 32];
+        match my_file.read(&mut buffer).await{
+            Ok(num_bytes) => {
+                for b in &buffer[0..num_bytes] {
+                    info!("{}", *b as char);
+                }
+            },
+            Err(_) => todo!(),
+        }
+    }
 
     loop {}
 }
