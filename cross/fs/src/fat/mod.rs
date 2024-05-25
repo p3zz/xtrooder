@@ -30,8 +30,6 @@ impl BlockCache {
         block_device: &mut D,
         block_idx: BlockIdx,
     ) -> Result<&Block, DeviceError>
-    where
-        D: BlockDevice,
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
