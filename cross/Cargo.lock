@@ -527,7 +527,6 @@ name = "fs"
 version = "0.1.0"
 dependencies = [
  "byteorder",
- "embassy-stm32",
  "heapless",
 ]
 

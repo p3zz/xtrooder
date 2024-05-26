@@ -29,7 +29,7 @@ impl <B: BlockTrait> BlockCache<B> {
         &mut self,
         block_device: &mut D,
         block_idx: BlockIdx,
-    ) -> Result<&B, DeviceError>
+    ) -> Result<&B, DeviceError<D::E>>
     {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
@@ -47,7 +47,7 @@ pub mod ondiskdirentry;
 pub mod volume;
 
 use crate::{
-    blockdevice::{Block, BlockDevice, BlockIdx, BlockTrait},
+    blockdevice::{BlockDevice, BlockIdx, BlockTrait},
     DeviceError,
 };
 

@@ -123,7 +123,7 @@ where
     pub async fn open_dir<N>(
         &mut self,
         name: N,
-    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
+    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -134,7 +134,7 @@ where
     /// Change to a directory, mutating this object.
     ///
     /// You can then read the directory entries with `iterate_dir` and `open_file_in_dir`.
-    pub async fn change_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
+    pub async fn change_dir<N>(&mut self, name: N) -> Result<(), DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -145,7 +145,7 @@ where
     }
 
     /// Look in a directory for a named file.
-    pub async fn find_directory_entry<N>(&mut self, name: N) -> Result<DirEntry, DeviceError>
+    pub async fn find_directory_entry<N>(&mut self, name: N) -> Result<DirEntry, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -155,7 +155,7 @@ where
     }
 
     /// Call a callback function for each directory entry in a directory.
-    pub async fn iterate_dir<F>(&mut self, func: F) -> Result<(), DeviceError>
+    pub async fn iterate_dir<F>(&mut self, func: F) -> Result<(), DeviceError<D::E>>
     where
         F: FnMut(&DirEntry),
     {
@@ -167,7 +167,7 @@ where
         &mut self,
         name: N,
         mode: Mode,
-    ) -> Result<File<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError>
+    ) -> Result<File<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -179,7 +179,7 @@ where
     }
 
     /// Delete a closed file with the given filename, if it exists.
-    pub async fn delete_file_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
+    pub async fn delete_file_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -189,7 +189,7 @@ where
     }
 
     /// Make a directory inside this directory
-    pub async fn make_dir_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError>
+    pub async fn make_dir_in_dir<N>(&mut self, name: N) -> Result<(), DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -209,7 +209,7 @@ where
     /// to using [`core::mem::drop`] or letting the `Directory` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), DeviceError> {
+    pub fn close(self) -> Result<(), DeviceError<D::E>> {
         let result = self.volume_mgr.close_dir(self.raw_directory);
         core::mem::forget(self);
         result

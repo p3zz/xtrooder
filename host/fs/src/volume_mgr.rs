@@ -2,11 +2,11 @@
 //!
 //! The volume manager handles partitions and open files on a block device.
 
-use crate::{blockdevice::{BlockDevice, BlockTrait}, DeviceError};
+use crate::{blockdevice::{BlockDevice, BlockTrait}, DeviceError, BLOCK_LEN};
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::{
-    blockdevice::{Block, BlockCount, BlockIdx},
+    blockdevice::{ BlockCount, BlockIdx},
     fat::{
         ondiskdirentry::OnDiskDirEntry,
         volume::{parse_volume, FatVolume},
@@ -92,7 +92,7 @@ where
     /// use `open_file_in_dir`.
     pub fn open_root_dir(
         &mut self,
-    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
+    ) -> Result<Directory<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError<D::E>> {
         let d = self.volume_mgr.open_root_dir(self.raw_volume)?;
         Ok(d.to_directory(self.volume_mgr))
     }
@@ -108,7 +108,7 @@ where
     /// to using [`core::mem::drop`] or letting the `Volume` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub fn close(self) -> Result<(), DeviceError> {
+    pub fn close(self) -> Result<(), DeviceError<D::E>> {
         let result = self.volume_mgr.close_volume(self.raw_volume);
         core::mem::forget(self);
         result
@@ -234,7 +234,7 @@ where
     pub async fn open_volume(
         &mut self,
         volume_idx: VolumeIdx,
-    ) -> Result<Volume<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError> {
+    ) -> Result<Volume<D, T, MAX_DIRS, MAX_FILES, MAX_VOLUMES>, DeviceError<D::E>> {
         let v = self.open_raw_volume(volume_idx).await?;
         Ok(v.to_volume(self))
     }
@@ -249,7 +249,7 @@ where
     pub async fn open_raw_volume(
         &mut self,
         volume_idx: VolumeIdx,
-    ) -> Result<RawVolume, DeviceError> {
+    ) -> Result<RawVolume, DeviceError<D::E>> {
         const PARTITION1_START: usize = 446;
         const PARTITION2_START: usize = PARTITION1_START + PARTITION_INFO_LENGTH;
         const PARTITION3_START: usize = PARTITION2_START + PARTITION_INFO_LENGTH;
@@ -345,7 +345,7 @@ where
     ///
     /// You can then read the directory entries with `iterate_dir`, or you can
     /// use `open_file_in_dir`.
-    pub fn open_root_dir(&mut self, volume: RawVolume) -> Result<RawDirectory, DeviceError> {
+    pub fn open_root_dir(&mut self, volume: RawVolume) -> Result<RawDirectory, DeviceError<D::E>> {
         // Opening a root directory twice is OK
 
         let directory_id = RawDirectory(self.id_generator.get());
@@ -371,7 +371,7 @@ where
         &mut self,
         parent_dir: RawDirectory,
         name: N,
-    ) -> Result<RawDirectory, DeviceError>
+    ) -> Result<RawDirectory, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -437,7 +437,7 @@ where
 
     /// Close a directory. You cannot perform operations on an open directory
     /// and so must close it if you want to do something with it.
-    pub fn close_dir(&mut self, directory: RawDirectory) -> Result<(), DeviceError> {
+    pub fn close_dir(&mut self, directory: RawDirectory) -> Result<(), DeviceError<D::E>> {
         for (idx, info) in self.open_dirs.iter().enumerate() {
             if directory == info.directory_id {
                 self.open_dirs.swap_remove(idx);
@@ -450,7 +450,7 @@ where
     /// Close a volume
     ///
     /// You can't close it if there are any files or directories open on it.
-    pub fn close_volume(&mut self, volume: RawVolume) -> Result<(), DeviceError> {
+    pub fn close_volume(&mut self, volume: RawVolume) -> Result<(), DeviceError<D::E>> {
         for f in self.open_files.iter() {
             if f.volume_id == volume {
                 return Err(DeviceError::VolumeStillInUse);
@@ -474,7 +474,7 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<DirEntry, DeviceError>
+    ) -> Result<DirEntry, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -500,7 +500,7 @@ where
         &mut self,
         directory: RawDirectory,
         func: F,
-    ) -> Result<(), DeviceError>
+    ) -> Result<(), DeviceError<D::E>>
     where
         F: FnMut(&DirEntry),
     {
@@ -525,7 +525,7 @@ where
         volume: RawVolume,
         dir_entry: DirEntry,
         mode: Mode,
-    ) -> Result<RawFile, DeviceError> {
+    ) -> Result<RawFile, DeviceError<D::E>> {
         // This check is load-bearing - we do an unchecked push later.
         if self.open_files.is_full() {
             return Err(DeviceError::TooManyOpenFiles);
@@ -616,7 +616,7 @@ where
         directory: RawDirectory,
         name: N,
         mode: Mode,
-    ) -> Result<RawFile, DeviceError>
+    ) -> Result<RawFile, DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -723,7 +723,7 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<(), DeviceError>
+    ) -> Result<(), DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -775,7 +775,7 @@ where
         false
     }
 
-    pub async fn read_byte(&mut self, file: RawFile) -> Result<u8, DeviceError>{
+    pub async fn read_byte(&mut self, file: RawFile) -> Result<u8, DeviceError<D::E>>{
         let file_idx = self.get_file_by_id(file)?;
         let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
         // Calculate which file block the current offset lies within
@@ -811,7 +811,7 @@ where
     }
 
     /// Read from an open file.
-    pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError> {
+    pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
         // Calculate which file block the current offset lies within
@@ -848,7 +848,7 @@ where
     }
 
     /// Write to a open file.
-    pub async fn write(&mut self, file: RawFile, buffer: &[u8]) -> Result<(), DeviceError> {
+    pub async fn write(&mut self, file: RawFile, buffer: &[u8]) -> Result<(), DeviceError<D::E>> {
         // #[cfg(feature = "defmt-log")]
         // debug!("write(file={:?}, buffer={:x}", file, buffer);
 
@@ -976,7 +976,7 @@ where
     }
 
     /// Close a file with the given raw file handle.
-    pub async fn close_file(&mut self, file: RawFile) -> Result<(), DeviceError> {
+    pub async fn close_file(&mut self, file: RawFile) -> Result<(), DeviceError<D::E>> {
         let flush_result = self.flush_file(file).await;
         let file_idx = self.get_file_by_id(file)?;
         self.open_files.swap_remove(file_idx);
@@ -984,7 +984,7 @@ where
     }
 
     /// Flush (update the entry) for a file with the given raw file handle.
-    pub async fn flush_file(&mut self, file: RawFile) -> Result<(), DeviceError> {
+    pub async fn flush_file(&mut self, file: RawFile) -> Result<(), DeviceError<D::E>> {
         let file_info = self
             .open_files
             .iter()
@@ -1021,13 +1021,13 @@ where
     }
 
     /// Check if a file is at End Of File.
-    pub fn file_eof(&self, file: RawFile) -> Result<bool, DeviceError> {
+    pub fn file_eof(&self, file: RawFile) -> Result<bool, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].eof())
     }
 
     /// Seek a file with an offset from the start of the file.
-    pub fn file_seek_from_start(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError> {
+    pub fn file_seek_from_start(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_start(offset)
@@ -1040,7 +1040,7 @@ where
         &mut self,
         file: RawFile,
         offset: i32,
-    ) -> Result<(), DeviceError> {
+    ) -> Result<(), DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_current(offset)
@@ -1049,7 +1049,7 @@ where
     }
 
     /// Seek a file with an offset back from the end of the file.
-    pub fn file_seek_from_end(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError> {
+    pub fn file_seek_from_end(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_end(offset)
@@ -1058,13 +1058,13 @@ where
     }
 
     /// Get the length of a file
-    pub fn file_length(&self, file: RawFile) -> Result<u32, DeviceError> {
+    pub fn file_length(&self, file: RawFile) -> Result<u32, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].length())
     }
 
     /// Get the current offset of a file
-    pub fn file_offset(&self, file: RawFile) -> Result<u32, DeviceError> {
+    pub fn file_offset(&self, file: RawFile) -> Result<u32, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         Ok(self.open_files[file_idx].current_offset)
     }
@@ -1074,7 +1074,7 @@ where
         &mut self,
         directory: RawDirectory,
         name: N,
-    ) -> Result<(), DeviceError>
+    ) -> Result<(), DeviceError<D::E>>
     where
         N: ToShortFileName,
     {
@@ -1214,7 +1214,7 @@ where
         Ok(())
     }
 
-    fn get_volume_by_id(&self, volume: RawVolume) -> Result<usize, DeviceError> {
+    fn get_volume_by_id(&self, volume: RawVolume) -> Result<usize, DeviceError<D::E>> {
         for (idx, v) in self.open_volumes.iter().enumerate() {
             if v.volume_id == volume {
                 return Ok(idx);
@@ -1223,7 +1223,7 @@ where
         Err(DeviceError::BadHandle)
     }
 
-    fn get_dir_by_id(&self, directory: RawDirectory) -> Result<usize, DeviceError> {
+    fn get_dir_by_id(&self, directory: RawDirectory) -> Result<usize, DeviceError<D::E>> {
         for (idx, d) in self.open_dirs.iter().enumerate() {
             if d.directory_id == directory {
                 return Ok(idx);
@@ -1232,7 +1232,7 @@ where
         Err(DeviceError::BadHandle)
     }
 
-    fn get_file_by_id(&self, file: RawFile) -> Result<usize, DeviceError> {
+    fn get_file_by_id(&self, file: RawFile) -> Result<usize, DeviceError<D::E>> {
         for (idx, f) in self.open_files.iter().enumerate() {
             if f.file_id == file {
                 return Ok(idx);
@@ -1249,7 +1249,7 @@ where
         volume_idx: usize,
         start: &mut (u32, ClusterId),
         desired_offset: u32,
-    ) -> Result<(BlockIdx, usize, usize), DeviceError> {
+    ) -> Result<(BlockIdx, usize, usize), DeviceError<D::E>> {
         let bytes_per_cluster = match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => fat.bytes_per_cluster(),
         };
@@ -1269,12 +1269,12 @@ where
         // How many blocks in are we?
         let offset_from_cluster = desired_offset - start.0;
         assert!(offset_from_cluster < bytes_per_cluster);
-        let num_blocks = BlockCount(offset_from_cluster / Block::LEN_U32);
+        let num_blocks = BlockCount(offset_from_cluster / BLOCK_LEN);
         let block_idx = match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => fat.cluster_to_block(start.1),
         } + num_blocks;
-        let block_offset = (desired_offset % Block::LEN_U32) as usize;
-        let available = Block::LEN - block_offset;
+        let block_offset = (desired_offset % BLOCK_LEN) as  usize;
+        let available = BLOCK_LEN as usize - block_offset;
         Ok((block_idx, block_offset, available))
     }
 }

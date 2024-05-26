@@ -4,7 +4,6 @@ members = [
     "app",
     "stepper",
     "motion",
-    "fs"
 ]
 
 # cargo build/run

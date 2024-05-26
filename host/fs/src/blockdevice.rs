@@ -1,6 +1,5 @@
-use embassy_stm32::sdmmc::{DataBlock, Instance, Sdmmc, SdmmcDma};
+use crate::{DeviceError, BLOCK_LEN};
 
-use crate::DeviceError;
 // Block Device support
 //
 // Generic code for handling block devices, such as types for identifying
@@ -12,37 +11,14 @@ use crate::DeviceError;
 ///
 /// This library does not support devices with a block size other than 512
 /// bytes.
-#[derive(Clone)]
-pub struct Block {
-    pub inner: DataBlock,
-}
 
 pub trait BlockTrait{
-    const LEN: usize = 512;
-
-    const LEN_U32: u32 = 512;
 
     fn new() -> Self;
 
-    fn content_mut(&mut self) -> &mut [u8; 512];
+    fn content_mut(&mut self) -> &mut [u8; BLOCK_LEN as usize];
 
-    fn content(&self) -> &[u8; 512];
-}
-
-impl BlockTrait for Block {
-    fn new() -> Self {
-        Self {
-            inner: DataBlock([0u8; Self::LEN]),
-        }
-    }
-
-    fn content_mut(&mut self) -> &mut [u8; 512] {
-        &mut self.inner.0
-    }
-    
-    fn content(&self) -> &[u8; 512] {
-        &self.inner.0
-    }
+    fn content(&self) -> &[u8; BLOCK_LEN as usize];
 }
 
 /// Represents the linear numeric address of a block (or sector). The first
@@ -68,82 +44,23 @@ pub struct BlockIter {
 /// sectors). Only supports devices which are <= 2 TiB in size.
 pub trait BlockDevice {
     type B: BlockTrait;
+    type E: core::fmt::Debug;
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &mut self,
         blocks: &mut [Self::B],
         start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError>;
+    ) -> Result<(), DeviceError<Self::E>>;
     /// Write one or more blocks, starting at the given block index.
     async fn write(
         &mut self,
         blocks: &[Self::B],
         start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError>;
+    ) -> Result<(), DeviceError<Self::E>>;
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError>;
+    fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>>;
 }
 
-impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma> {
-    pub fn new(inner: Sdmmc<'d, T, Dma>) -> Self {
-        Self { inner }
-    }
-}
-
-/// Represents a block device - a device which can read and write blocks (or
-/// sectors). Only supports devices which are <= 2 TiB in size.
-pub struct SdmmcDevice<'d, T: Instance, Dma: SdmmcDma<T> + 'd> {
-    inner: Sdmmc<'d, T, Dma>,
-}
-
-impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma> {
-    type B = Block;
-    /// Read one or more blocks, starting at the given block index.
-    async fn read(
-        &mut self,
-        blocks: &mut [Self::B],
-        start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError> {
-        for block in blocks.iter_mut() {
-            self.inner
-                .read_block(start_block_idx.0, &mut block.inner)
-                .await
-                .map_err(DeviceError::DeviceError)?;
-        }
-        Ok(())
-    }
-    /// Write one or more blocks, starting at the given block index.
-    async fn write(
-        &mut self,
-        blocks: &[Self::B],
-        start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError> {
-        for block in blocks.iter() {
-            self.inner
-                .write_block(start_block_idx.0, &block.inner)
-                .await
-                .map_err(DeviceError::DeviceError)?;
-        }
-        Ok(())
-    }
-    /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError> {
-        let count = self
-            .inner
-            .card()
-            .map_err(DeviceError::DeviceError)?
-            .csd
-            .block_count();
-        Ok(BlockCount(count))
-    }
-    
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl core::ops::Add<BlockCount> for BlockIdx {
     type Output = BlockIdx;
@@ -197,46 +114,12 @@ impl core::ops::SubAssign<BlockCount> for BlockCount {
     }
 }
 
-impl core::ops::Deref for Block {
-    type Target = [u8; 512];
-    fn deref(&self) -> &[u8; 512] {
-        self.inner.deref()
-    }
-}
-
-impl core::ops::DerefMut for Block {
-    fn deref_mut(&mut self) -> &mut [u8; 512] {
-        self.inner.deref_mut()
-    }
-}
-
-impl core::fmt::Debug for Block {
-    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
-        writeln!(fmt, "Block:")?;
-        for line in self.inner.chunks(32) {
-            for b in line {
-                write!(fmt, "{:02x}", b)?;
-            }
-            write!(fmt, " ")?;
-            for &b in line {
-                if (0x20..=0x7F).contains(&b) {
-                    write!(fmt, "{}", b as char)?;
-                } else {
-                    write!(fmt, ".")?;
-                }
-            }
-            writeln!(fmt)?;
-        }
-        Ok(())
-    }
-}
-
 impl BlockIdx {
     /// Convert a block index into a 64-bit byte offset from the start of the
     /// volume. Useful if your underlying block device actually works in
     /// bytes, like `open("/dev/mmcblk0")` does on Linux.
     pub fn into_bytes(self) -> u64 {
-        (u64::from(self.0)) * (Block::LEN as u64)
+        (u64::from(self.0)) * (BLOCK_LEN as u64)
     }
 
     /// Create an iterator from the current `BlockIdx` through the given
@@ -258,8 +141,8 @@ impl BlockCount {
     /// assert_eq!(BlockCount::from_bytes(1025), BlockCount(3));
     /// ```
     pub const fn from_bytes(byte_count: u32) -> BlockCount {
-        let mut count = byte_count / Block::LEN_U32;
-        if (count * Block::LEN_U32) != byte_count {
+        let mut count = byte_count / BLOCK_LEN;
+        if (count * BLOCK_LEN) != byte_count {
             count += 1;
         }
         BlockCount(count)
@@ -268,7 +151,7 @@ impl BlockCount {
     /// Take a number of blocks and increment by the integer number of blocks
     /// required to get to the block that holds the byte at the given offset.
     pub fn offset_bytes(self, offset: u32) -> Self {
-        BlockCount(self.0 + (offset / Block::LEN_U32))
+        BlockCount(self.0 + (offset / BLOCK_LEN))
     }
 }
 

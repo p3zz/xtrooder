@@ -77,12 +77,12 @@ where
     /// Read from the file
     ///
     /// Returns how many bytes were read, or an error.
-    pub async fn read(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError> {
+    pub async fn read(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
         self.volume_mgr.read(self.raw_file, buffer).await
     }
 
     /// Write to the file
-    pub async fn write(&mut self, buffer: &[u8]) -> Result<(), DeviceError> {
+    pub async fn write(&mut self, buffer: &[u8]) -> Result<(), DeviceError<D::E>> {
         self.volume_mgr.write(self.raw_file, buffer).await
     }
 
@@ -94,18 +94,18 @@ where
     }
 
     /// Seek a file with an offset from the current position.
-    pub fn seek_from_current(&mut self, offset: i32) -> Result<(), DeviceError> {
+    pub fn seek_from_current(&mut self, offset: i32) -> Result<(), DeviceError<D::E>> {
         self.volume_mgr
             .file_seek_from_current(self.raw_file, offset)
     }
 
     /// Seek a file with an offset from the start of the file.
-    pub fn seek_from_start(&mut self, offset: u32) -> Result<(), DeviceError> {
+    pub fn seek_from_start(&mut self, offset: u32) -> Result<(), DeviceError<D::E>> {
         self.volume_mgr.file_seek_from_start(self.raw_file, offset)
     }
 
     /// Seek a file with an offset back from the end of the file.
-    pub fn seek_from_end(&mut self, offset: u32) -> Result<(), DeviceError> {
+    pub fn seek_from_end(&mut self, offset: u32) -> Result<(), DeviceError<D::E>> {
         self.volume_mgr.file_seek_from_end(self.raw_file, offset)
     }
 
@@ -131,7 +131,7 @@ where
     }
 
     /// Flush any written data by updating the directory entry.
-    pub async fn flush(&mut self) -> Result<(), DeviceError> {
+    pub async fn flush(&mut self) -> Result<(), DeviceError<D::E>> {
         self.volume_mgr.flush_file(self.raw_file).await
     }
 
@@ -139,14 +139,14 @@ where
     /// to using [`core::mem::drop`] or letting the `File` go out of scope,
     /// except this lets the user handle any errors that may occur in the process,
     /// whereas when using drop, any errors will be discarded silently.
-    pub async fn close(self) -> Result<(), DeviceError> {
+    pub async fn close(self) -> Result<(), DeviceError<D::E>> {
         let result = self.volume_mgr.close_file(self.raw_file).await;
         core::mem::forget(self);
         result
     }
 
     /// Read a single byte and write it inside the buffer until an endline is found.
-    pub async fn read_line(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError>{
+    pub async fn read_line(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>>{
         for (i, b) in buffer.iter_mut().enumerate(){
             let b_read = self.volume_mgr.read_byte(self.raw_file).await?;
             if b_read == b'\n'{

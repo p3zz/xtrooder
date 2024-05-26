@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use embassy_stm32::sdmmc::Error;
 use filesystem::filename::FilenameError;
 
 #[macro_use]
@@ -11,6 +10,8 @@ pub mod blockdevice;
 pub mod fat;
 pub mod filesystem;
 pub mod volume_mgr;
+
+const BLOCK_LEN: u32 = 512;
 
 /// Marker for a FAT32 partition. Sometimes also use for FAT16 formatted
 /// partitions.
@@ -27,9 +28,12 @@ const PARTITION_ID_FAT32_CHS_LBA: u8 = 0x0B;
 /// Represents all the ways the functions in this crate can fail.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, Clone)]
-pub enum DeviceError {
+pub enum DeviceError<E>
+where
+    E: core::fmt::Debug,
+{
     /// The underlying block device threw an error.
-    DeviceError(Error),
+    DeviceError(E),
     /// The filesystem is badly formatted (or this code is buggy).
     FormatError(&'static str),
     /// The given `VolumeIdx` was bad,

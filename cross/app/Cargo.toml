@@ -33,7 +33,7 @@ math = {path="../../host/math"}
 parser = {path="../../host/parser"}
 stepper = {path="../stepper"}
 motion = {path="../motion"}
-fs = {path="../fs"}
+fs = {path="../../host/fs"}
 
 [dev-dependencies]
 defmt-test = "0.3.2"
