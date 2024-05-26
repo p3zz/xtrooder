@@ -2,6 +2,7 @@
 #![no_main]
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
+use app::sdcard::SdmmcDevice;
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM8};

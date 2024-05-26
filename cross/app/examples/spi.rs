@@ -7,9 +7,9 @@ use embassy_executor::Spawner;
 use embassy_stm32::sdmmc::Sdmmc;
 use embassy_stm32::time::mhz;
 use embassy_stm32::{bind_interrupts, peripherals, sdmmc, Config};
-use fs::blockdevice::SdmmcDevice;
 use fs::filesystem::files::Mode;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
+use app::sdcard::SdmmcDevice;
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {

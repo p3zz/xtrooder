@@ -11,7 +11,7 @@ pub mod fat;
 pub mod filesystem;
 pub mod volume_mgr;
 
-const BLOCK_LEN: u32 = 512;
+pub const BLOCK_LEN: u32 = 512;
 
 /// Marker for a FAT32 partition. Sometimes also use for FAT16 formatted
 /// partitions.

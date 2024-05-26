@@ -1,4 +1,9 @@
-#[derive(Clone, Copy)]
+use embassy_stm32::sdmmc::{Sdmmc, DataBlock, Instance, Error, SdmmcDma};
+use fs::BLOCK_LEN;
+use fs::blockdevice::{BlockTrait, BlockDevice, BlockIdx, BlockCount};
+use fs::DeviceError;
+
+#[derive(Clone)]
 pub struct Block {
     pub inner: DataBlock,
 }
@@ -6,7 +11,7 @@ pub struct Block {
 impl BlockTrait for Block {
     fn new() -> Self {
         Self {
-            inner: DataBlock([0u8; Self::LEN]),
+            inner: DataBlock([0u8; BLOCK_LEN as usize]),
         }
     }
 
@@ -31,12 +36,13 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> SdmmcDevice<'d, T, Dma> {
 
 impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, Dma> {
     type B = Block;
+    type E = Error;
     /// Read one or more blocks, starting at the given block index.
     async fn read(
         &mut self,
         blocks: &mut [Self::B],
         start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError> {
+    ) -> Result<(), DeviceError<Self::E>> {
         for block in blocks.iter_mut() {
             self.inner
                 .read_block(start_block_idx.0, &mut block.inner)
@@ -50,7 +56,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
         &mut self,
         blocks: &[Self::B],
         start_block_idx: BlockIdx,
-    ) -> Result<(), DeviceError> {
+    ) -> Result<(), DeviceError<Self::E>> {
         for block in blocks.iter() {
             self.inner
                 .write_block(start_block_idx.0, &block.inner)
@@ -60,7 +66,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
         Ok(())
     }
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError> {
+    fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>> {
         let count = self
             .inner
             .card()
