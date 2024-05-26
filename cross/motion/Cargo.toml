@@ -14,13 +14,13 @@ micromath = "2.0.0"
 futures = { version = "0.3.17", default-features = false, features = ["async-await"] }
 
 math = {path="../../host/math"}
-stepper = {path="../stepper"}
+stepper = {path="../../host/stepper"}
 
 [dev-dependencies]
 defmt-test = "0.3.2"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
-stepper = {path="../stepper", features = ["mock"]}
+stepper = {path="../../host/stepper"}
 
 [lib]
 harness = false
