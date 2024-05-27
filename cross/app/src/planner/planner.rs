@@ -5,26 +5,34 @@ use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
-use motion::{self, no_move, Positioning};
 use parser::parser::{GCodeParser, GCommand};
-use stepper::{Stepper, StepperError};
+use stepper::motion::{arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e, no_move, Positioning};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, TimerTrait};
 
+struct StepperTimer{}
+
+impl TimerTrait for StepperTimer{
+    async fn after(duration: core::time::Duration) {
+        let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
+        Timer::after(duration).await
+    }
+}
 // we need to have a triple(s, d, T) for every stepper
-pub struct Planner<'s> {
+pub struct Planner<P: StatefulOutputPin> {
     feedrate: Speed,
     positioning: Positioning,
-    x_stepper: Stepper<'s>,
-    y_stepper: Stepper<'s>,
-    z_stepper: Stepper<'s>,
-    e_stepper: Stepper<'s>,
+    x_stepper: Stepper<P>,
+    y_stepper: Stepper<P>,
+    z_stepper: Stepper<P>,
+    e_stepper: Stepper<P>,
     parser: GCodeParser,
 }
-impl<'s> Planner<'s> {
+impl<P: StatefulOutputPin> Planner<P> {
     pub fn new(
-        x_stepper: Stepper<'s>,
-        y_stepper: Stepper<'s>,
-        z_stepper: Stepper<'s>,
-        e_stepper: Stepper<'s>,
+        x_stepper: Stepper<P>,
+        y_stepper: Stepper<P>,
+        z_stepper: Stepper<P>,
+        e_stepper: Stepper<P>,
     ) -> Self {
         Planner {
             x_stepper,
@@ -37,7 +45,6 @@ impl<'s> Planner<'s> {
         }
     }
 
-    #[cfg(not(test))]
     pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
         match command {
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_| ()),
@@ -115,7 +122,6 @@ impl<'s> Planner<'s> {
         self.positioning = Positioning::Relative;
     }
 
-    #[cfg(not(test))]
     pub async fn g0(
         &mut self,
         x: Option<Distance>,
@@ -143,7 +149,7 @@ impl<'s> Planner<'s> {
 
         let dst = Vector3D::new(x, y, z);
 
-        motion::linear_move_3d(
+        linear_move_3d::<P, StepperTimer>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,
@@ -154,7 +160,6 @@ impl<'s> Planner<'s> {
         .await
     }
 
-    #[cfg(not(test))]
     pub async fn g1(
         &mut self,
         x: Option<Distance>,
@@ -188,7 +193,7 @@ impl<'s> Planner<'s> {
 
         let dst = Vector3D::new(x, y, z);
 
-        motion::linear_move_3d_e(
+        linear_move_3d_e::<P, StepperTimer>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,
@@ -214,7 +219,6 @@ impl<'s> Planner<'s> {
      * mixing i or j with r will throw an error
      *  
      */
-    #[cfg(not(test))]
     async fn g2_3(
         &mut self,
         x: Option<Distance>,
@@ -273,7 +277,7 @@ impl<'s> Planner<'s> {
             };
 
             let offset_from_center = Vector2D::new(i, j);
-            return motion::arc_move_3d_e_offset_from_center(
+            return arc_move_3d_e_offset_from_center::<P, StepperTimer>(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -306,7 +310,7 @@ impl<'s> Planner<'s> {
 
             let r = r.unwrap();
 
-            return motion::arc_move_3d_e_radius(
+            return arc_move_3d_e_radius::<P, StepperTimer>(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -323,7 +327,6 @@ impl<'s> Planner<'s> {
         Err(StepperError::MoveNotValid)
     }
 
-    #[cfg(not(test))]
     pub async fn g2(
         &mut self,
         x: Option<Distance>,
@@ -339,7 +342,6 @@ impl<'s> Planner<'s> {
             .await
     }
 
-    #[cfg(not(test))]
     pub async fn g3(
         &mut self,
         x: Option<Distance>,

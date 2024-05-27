@@ -2,7 +2,6 @@
 #![no_main]
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
-use app::sdcard::SdmmcDevice;
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM8};
@@ -26,7 +25,7 @@ use embedded_io_async::Write;
 use heapless::spsc::Queue;
 use math::temperature::Temperature;
 use parser::parser::{GCodeParser, GCommand};
-use stepper::{Stepper, StepperOptions};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
 use core::str;
@@ -36,6 +35,24 @@ static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new
 bind_interrupts!(struct Irqs {
     USART3 => InterruptHandler<USART3>;
 });
+
+struct StepperPin<'a>{
+    pin: Output<'a>
+}
+
+impl <'d>StatefulOutputPin for StepperPin<'d>{
+    fn set_high(&mut self) {
+        self.pin.set_high();
+    }
+
+    fn set_low(&mut self) {
+        self.pin.set_low();
+    }
+
+    fn is_high(&self) -> bool {
+        self.pin.is_set_high()
+    }
+}
 
 #[embassy_executor::task]
 async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_tx: DMA1_CH1) {
@@ -202,25 +219,25 @@ async fn main(_spawner: Spawner) {
 
     // --------- X AXIS -----------------
 
-    let x_step = Output::new(p.PA0, Level::Low, PinSpeed::Low);
+    let x_step = StepperPin{pin: Output::new(p.PA0, Level::Low, PinSpeed::Low)};
 
-    let x_dir = Output::new(p.PB0, Level::Low, PinSpeed::Low);
+    let x_dir = StepperPin{pin:Output::new(p.PB0, Level::Low, PinSpeed::Low)};
 
     let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
 
     // --------- Y AXIS -----------------
 
-    let y_step = Output::new(p.PA6, Level::Low, PinSpeed::Low);
+    let y_step = StepperPin{pin: Output::new(p.PA6, Level::Low, PinSpeed::Low)};
 
-    let y_dir = Output::new(p.PB1, Level::Low, PinSpeed::Low);
+    let y_dir = StepperPin{pin: Output::new(p.PB1, Level::Low, PinSpeed::Low)};
 
     let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
 
     // --------- Z AXIS -----------------
 
-    let z_step = Output::new(p.PA5, Level::Low, PinSpeed::Low);
+    let z_step = StepperPin{pin: Output::new(p.PA5, Level::Low, PinSpeed::Low)};
 
-    let z_dir = Output::new(p.PB2, Level::Low, PinSpeed::Low);
+    let z_dir = StepperPin{pin: Output::new(p.PB2, Level::Low, PinSpeed::Low)};
 
     let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
 

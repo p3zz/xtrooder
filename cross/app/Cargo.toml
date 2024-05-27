@@ -32,7 +32,6 @@ pid-lite = {version="1.2.0", default-features = false}
 math = {path="../../host/math"}
 parser = {path="../../host/parser"}
 stepper = {path="../../host/stepper"}
-motion = {path="../motion"}
 fs = {path="../../host/fs"}
 
 [dev-dependencies]
