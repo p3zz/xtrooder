@@ -1,6 +1,4 @@
-#![no_std]
-#![no_main]
-
+#![cfg_attr(not(test), no_std)]
 use filesystem::filename::FilenameError;
 
 #[macro_use]

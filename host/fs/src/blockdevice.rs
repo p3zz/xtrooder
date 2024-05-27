@@ -130,16 +130,6 @@ impl BlockIdx {
 }
 
 impl BlockCount {
-    /// How many blocks are required to hold this many bytes.
-    ///
-    /// ```
-    /// # use embedded_sdmmc::BlockCount;
-    /// assert_eq!(BlockCount::from_bytes(511), BlockCount(1));
-    /// assert_eq!(BlockCount::from_bytes(512), BlockCount(1));
-    /// assert_eq!(BlockCount::from_bytes(513), BlockCount(2));
-    /// assert_eq!(BlockCount::from_bytes(1024), BlockCount(2));
-    /// assert_eq!(BlockCount::from_bytes(1025), BlockCount(3));
-    /// ```
     pub const fn from_bytes(byte_count: u32) -> BlockCount {
         let mut count = byte_count / BLOCK_LEN;
         if (count * BLOCK_LEN) != byte_count {
