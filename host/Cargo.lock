@@ -102,6 +102,7 @@ dependencies = [
  "byteorder",
  "heapless",
  "hex-literal",
+ "tokio",
 ]
 
 [[package]]
