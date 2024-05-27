@@ -18,7 +18,7 @@ pub struct BlockCache<B: BlockTrait> {
     block: B,
     idx: Option<BlockIdx>,
 }
-impl <B: BlockTrait> BlockCache<B> {
+impl<B: BlockTrait> BlockCache<B> {
     pub fn empty() -> Self {
         BlockCache {
             block: B::new(),
@@ -29,8 +29,7 @@ impl <B: BlockTrait> BlockCache<B> {
         &mut self,
         block_device: &mut D,
         block_idx: BlockIdx,
-    ) -> Result<&B, DeviceError<D::E>>
-    {
+    ) -> Result<&B, DeviceError<D::E>> {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
             block_device

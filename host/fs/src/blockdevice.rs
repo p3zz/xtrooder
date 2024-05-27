@@ -12,8 +12,7 @@ use crate::{DeviceError, BLOCK_LEN};
 /// This library does not support devices with a block size other than 512
 /// bytes.
 
-pub trait BlockTrait{
-
+pub trait BlockTrait {
     fn new() -> Self;
 
     fn content_mut(&mut self) -> &mut [u8; BLOCK_LEN as usize];
@@ -60,7 +59,6 @@ pub trait BlockDevice {
     /// Determine how many blocks this device can hold.
     fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>>;
 }
-
 
 impl core::ops::Add<BlockCount> for BlockIdx {
     type Output = BlockIdx;

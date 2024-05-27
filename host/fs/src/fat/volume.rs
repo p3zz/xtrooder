@@ -1,7 +1,7 @@
 //! FAT-specific volume support.
 
-use byteorder::{ByteOrder, LittleEndian};
 use crate::blockdevice::BlockTrait;
+use byteorder::{ByteOrder, LittleEndian};
 
 use crate::BLOCK_LEN;
 use crate::{
@@ -81,7 +81,7 @@ impl FatVolume {
     pub async fn update_info_sector<D: BlockDevice>(
         &mut self,
         block_device: &mut D,
-    ) -> Result<(), DeviceError<D::E>>{
+    ) -> Result<(), DeviceError<D::E>> {
         match &self.fat_specific_info {
             FatSpecificInfo::Fat16(_) => {
                 // FAT16 volumes don't have an info sector
@@ -99,7 +99,8 @@ impl FatVolume {
                     block.content_mut()[488..492].copy_from_slice(&count.to_le_bytes());
                 }
                 if let Some(next_free_cluster) = self.next_free_cluster {
-                    block.content_mut()[492..496].copy_from_slice(&next_free_cluster.0.to_le_bytes());
+                    block.content_mut()[492..496]
+                        .copy_from_slice(&next_free_cluster.0.to_le_bytes());
                 }
                 block_device
                     .write(&blocks, fat32_info.info_location)
@@ -188,8 +189,9 @@ impl FatVolume {
                 let block = fat_block_cache
                     .read(block_device, this_fat_block_num)
                     .await?;
-                let fat_entry =
-                    LittleEndian::read_u16(&block.content()[this_fat_ent_offset..=this_fat_ent_offset + 1]);
+                let fat_entry = LittleEndian::read_u16(
+                    &block.content()[this_fat_ent_offset..=this_fat_ent_offset + 1],
+                );
                 match fat_entry {
                     0xFFF7 => {
                         // Bad cluster
@@ -212,9 +214,9 @@ impl FatVolume {
                 let block = fat_block_cache
                     .read(block_device, this_fat_block_num)
                     .await?;
-                let fat_entry =
-                    LittleEndian::read_u32(&block.content()[this_fat_ent_offset..=this_fat_ent_offset + 3])
-                        & 0x0FFF_FFFF;
+                let fat_entry = LittleEndian::read_u32(
+                    &block.content()[this_fat_ent_offset..=this_fat_ent_offset + 3],
+                ) & 0x0FFF_FFFF;
                 match fat_entry {
                     0x0000_0000 => {
                         // Jumped to free space
@@ -1098,8 +1100,8 @@ pub async fn parse_volume<D: BlockDevice>(
                 .read(&mut info_blocks, lba_start + info_location)
                 .await?;
             let info_block = &info_blocks[0];
-            let info_sector =
-                InfoSector::create_from_bytes(info_block.content()).map_err(DeviceError::FormatError)?;
+            let info_sector = InfoSector::create_from_bytes(info_block.content())
+                .map_err(DeviceError::FormatError)?;
 
             let mut volume = FatVolume {
                 lba_start,

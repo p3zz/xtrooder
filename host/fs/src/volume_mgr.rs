@@ -2,11 +2,14 @@
 //!
 //! The volume manager handles partitions and open files on a block device.
 
-use crate::{blockdevice::{BlockDevice, BlockTrait}, DeviceError, BLOCK_LEN};
+use crate::{
+    blockdevice::{BlockDevice, BlockTrait},
+    DeviceError, BLOCK_LEN,
+};
 use byteorder::{ByteOrder, LittleEndian};
 
 use crate::{
-    blockdevice::{ BlockCount, BlockIdx},
+    blockdevice::{BlockCount, BlockIdx},
     fat::{
         ondiskdirentry::OnDiskDirEntry,
         volume::{parse_volume, FatVolume},
@@ -775,7 +778,7 @@ where
         false
     }
 
-    pub async fn read_byte(&mut self, file: RawFile) -> Result<u8, DeviceError<D::E>>{
+    pub async fn read_byte(&mut self, file: RawFile) -> Result<u8, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
         // Calculate which file block the current offset lies within
@@ -784,7 +787,7 @@ where
         if self.open_files[file_idx].eof() {
             return Err(DeviceError::EndOfFile);
         }
-            
+
         let mut current_cluster = self.open_files[file_idx].current_cluster;
         let (block_idx, block_offset, block_avail) = self
             .find_data_on_disk(
@@ -796,8 +799,8 @@ where
         self.open_files[file_idx].current_cluster = current_cluster;
         let mut blocks = [D::B::new()];
         self.block_device.read(&mut blocks, block_idx).await?;
-        
-        if block_avail == 0 || self.open_files[file_idx].left() == 0{
+
+        if block_avail == 0 || self.open_files[file_idx].left() == 0 {
             return Err(DeviceError::EndOfFile);
         }
 
@@ -805,13 +808,16 @@ where
         self.open_files[file_idx]
             .seek_from_current(1 as i32)
             .unwrap();
-        
-        Ok(b)
 
+        Ok(b)
     }
 
     /// Read from an open file.
-    pub async fn read(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
+    pub async fn read(
+        &mut self,
+        file: RawFile,
+        buffer: &mut [u8],
+    ) -> Result<usize, DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         let volume_idx = self.get_volume_by_id(self.open_files[file_idx].volume_id)?;
         // Calculate which file block the current offset lies within
@@ -931,15 +937,14 @@ where
                                 return Err(DeviceError::DiskFull);
                             }
                             // debug!("Allocated new FAT cluster, finding offsets...");
-                            
+
                             // debug!("New offset {:?}", new_offset);
-                            self
-                                .find_data_on_disk(
-                                    volume_idx,
-                                    &mut current_cluster,
-                                    self.open_files[file_idx].current_offset,
-                                )
-                                .await?
+                            self.find_data_on_disk(
+                                volume_idx,
+                                &mut current_cluster,
+                                self.open_files[file_idx].current_offset,
+                            )
+                            .await?
                         }
                     }
                 }
@@ -1027,7 +1032,11 @@ where
     }
 
     /// Seek a file with an offset from the start of the file.
-    pub fn file_seek_from_start(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError<D::E>> {
+    pub fn file_seek_from_start(
+        &mut self,
+        file: RawFile,
+        offset: u32,
+    ) -> Result<(), DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_start(offset)
@@ -1049,7 +1058,11 @@ where
     }
 
     /// Seek a file with an offset back from the end of the file.
-    pub fn file_seek_from_end(&mut self, file: RawFile, offset: u32) -> Result<(), DeviceError<D::E>> {
+    pub fn file_seek_from_end(
+        &mut self,
+        file: RawFile,
+        offset: u32,
+    ) -> Result<(), DeviceError<D::E>> {
         let file_idx = self.get_file_by_id(file)?;
         self.open_files[file_idx]
             .seek_from_end(offset)
@@ -1273,7 +1286,7 @@ where
         let block_idx = match &self.open_volumes[volume_idx].volume_type {
             VolumeType::Fat(fat) => fat.cluster_to_block(start.1),
         } + num_blocks;
-        let block_offset = (desired_offset % BLOCK_LEN) as  usize;
+        let block_offset = (desired_offset % BLOCK_LEN) as usize;
         let available = BLOCK_LEN as usize - block_offset;
         Ok((block_idx, block_offset, available))
     }

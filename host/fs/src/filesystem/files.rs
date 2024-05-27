@@ -146,10 +146,10 @@ where
     }
 
     /// Read a single byte and write it inside the buffer until an endline is found.
-    pub async fn read_line(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>>{
-        for (i, b) in buffer.iter_mut().enumerate(){
+    pub async fn read_line(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
+        for (i, b) in buffer.iter_mut().enumerate() {
             let b_read = self.volume_mgr.read_byte(self.raw_file).await?;
-            if b_read == b'\n'{
+            if b_read == b'\n' {
                 return Ok(i);
             }
             *b = b_read;
@@ -157,7 +157,6 @@ where
 
         Err(DeviceError::NotFound)
     }
-
 }
 
 impl<'a, D, T, const MAX_DIRS: usize, const MAX_FILES: usize, const MAX_VOLUMES: usize> Drop

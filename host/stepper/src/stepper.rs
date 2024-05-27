@@ -5,11 +5,11 @@ use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
 
-pub trait TimerTrait{
+pub trait TimerTrait {
     async fn after(duration: Duration);
 }
 
-pub trait StatefulOutputPin{
+pub trait StatefulOutputPin {
     fn set_high(&mut self);
     fn set_low(&mut self);
     fn is_high(&self) -> bool;
@@ -186,7 +186,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
 
         self.step.set_high();
         self.step.set_low();
-        
+
         self.steps = steps_next;
         Ok(())
     }
@@ -232,7 +232,10 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(steps_n)
     }
 
-    pub async fn move_for_distance<T: TimerTrait>(&mut self, distance: Distance) -> Result<(), StepperError> {
+    pub async fn move_for_distance<T: TimerTrait>(
+        &mut self,
+        distance: Distance,
+    ) -> Result<(), StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps::<T>(steps).await
     }
@@ -246,7 +249,10 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(distance)
     }
 
-    pub async fn move_to_destination<T: TimerTrait>(&mut self, destination: Distance) -> Result<(), StepperError> {
+    pub async fn move_to_destination<T: TimerTrait>(
+        &mut self,
+        destination: Distance,
+    ) -> Result<(), StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance::<T>(distance).await
     }
@@ -264,10 +270,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
     }
 
     pub fn get_speed(&self) -> f64 {
-        compute_revolutions_per_second(
-            self.step_duration,
-            self.options.steps_per_revolution,
-        )
+        compute_revolutions_per_second(self.step_duration, self.options.steps_per_revolution)
     }
 
     pub fn get_speed_from_attachment(&self) -> Result<Speed, StepperError> {
@@ -297,49 +300,46 @@ impl<P: StatefulOutputPin> Stepper<P> {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use math::{common::RotationDirection, distance::Distance, speed::Speed};
     use tokio::time::sleep;
 
     use super::*;
 
-    struct StatefulOutputPinMock{
-        state: bool
+    struct StatefulOutputPinMock {
+        state: bool,
     }
-    
-    impl StatefulOutputPinMock{
+
+    impl StatefulOutputPinMock {
         pub fn new() -> Self {
-            Self{
-                state: false,
-            }
+            Self { state: false }
         }
     }
-    
-    impl StatefulOutputPin for StatefulOutputPinMock{
+
+    impl StatefulOutputPin for StatefulOutputPinMock {
         fn set_high(&mut self) {
             self.state = true;
         }
-    
+
         fn set_low(&mut self) {
             self.state = false;
         }
-    
+
         fn is_high(&self) -> bool {
             self.state
         }
     }
 
-    struct StepperTimer{}
+    struct StepperTimer {}
 
-    impl TimerTrait for StepperTimer{
+    impl TimerTrait for StepperTimer {
         async fn after(duration: core::time::Duration) {
             sleep(duration).await
         }
     }
-    
 
     #[test]
-    fn always_passes(){
+    fn always_passes() {
         assert!(true);
     }
 
@@ -495,7 +495,7 @@ mod tests{
     }
 
     #[tokio::test]
-    async fn test_stepper_move_counterclockwise_positive_direction_counterclockwise(){
+    async fn test_stepper_move_counterclockwise_positive_direction_counterclockwise() {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
@@ -779,5 +779,4 @@ mod tests{
         assert!(res.is_ok());
         assert_eq!(s.get_speed(), 0.0);
     }
-
 }

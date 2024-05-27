@@ -1,9 +1,13 @@
 use core::{f64::consts::PI, time::Duration};
-use micromath::F32Ext;
 use heapless::Vec;
+use micromath::F32Ext;
 
 use crate::{
-    angle::{asin, cos, sin, Angle}, computable::Computable, distance::Distance, speed::Speed, vector::Vector2D
+    angle::{asin, cos, sin, Angle},
+    computable::Computable,
+    distance::Distance,
+    speed::Speed,
+    vector::Vector2D,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -148,9 +152,12 @@ pub fn compute_arc_destination(
     };
 
     let angle = Angle::from_radians(l.to_mm() / radius.to_mm());
-    
-    let x = center.get_x().to_mm() + (delta.get_x().to_mm() * cos(angle)) - (delta.get_y().to_mm() * sin(angle));
-    let y = center.get_y().to_mm() + (delta.get_x().to_mm() * sin(angle)) + (delta.get_y().to_mm() * cos(angle));
+
+    let x = center.get_x().to_mm() + (delta.get_x().to_mm() * cos(angle))
+        - (delta.get_y().to_mm() * sin(angle));
+    let y = center.get_y().to_mm()
+        + (delta.get_x().to_mm() * sin(angle))
+        + (delta.get_y().to_mm() * cos(angle));
     let x = Distance::from_mm(x);
     let y = Distance::from_mm(y);
     Vector2D::new(x, y)
@@ -161,8 +168,8 @@ pub fn approximate_arc(
     center: Vector2D<Distance>,
     arc_length: Distance,
     direction: RotationDirection,
-    unit_length: Distance
-) -> Vec<Vector2D<Distance>, 1024>{
+    unit_length: Distance,
+) -> Vec<Vector2D<Distance>, 1024> {
     let mut points: Vec<Vector2D<Distance>, 1024> = Vec::new();
     let arcs_n = (arc_length.div(&unit_length).unwrap() as f32).floor() as u64;
     for i in 0..(arcs_n + 1) {
@@ -386,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn test_approximate_arc(){
+    fn test_approximate_arc() {
         let arc_length = Distance::from_mm(20.0);
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
@@ -405,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn test_approximate_arc_2(){
+    fn test_approximate_arc_2() {
         let start = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let end = Vector2D::new(Distance::from_mm(20.0), Distance::from_mm(20.0));
         let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));

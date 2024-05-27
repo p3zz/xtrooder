@@ -14,7 +14,10 @@ pub enum Positioning {
     Absolute,
 }
 
-pub fn no_move<P: StatefulOutputPin>(stepper: &Stepper<P>, positioning: Positioning) -> Result<Distance, StepperError> {
+pub fn no_move<P: StatefulOutputPin>(
+    stepper: &Stepper<P>,
+    positioning: Positioning,
+) -> Result<Distance, StepperError> {
     match positioning {
         Positioning::Relative => Ok(Distance::from_mm(0.0)),
         Positioning::Absolute => stepper.get_position(),
@@ -296,7 +299,9 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
     let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / time);
 
     match join!(
-        arc_move_2d_arc_length::<P, T>(stepper_a, stepper_b, arc_length, xy_center, speed, direction),
+        arc_move_2d_arc_length::<P, T>(
+            stepper_a, stepper_b, arc_length, xy_center, speed, direction
+        ),
         linear_move_to::<P, T>(stepper_c, dest.get_z(), z_speed),
         linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
     ) {
@@ -348,42 +353,45 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
 
 #[cfg(test)]
 mod tests {
-    use math::{common::RotationDirection, distance::Distance, speed::Speed, vector::{Vector2D, Vector3D}};
+    use math::{
+        common::RotationDirection,
+        distance::Distance,
+        speed::Speed,
+        vector::{Vector2D, Vector3D},
+    };
 
     use crate::stepper::{StepperAttachment, StepperOptions, SteppingMode};
     use tokio::time::sleep;
-    
+
     use super::*;
 
-    struct StatefulOutputPinMock{
-        state: bool
+    struct StatefulOutputPinMock {
+        state: bool,
     }
-    
-    impl StatefulOutputPinMock{
+
+    impl StatefulOutputPinMock {
         pub fn new() -> Self {
-            Self{
-                state: false,
-            }
+            Self { state: false }
         }
     }
-    
-    impl StatefulOutputPin for StatefulOutputPinMock{
+
+    impl StatefulOutputPin for StatefulOutputPinMock {
         fn set_high(&mut self) {
             self.state = true;
         }
-    
+
         fn set_low(&mut self) {
             self.state = false;
         }
-    
+
         fn is_high(&self) -> bool {
             self.state
         }
     }
 
-    struct StepperTimer{}
+    struct StepperTimer {}
 
-    impl TimerTrait for StepperTimer{
+    impl TimerTrait for StepperTimer {
         async fn after(duration: core::time::Duration) {
             sleep(duration).await
         }
@@ -394,17 +402,18 @@ mod tests {
         let mut s = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Distance::from_mm(0.0);
         let speed = Speed::from_mm_per_second(10.0);
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+        let res =
+            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 0.0);
         assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
@@ -417,17 +426,18 @@ mod tests {
         let mut s = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Distance::from_mm(10.0);
         let speed = Speed::from_mm_per_second(10.0);
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+        let res =
+            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 10.0);
         assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
@@ -444,17 +454,18 @@ mod tests {
         let mut s = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Distance::from_mm(-10.0);
         let speed = Speed::from_mm_per_second(-10.0);
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+        let res =
+            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), -10.0);
         assert_eq!(s.get_position().unwrap().to_mm(), -10.0);
@@ -466,18 +477,18 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector2D::new(Distance::from_mm(-10.0), Distance::from_mm(-10.0));
         let speed = Speed::from_mm_per_second(-10.0);
@@ -487,7 +498,13 @@ mod tests {
         s_y.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, destination, speed).await;
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -10.0);
         assert_eq!(s_y.get_steps(), -10.0);
@@ -511,18 +528,18 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let speed = Speed::from_mm_per_second(-10.0);
@@ -532,7 +549,13 @@ mod tests {
         s_y.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, destination, speed).await;
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), 0.0);
         assert_eq!(s_y.get_steps(), 0.0);
@@ -557,18 +580,18 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
         let speed = Speed::from_mm_per_second(10.0);
@@ -578,7 +601,13 @@ mod tests {
         s_y.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, destination, speed).await;
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -5.0);
         assert_eq!(s_y.get_steps(), 5.0);
@@ -601,18 +630,18 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
         let speed = Speed::from_mm_per_second(10.0);
@@ -624,7 +653,13 @@ mod tests {
         });
         s_x.set_stepping_mode(SteppingMode::HalfStep);
         s_y.set_stepping_mode(SteppingMode::QuarterStep);
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, destination, speed).await;
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -5.0);
         assert_eq!(s_y.get_steps(), 5.0);
@@ -647,26 +682,26 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_z = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector3D::new(
             Distance::from_mm(-5.0),
@@ -686,7 +721,14 @@ mod tests {
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, &mut s_z, destination, speed).await;
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            &mut s_z,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -5.0);
         assert_eq!(s_y.get_steps(), 5.0);
@@ -716,26 +758,26 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_z = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector3D::new(
             Distance::from_mm(-5.0),
@@ -755,7 +797,14 @@ mod tests {
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, &mut s_z, destination, speed).await;
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            &mut s_z,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -10.0);
         assert_eq!(s_y.get_steps(), -4.0);
@@ -785,26 +834,26 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_z = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let destination = Vector3D::new(
             Distance::from_mm(0.0),
@@ -824,7 +873,14 @@ mod tests {
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, &mut s_z, destination, speed).await;
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x,
+            &mut s_y,
+            &mut s_z,
+            destination,
+            speed,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), 0.0);
         assert_eq!(s_y.get_steps(), 0.0);
@@ -842,18 +898,18 @@ mod tests {
         let mut s_x = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let mut s_y = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions::default(), 
+            StepperOptions::default(),
             Some(StepperAttachment {
                 distance_per_step: Distance::from_mm(1.0),
-            })
+            }),
         );
         let arc_length = Distance::from_mm(20.0);
         let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
@@ -865,7 +921,10 @@ mod tests {
         s_y.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(&mut s_x, &mut s_y, arc_length, center, speed, direction).await;
+        let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(
+            &mut s_x, &mut s_y, arc_length, center, speed, direction,
+        )
+        .await;
         assert!(res.is_ok());
         assert_eq!(s_x.get_steps(), -2.0);
         assert_eq!(s_y.get_steps(), 18.0);
