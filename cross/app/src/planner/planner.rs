@@ -1,7 +1,6 @@
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
-use embassy_time::Duration;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
@@ -104,7 +103,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             (Some(_), None) => p,
         };
         if let Some(duration) = d {
-            let t = Duration::from_millis(duration.as_millis() as u64);
+            let t = embassy_time::Duration::from_millis(duration.as_millis() as u64);
             Timer::after(t).await
         }
     }
@@ -131,7 +130,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         y: Option<Distance>,
         z: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<core::time::Duration, StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -170,7 +169,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         z: Option<Distance>,
         e: Option<Distance>,
         f: Option<Speed>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<core::time::Duration, StepperError> {
         if let Some(feedrate) = f {
             self.feedrate = feedrate;
         }
@@ -233,7 +232,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         j: Option<Distance>,
         r: Option<Distance>,
         d: RotationDirection,
-    ) -> Result<(), StepperError> {
+    ) -> Result<core::time::Duration, StepperError> {
         match (i, j, r) {
             (Some(_), Some(_), Some(_))
             | (None, None, None)
@@ -340,7 +339,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<core::time::Duration, StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::Clockwise)
             .await
     }
@@ -355,7 +354,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         i: Option<Distance>,
         j: Option<Distance>,
         r: Option<Distance>,
-    ) -> Result<(), StepperError> {
+    ) -> Result<core::time::Duration, StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
             .await
     }

@@ -25,14 +25,14 @@ impl From<RotationDirection> for i8 {
     }
 }
 
-pub fn max(other: &[u64]) -> Option<u64> {
+pub fn max<T: PartialEq + PartialOrd>(other: &[T]) -> Option<&T> {
     let mut max = other.get(0)?;
     for e in other {
-        if e > max {
+        if *e > *max {
             max = e;
         }
     }
-    Some(*max)
+    Some(max)
 }
 
 pub fn abs(value: f64) -> f64 {

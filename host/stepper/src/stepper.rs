@@ -191,18 +191,20 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(())
     }
 
-    pub async fn move_for_steps<T: TimerTrait>(&mut self, steps: u64) -> Result<(), StepperError> {
+    pub async fn move_for_steps<T: TimerTrait>(&mut self, steps: u64) -> Result<Duration, StepperError> {
         if steps == 0 {
-            return Ok(());
+            return Ok(Duration::ZERO);
         }
         if self.step_duration.as_micros() == 0 {
             return Err(StepperError::MoveNotValid);
         }
+        let mut total_duration = Duration::ZERO;
         for _ in 0..steps {
             self.step()?;
             T::after(self.step_duration).await;
+            total_duration += self.step_duration;
         }
-        Ok(())
+        Ok(total_duration)
     }
 
     fn move_for_distance_inner(&mut self, distance: Distance) -> Result<u64, StepperError> {
@@ -235,7 +237,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
     pub async fn move_for_distance<T: TimerTrait>(
         &mut self,
         distance: Distance,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         let steps = self.move_for_distance_inner(distance)?;
         self.move_for_steps::<T>(steps).await
     }
@@ -252,7 +254,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
     pub async fn move_to_destination<T: TimerTrait>(
         &mut self,
         destination: Distance,
-    ) -> Result<(), StepperError> {
+    ) -> Result<Duration, StepperError> {
         let distance = self.move_to_destination_inner(destination)?;
         self.move_for_distance::<T>(distance).await
     }
@@ -285,7 +287,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Err(StepperError::MissingAttachment)
     }
 
-    pub async fn home<T: TimerTrait>(&mut self) -> Result<(), StepperError> {
+    pub async fn home<T: TimerTrait>(&mut self) -> Result<Duration, StepperError> {
         self.move_to_destination::<T>(Distance::from_mm(0.0)).await
     }
 
