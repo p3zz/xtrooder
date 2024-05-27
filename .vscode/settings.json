@@ -3,7 +3,6 @@
     "rust-analyzer.linkedProjects": [
         // Declare for the target you wish to develop
         "./cross/Cargo.toml",
-        "./cross/motion/Cargo.toml",
         "./cross/app/Cargo.toml",
         "./host/Cargo.toml",
         "./host/math/Cargo.toml",
