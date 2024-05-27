@@ -101,7 +101,7 @@ fn extract_temperature(
 fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64> {
     match extract_token_as_string(cmd, key) {
         Some(t) => t.parse::<f64>().ok(),
-        None => todo!(),
+        None => None,
     }
 }
 
@@ -286,142 +286,158 @@ impl GCodeParser {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_parse_line_g0_complete() {
-    //     let line = "G0 X10.1 Y9.0 Z1.0 E2.0 F1200";
-    //     let command = parse_line(line);
-    //     assert!(command.is_some());
-    //     assert!(
-    //         command.unwrap()
-    //             == GCommand::G0 {
-    //                 x: Some(10.1),
-    //                 y: Some(9.0),
-    //                 z: Some(1.0),
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parse_line_g0_complete() {
+        let parser = GCodeParser::new();
+        let line = "G0 X10.1 Y9.0 Z1.0 E2.0 F1200";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G0 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: Some(Distance::from_mm(9.0)),
+                    z: Some(Distance::from_mm(1.0)),
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parse_line_g0_incomplete() {
-    //     let line = "G0 X10.1 F1200";
-    //     let command = parse_line(line);
-    //     assert!(command.is_some());
-    //     assert!(
-    //         command.unwrap()
-    //             == GCommand::G0 {
-    //                 x: Some(10.1),
-    //                 y: None,
-    //                 z: None,
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parse_line_g0_incomplete() {
+        let parser = GCodeParser::new();
+        let line = "G0 X10.1 F1200";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G0 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: None,
+                    z: None,
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parse_line_g0_invalid() {
-    //     let line = "hello";
-    //     let command = parse_line(line);
-    //     assert!(command.is_none());
-    // }
+    #[test]
+    fn test_parse_line_g0_invalid() {
+        let parser = GCodeParser::new();
+        let line = "hello";
+        let command = parser.parse_line(line);
+        assert!(command.is_none());
+    }
 
-    // #[test]
-    // fn test_parse_line_g1_complete() {
-    //     let line = "G1 X10.1 Y9.0 Z1.0 E2.0 F1200";
-    //     let command = parse_line(line);
-    //     assert!(command.is_some());
-    //     assert!(
-    //         command.unwrap()
-    //             == GCommand::G1 {
-    //                 x: Some(10.1),
-    //                 y: Some(9.0),
-    //                 z: Some(1.0),
-    //                 e: Some(2.0),
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parse_line_g1_complete() {
+        let parser = GCodeParser::new();
+        let line = "G1 X10.1 Y9.0 Z1.0 E2.0 F1200";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: Some(Distance::from_mm(9.0)),
+                    z: Some(Distance::from_mm(1.0)),
+                    e: Some(Distance::from_mm(2.0)),
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parse_line_g1_incomplete() {
-    //     let line = "G1 X10.1 F1200";
-    //     let command = parse_line(line);
-    //     assert!(command.is_some());
-    //     assert!(
-    //         command.unwrap()
-    //             == GCommand::G1 {
-    //                 x: Some(10.1),
-    //                 y: None,
-    //                 z: None,
-    //                 e: None,
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parse_line_g1_incomplete() {
+        let parser = GCodeParser::new();
+        let line = "G1 X10.1 F1200";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parse_line_g1_invalid() {
-    //     let line = "G1 ciao lala";
-    //     let command = parse_line(line);
-    //     assert!(command.is_none());
-    // }
+    #[test]
+    fn test_parse_line_g1_invalid() {
+        let parser = GCodeParser::new();
+        let line = "G1 ciao lala";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G1 {
+                    x: None,
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: None
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parser_incomplete() {
-    //     let data = "hellohellohellohello";
-    //     let mut parser = GCodeParser::new();
-    //     parser.parse(data.as_bytes());
-    //     let cmd = parser.pick_from_queue();
-    //     assert!(cmd.is_none());
-    // }
+    #[test]
+    fn test_parser_incomplete() {
+        let data = "hellohellohellohello";
+        let mut parser = GCodeParser::new();
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_none());
+    }
 
-    // #[test]
-    // fn test_parser_invalid() {
-    //     let data = "hellohellohellohello";
-    //     let mut parser = GCodeParser::new();
-    //     parser.parse(data.as_bytes());
-    //     let cmd = parser.pick_from_queue();
-    //     assert!(cmd.is_none());
-    // }
+    #[test]
+    fn test_parser_invalid() {
+        let data = "hellohellohellohello";
+        let mut parser = GCodeParser::new();
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_none());
+    }
 
-    // #[test]
-    // fn test_parser_valid() {
-    //     let data = "G1 X10.1 F1200\n";
-    //     let mut parser = GCodeParser::new();
-    //     parser.parse(data.as_bytes());
-    //     let cmd = parser.pick_from_queue();
-    //     assert!(cmd.is_some());
-    //     assert!(
-    //         cmd.unwrap()
-    //             == GCommand::G1 {
-    //                 x: Some(10.1),
-    //                 y: None,
-    //                 z: None,
-    //                 e: None,
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parser_valid() {
+        let data = "G1 X10.1 F1200\n";
+        let mut parser = GCodeParser::new();
+        parser.parse(data.as_bytes());
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(
+            cmd.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
-    // #[test]
-    // fn test_parser_valid_with_comment_semicolon() {
-    //     let data = "G1 X10.1 F1200;comment";
-    //     let mut parser = GCodeParser::new();
-    //     parser.parse(data.as_bytes());
-    //     assert_eq!(parser.data_buffer.len(), 0);
-    //     let cmd = parser.pick_from_queue();
-    //     assert!(cmd.is_some());
-    //     assert!(
-    //         cmd.unwrap()
-    //             == GCommand::G1 {
-    //                 x: Some(10.1),
-    //                 y: None,
-    //                 z: None,
-    //                 e: None,
-    //                 f: Some(1200_f64)
-    //             }
-    //     );
-    // }
+    #[test]
+    fn test_parser_valid_with_comment_semicolon() {
+        let data = "G1 X10.1 F1200;comment";
+        let mut parser = GCodeParser::new();
+        parser.parse(data.as_bytes());
+        assert_eq!(parser.data_buffer.len(), 0);
+        let cmd = parser.pick_from_queue();
+        assert!(cmd.is_some());
+        assert!(
+            cmd.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_mm(10.1)),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(Speed::from_mm_per_second(1200.0))
+                }
+        );
+    }
 
     #[test]
     fn test_parser_invalid_with_comment_semicolon() {
