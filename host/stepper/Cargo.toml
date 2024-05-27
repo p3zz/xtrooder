@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 tokio = {version= "1.37.0", features=["full"]}
 math = { path = "../math" }
+micromath = "2.0.0"
+futures = { version = "0.3.17", default-features = false, features = ["async-await"] }
