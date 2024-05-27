@@ -3,5 +3,5 @@
 
 pub mod hotend;
 pub mod planner;
-pub mod utils;
 pub mod sdcard;
+pub mod utils;

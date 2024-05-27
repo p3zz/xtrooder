@@ -6,12 +6,15 @@ use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::parser::{GCodeParser, GCommand};
-use stepper::motion::{arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e, no_move, Positioning};
+use stepper::motion::{
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
+    no_move, Positioning,
+};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, TimerTrait};
 
-struct StepperTimer{}
+struct StepperTimer {}
 
-impl TimerTrait for StepperTimer{
+impl TimerTrait for StepperTimer {
     async fn after(duration: core::time::Duration) {
         let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
         Timer::after(duration).await

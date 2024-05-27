@@ -4,26 +4,28 @@
 use defmt::info;
 use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
 use embassy_time::Timer;
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode, TimerTrait};
+use stepper::stepper::{
+    StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode, TimerTrait,
+};
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use math::common::RotationDirection;
 
-struct StepperTimer{}
+struct StepperTimer {}
 
-impl TimerTrait for StepperTimer{
+impl TimerTrait for StepperTimer {
     async fn after(duration: core::time::Duration) {
         let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
         Timer::after(duration).await
     }
 }
 
-struct StepperPin<'a>{
-    pin: Output<'a>
+struct StepperPin<'a> {
+    pin: Output<'a>,
 }
 
-impl <'d>StatefulOutputPin for StepperPin<'d>{
+impl<'d> StatefulOutputPin for StepperPin<'d> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }
@@ -51,9 +53,13 @@ async fn main(_spawner: Spawner) {
     //     CountingMode::EdgeAlignedUp,
     // );
 
-    let step = StepperPin {pin: Output::new(p.PA0, Level::Low, PinSpeed::Low)};
+    let step = StepperPin {
+        pin: Output::new(p.PA0, Level::Low, PinSpeed::Low),
+    };
 
-    let dir = StepperPin {pin: Output::new(p.PB0, Level::Low, PinSpeed::Low)};
+    let dir = StepperPin {
+        pin: Output::new(p.PB0, Level::Low, PinSpeed::Low),
+    };
 
     let mut stepper = Stepper::new(
         step,

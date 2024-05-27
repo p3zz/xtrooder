@@ -9,9 +9,7 @@ use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    peripherals::{
-        ADC1, DMA1_CH0, DMA1_CH1, PA2, PA3, PB10, PB11, PB9, TIM4, USART3,
-    },
+    peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA2, PA3, PB10, PB11, PB9, TIM4, USART3},
     time::hz,
     timer::{
         simple_pwm::{PwmPin, SimplePwm},
@@ -36,11 +34,11 @@ bind_interrupts!(struct Irqs {
     USART3 => InterruptHandler<USART3>;
 });
 
-struct StepperPin<'a>{
-    pin: Output<'a>
+struct StepperPin<'a> {
+    pin: Output<'a>,
 }
 
-impl <'d>StatefulOutputPin for StepperPin<'d>{
+impl<'d> StatefulOutputPin for StepperPin<'d> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }
@@ -219,25 +217,37 @@ async fn main(_spawner: Spawner) {
 
     // --------- X AXIS -----------------
 
-    let x_step = StepperPin{pin: Output::new(p.PA0, Level::Low, PinSpeed::Low)};
+    let x_step = StepperPin {
+        pin: Output::new(p.PA0, Level::Low, PinSpeed::Low),
+    };
 
-    let x_dir = StepperPin{pin:Output::new(p.PB0, Level::Low, PinSpeed::Low)};
+    let x_dir = StepperPin {
+        pin: Output::new(p.PB0, Level::Low, PinSpeed::Low),
+    };
 
     let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
 
     // --------- Y AXIS -----------------
 
-    let y_step = StepperPin{pin: Output::new(p.PA6, Level::Low, PinSpeed::Low)};
+    let y_step = StepperPin {
+        pin: Output::new(p.PA6, Level::Low, PinSpeed::Low),
+    };
 
-    let y_dir = StepperPin{pin: Output::new(p.PB1, Level::Low, PinSpeed::Low)};
+    let y_dir = StepperPin {
+        pin: Output::new(p.PB1, Level::Low, PinSpeed::Low),
+    };
 
     let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
 
     // --------- Z AXIS -----------------
 
-    let z_step = StepperPin{pin: Output::new(p.PA5, Level::Low, PinSpeed::Low)};
+    let z_step = StepperPin {
+        pin: Output::new(p.PA5, Level::Low, PinSpeed::Low),
+    };
 
-    let z_dir = StepperPin{pin: Output::new(p.PB2, Level::Low, PinSpeed::Low)};
+    let z_dir = StepperPin {
+        pin: Output::new(p.PB2, Level::Low, PinSpeed::Low),
+    };
 
     let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
 

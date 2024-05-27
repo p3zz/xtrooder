@@ -1,7 +1,7 @@
-use embassy_stm32::sdmmc::{Sdmmc, DataBlock, Instance, Error, SdmmcDma};
-use fs::BLOCK_LEN;
-use fs::blockdevice::{BlockTrait, BlockDevice, BlockIdx, BlockCount};
+use embassy_stm32::sdmmc::{DataBlock, Error, Instance, Sdmmc, SdmmcDma};
+use fs::blockdevice::{BlockCount, BlockDevice, BlockIdx, BlockTrait};
 use fs::DeviceError;
+use fs::BLOCK_LEN;
 
 #[derive(Clone)]
 pub struct Block {
@@ -18,7 +18,7 @@ impl BlockTrait for Block {
     fn content_mut(&mut self) -> &mut [u8; 512] {
         &mut self.inner.0
     }
-    
+
     fn content(&self) -> &[u8; 512] {
         &self.inner.0
     }
@@ -75,7 +75,6 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
             .block_count();
         Ok(BlockCount(count))
     }
-    
 }
 
 /// Represents a block device - a device which can read and write blocks (or
