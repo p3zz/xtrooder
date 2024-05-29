@@ -29,8 +29,8 @@ static_cell = "2"
 chrono = { version = "^0.4", default-features = false }
 pid-lite = {version="1.2.0", default-features = false}
 
-math = {path="../../host/math"}
-parser = {path="../../host/parser"}
+math = {path="../../host/math", features=["defmt-log"]}
+parser = {path="../../host/parser", features=["defmt-log"]}
 stepper = {path="../../host/stepper"}
 fs = {path="../../host/fs"}
 

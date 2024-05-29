@@ -5,6 +5,7 @@ use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC8, TIM8};
+use embassy_stm32::usart::UartRx;
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
@@ -28,6 +29,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 use core::str;
 
+// https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 
 bind_interrupts!(struct Irqs {
@@ -53,15 +55,14 @@ impl<'d> StatefulOutputPin for StepperPin<'d> {
 }
 
 #[embassy_executor::task]
-async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_tx: DMA1_CH1) {
+async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     let mut config = embassy_stm32::usart::Config::default();
     config.baudrate = 19200;
     let mut uart =
-        Uart::new(peri, rx, tx, Irqs, dma_tx, dma_rx, config).expect("Cannot initialize USART");
+        UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
     let mut parser = GCodeParser::new();
     let mut buf = [0u8; 64];
-    let msg = "#next";
 
     loop {
         let mut available = false;
@@ -72,41 +73,31 @@ async fn input_handler(peri: USART3, rx: PB11, tx: PB10, dma_rx: DMA1_CH0, dma_t
         }
 
         if !available {
-            // info!("queue is full");
+            info!("[INPUT_HANDLER_TASK] command queue is full");
             Timer::after(Duration::from_millis(1)).await;
             continue;
         }
 
         if parser.is_queue_full() {
-            info!("parser queue is full");
-            Timer::after(Duration::from_millis(1)).await;
-            continue;
-        }
-
-        if let Err(_) = uart.write_all(msg.as_bytes()).await {
-            info!("Cannot send request");
+            info!("[INPUT_HANDLER_TASK] parser queue is full");
             Timer::after(Duration::from_millis(1)).await;
             continue;
         }
 
         if let Ok(n) = uart.read_until_idle(&mut buf).await {
-            let line = match str::from_utf8(&buf) {
-                Ok(l) => l,
-                Err(_) => continue,
-            };
-            info!("[{}] Found {}", n, line);
             match parser.parse(&buf) {
                 Ok(()) => {
                     let mut q = COMMAND_QUEUE.lock().await;
                     for _ in 0..parser.queue_len() {
                         if !q.is_full() {
-                            info!("command enqueued");
                             let cmd = parser.pick_from_queue().unwrap();
+                            // can safely unwrap because we already checked if the command queue is full
                             q.enqueue(cmd).unwrap();
+                            info!("[INPUT_HANDLER_TASK] command enqueued: {}", cmd);
                         }
                     }
                 }
-                Err(_) => (),
+                Err(_) => info!(""),
             };
         }
         buf = [0u8; 64];
@@ -256,7 +247,7 @@ async fn main(_spawner: Spawner) {
 
     _spawner
         .spawn(input_handler(
-            p.USART3, p.PB11, p.PB10, p.DMA1_CH0, p.DMA1_CH1,
+            p.USART3, p.PB11, p.DMA1_CH0
         ))
         .unwrap();
 
