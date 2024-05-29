@@ -31,6 +31,7 @@ use core::str;
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 
 bind_interrupts!(struct Irqs {
     USART3 => InterruptHandler<USART3>;
@@ -138,6 +139,7 @@ async fn hotend_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_
 }
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
+// TODO test with HEATBED_TARGET_TEMPERATURE
 #[embassy_executor::task]
 async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater_out_pin: PC8) {
     let thermistor = Thermistor::new(
@@ -161,10 +163,14 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
     let heater = Heater::new(heater_out, Channel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
 
-    hotend.set_temperature(Temperature::from_celsius(100f64));
-
     let dt = Duration::from_millis(500);
     loop {
+        {
+            let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
+            if let Some(t) = t.take(){
+                hotend.set_temperature(t);
+            }
+        }
         hotend.update(dt);
         Timer::after(dt).await;
     }
