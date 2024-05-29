@@ -93,6 +93,13 @@ pub fn sinc(angle: Angle) -> f64 {
     }
 }
 
+#[cfg(feature = "defmt-log")]
+impl defmt::Format for Angle{
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "{} rad", self.to_radians())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::f64::consts::PI;
