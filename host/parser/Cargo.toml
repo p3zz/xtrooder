@@ -6,3 +6,8 @@ edition = "2021"
 [dependencies]
 heapless = { version = "0.8", default-features = false }
 math = { path = "../math" }
+defmt = {version="0.3", optional=true}
+
+[features]
+default = []
+defmt-log = ["dep:defmt"]

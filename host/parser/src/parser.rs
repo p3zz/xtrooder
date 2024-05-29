@@ -8,7 +8,7 @@ use math::{
     temperature::{Temperature, TemperatureUnit},
 };
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum GCommand {
     // https://marlinfw.org/docs/gcode/G000-G001.html
     G0 {
@@ -59,6 +59,25 @@ pub enum GCommand {
     },
     // set temperature unit
     M149,
+}
+
+#[cfg(feature="defmt-log")]
+impl defmt::Format for GCommand{
+    fn format(&self, fmt: defmt::Formatter) {
+        match *self{
+            GCommand::G0 { x, y, z, f } => defmt::write!(fmt, "G0 [x: {}] [y: {}] [z: {}] [f: {}]", x, y, z, f),
+            GCommand::G1 { x, y, z, e, f } => defmt::write!(fmt, "G1 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}]", x, y, z, e, f),
+            GCommand::G2 { x, y, z, e, f, i, j, r } => defmt::write!(fmt, "G2 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]", x, y, z, e, f, i, j, r),
+            GCommand::G3 { x, y, z, e, f, i, j, r } => defmt::write!(fmt, "G3 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]", x, y, z, e, f, i, j, r),
+            GCommand::G4 { p, s } => defmt::write!(fmt, "G4 [p: {}] [s: {}]", p, s),
+            GCommand::G20 => todo!(),
+            GCommand::G21 => todo!(),
+            GCommand::G90 => todo!(),
+            GCommand::G91 => todo!(),
+            GCommand::M104 { s } => todo!(),
+            GCommand::M149 => todo!(),
+        }
+    }
 }
 
 enum GCommandType {
