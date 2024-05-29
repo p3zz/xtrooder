@@ -396,10 +396,11 @@ mod tests {
         s.set_direction(RotationDirection::Clockwise);
         s.set_speed(1.0).unwrap();
         let steps = 20;
-        let res = s.move_for_steps::<StepperTimer>(steps).await;
-        assert!(res.is_ok());
+        let m = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(m.is_ok());
         assert_eq!(s.get_steps(), 20.0);
         assert_eq!(s.get_speed(), 1.0);
+        assert_eq!(m.unwrap().as_micros(), Duration::from_millis(100).as_micros());
     }
 
     #[tokio::test]
@@ -411,9 +412,10 @@ mod tests {
         let steps = 20;
         s.set_direction(RotationDirection::CounterClockwise);
         s.set_speed(5.0).unwrap();
-        let res = s.move_for_steps::<StepperTimer>(steps).await;
-        assert!(res.is_ok());
+        let m = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(m.is_ok());
         assert_eq!(s.get_steps(), -20.0);
+        assert_eq!(m.unwrap().as_micros(), Duration::from_millis(20).as_micros());
     }
 
     #[tokio::test]
@@ -534,11 +536,12 @@ mod tests {
         s.set_attachment(StepperAttachment {
             distance_per_step: Distance::from_mm(1.0),
         });
-        let res = s.move_for_distance::<StepperTimer>(distance).await;
-        assert!(res.is_ok());
+        let m = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(m.is_ok());
         assert_eq!(s.get_steps(), 10.0);
         assert!(s.get_position().is_ok());
         assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+        assert_eq!(m.unwrap().as_micros(), Duration::from_secs(10).as_micros());
     }
 
     #[tokio::test]
