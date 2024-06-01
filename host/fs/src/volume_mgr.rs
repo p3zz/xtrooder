@@ -633,6 +633,8 @@ where
         let directory_info = &self.open_dirs[directory_idx];
         let volume_id = self.open_dirs[directory_idx].volume_id;
         let volume_idx = self.get_volume_by_id(volume_id)?;
+        #[cfg(test)]
+        print!("Ciao");
         let volume_info = &self.open_volumes[volume_idx];
         let sfn = name
             .to_short_filename()
