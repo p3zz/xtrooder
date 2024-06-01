@@ -2,10 +2,14 @@
 #![no_main]
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
+use app::sdcard::SdmmcDevice;
+use app::utils::stopwatch::Clock;
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::{ADC2, PC8, TIM8};
-use embassy_stm32::usart::UartRx;
+use embassy_stm32::peripherals::{ADC2, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8};
+use embassy_stm32::sdmmc::{self, Sdmmc};
+use embassy_stm32::time::mhz;
+use embassy_stm32::usart::{self, UartRx};
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
@@ -21,6 +25,7 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
+use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
 use math::temperature::Temperature;
 use parser::parser::{GCodeParser, GCommand};
@@ -30,11 +35,13 @@ use {defmt_rtt as _, panic_probe as _};
 use core::str;
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
-static COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static INPUT_TASK_COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 
 bind_interrupts!(struct Irqs {
-    USART3 => InterruptHandler<USART3>;
+    USART3 => usart::InterruptHandler<USART3>;
+    SDMMC1 => sdmmc::InterruptHandler<SDMMC1>;
 });
 
 struct StepperPin<'a> {
@@ -69,7 +76,7 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
         let mut available = false;
         // check if the command queue is full
         {
-            let q = COMMAND_QUEUE.lock().await;
+            let q = INPUT_TASK_COMMAND_QUEUE.lock().await;
             available = !q.is_full();
         }
 
@@ -88,7 +95,7 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
         if let Ok(n) = uart.read_until_idle(&mut buf).await {
             match parser.parse(&buf) {
                 Ok(()) => {
-                    let mut q = COMMAND_QUEUE.lock().await;
+                    let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
                     for _ in 0..parser.queue_len() {
                         if !q.is_full() {
                             let cmd = parser.pick_from_queue().unwrap();
@@ -104,6 +111,28 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
         buf = [0u8; 64];
     }
 }
+
+// #[embassy_executor::task]
+// async fn command_dispatcher_task() {
+//     loop{
+//         let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
+//         while let Some(cmd) = q.dequeue(){
+//             match cmd{
+//                 GCommand::G0 { x, y, z, f } => todo!(),
+//                 GCommand::G1 { x, y, z, e, f } => todo!(),
+//                 GCommand::G2 { x, y, z, e, f, i, j, r } => todo!(),
+//                 GCommand::G3 { x, y, z, e, f, i, j, r } => todo!(),
+//                 GCommand::G4 { p, s } => todo!(),
+//                 GCommand::G20 => todo!(),
+//                 GCommand::G21 => todo!(),
+//                 GCommand::G90 => todo!(),
+//                 GCommand::G91 => todo!(),
+//                 GCommand::M104 { s } => todo!(),
+//                 GCommand::M149 => todo!(),
+//             }
+//         }
+//     }
+// }
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
@@ -175,6 +204,71 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
         Timer::after(dt).await;
     }
 }
+
+#[embassy_executor::task]
+async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9, d2: PC10, d3: PC11) {
+    let sdmmc = Sdmmc::new_4bit(
+        spi_peri,
+        Irqs,
+        clk,
+        cmd,
+        d0,
+        d1,
+        d2,
+        d3,
+        Default::default(),
+    );
+
+    let clock = Clock::new();
+    let device = SdmmcDevice::new(sdmmc);
+    let mut volume_manager = VolumeManager::new(device, clock);
+
+    let dt = Duration::from_millis(500);
+    loop {
+        Timer::after(dt).await;
+        let mut available = false;
+        // check if the command queue is full
+        {
+            let q = SD_CARD_INPUT_QUEUE.lock().await;
+            available = !q.is_empty();
+        }
+        if !available{
+            continue;
+        }
+        let mut cmd: Option<GCommand> = None;
+        {
+            let mut q = SD_CARD_INPUT_QUEUE.lock().await;
+            cmd = q.dequeue();
+        }
+        // we can unwrap because we checked before that the queue is not empty
+        // match cmd.unwrap(){
+        //     GCommand::M20 => {
+        //         let mut volume0 = match volume_manager.open_volume(VolumeIdx(0)).await {
+        //             Ok(v) => v,
+        //             Err(_) => defmt::panic!("Cannot find module"),
+        //         };
+            
+        //         // info!("Volume 0: {:?}", volume0);
+        //         // Open the root directory (mutably borrows from the volume).
+        //         let mut root_dir = match volume0.open_root_dir() {
+        //             Ok(d) => d,
+        //             Err(_) => defmt::panic!("Cannot open root dir"),
+        //         };
+        //         root_dir.iterate_dir(|e|{
+        //             e.attributes.is_directory()
+        //         });
+        //     },
+        //     GCommand::M21 => todo!(),
+        //     GCommand::M23 { filename } => todo!(),
+        //     GCommand::M24 { s, t } => todo!(),
+        //     GCommand::M25 => todo!(),
+        //     GCommand::M104 { s } => todo!(),
+        //     GCommand::M149 => todo!(),
+        //     _ => todo!()
+        // }
+    }
+}
+
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -268,7 +362,7 @@ async fn main(_spawner: Spawner) {
     loop {
         let mut c: Option<GCommand> = None;
         {
-            let mut q = COMMAND_QUEUE.lock().await;
+            let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
             c = q.dequeue();
         } // mutex is freed here
 

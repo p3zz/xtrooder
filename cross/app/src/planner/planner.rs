@@ -93,6 +93,7 @@ impl<P: StatefulOutputPin> Planner<P> {
                 Ok(())
             }
             GCommand::M149 => todo!(),
+            _ => todo!()
         }
     }
 

@@ -57,7 +57,7 @@ pub trait BlockDevice {
         start_block_idx: BlockIdx,
     ) -> Result<(), DeviceError<Self::E>>;
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>>;
+    async fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>>;
 }
 
 impl core::ops::Add<BlockCount> for BlockIdx {

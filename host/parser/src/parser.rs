@@ -53,6 +53,16 @@ pub enum GCommand {
     G21,
     G90,
     G91,
+    // List SD Card
+    M20,
+    // Init SD card
+    M21,
+    // Select SD file
+    M23 { filename: &'static str},
+    // Start or Resume SD print
+    M24 {s: u64, t: Duration},
+    // Pause SD print
+    M25,
     // set hotend temperature
     M104 {
         s: Option<Temperature>,
@@ -76,6 +86,11 @@ impl defmt::Format for GCommand{
             GCommand::G91 => todo!(),
             GCommand::M104 { s } => todo!(),
             GCommand::M149 => todo!(),
+            GCommand::M20 => todo!(),
+            GCommand::M21 => todo!(),
+            GCommand::M23 { filename } => todo!(),
+            GCommand::M24 { s, t } => todo!(),
+            GCommand::M25 => todo!(),
         }
     }
 }

@@ -25,7 +25,7 @@ const PARTITION_ID_FAT32_CHS_LBA: u8 = 0x0B;
 
 /// Represents all the ways the functions in this crate can fail.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DeviceError<E>
 where
     E: core::fmt::Debug,

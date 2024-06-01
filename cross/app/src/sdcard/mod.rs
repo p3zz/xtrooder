@@ -66,7 +66,7 @@ impl<'d, T: Instance, Dma: SdmmcDma<T> + 'd> BlockDevice for SdmmcDevice<'d, T, 
         Ok(())
     }
     /// Determine how many blocks this device can hold.
-    fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>> {
+    async fn num_blocks(&self) -> Result<BlockCount, DeviceError<Self::E>> {
         let count = self
             .inner
             .card()
