@@ -173,10 +173,14 @@ impl LinuxBlockDevice {
         self.file.borrow_mut().set_len(0).await.unwrap()
     }
 
-    pub async fn initialize(&mut self){
+    pub async fn initialize(&mut self, num_blocks: BlockCount){
         self.clear().await;
-        for _ in 0..512{
-            self.file.borrow_mut().write(&[0u8; 10_000]).await.unwrap();
+        let mut b = Block{inner: [0u8; BLOCK_LEN as usize]};
+        b.content_mut()[BLOCK_LEN as usize - 2] = hex!("55")[0];
+        b.content_mut()[BLOCK_LEN as usize - 1] = hex!("AA")[0];
+        
+        for _ in 0..num_blocks.0{
+            self.file.borrow_mut().write(b.content()).await.unwrap();
         }
         self.file.borrow_mut().seek(SeekFrom::Start(0)).await.unwrap();
         self.format_f32().await;
@@ -252,7 +256,7 @@ mod tests {
     async fn partition0() {
         let file_path = Path::new("assets/linuxdevice.txt");
         let mut device = LinuxBlockDevice::new(file_path).await.unwrap();
-        device.initialize().await;
+        device.initialize(fs::blockdevice::BlockCount(20000)).await;
         let mut c = VolumeManager::new(device, Clock);
         let mut v = c.open_volume(VolumeIdx(0)).await.unwrap();
         let mut root_dir = v.open_root_dir().unwrap();
