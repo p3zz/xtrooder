@@ -78,7 +78,6 @@ where
     ///
     /// Returns how many bytes were read, or an error.
     pub async fn read(&mut self, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
-        #[cfg(test)]
         self.volume_mgr.read(self.raw_file, buffer).await
     }
 
