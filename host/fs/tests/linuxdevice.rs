@@ -176,8 +176,8 @@ impl LinuxBlockDevice {
     pub async fn initialize(&mut self, num_blocks: BlockCount){
         self.clear().await;
         let mut b = Block{inner: [0u8; BLOCK_LEN as usize]};
-        b.content_mut()[BLOCK_LEN as usize - 2] = hex!("55")[0];
-        b.content_mut()[BLOCK_LEN as usize - 1] = hex!("AA")[0];
+        b.content_mut()[BLOCK_LEN as usize - 2] = 0x55;
+        b.content_mut()[BLOCK_LEN as usize - 1] = 0xAA;
         
         for _ in 0..num_blocks.0{
             self.file.borrow_mut().write(b.content()).await.unwrap();
@@ -260,7 +260,16 @@ mod tests {
         let mut c = VolumeManager::new(device, Clock);
         let mut v = c.open_volume(VolumeIdx(0)).await.unwrap();
         let mut root_dir = v.open_root_dir().unwrap();
-        let file = root_dir.open_file_in_dir("test.txt", Mode::ReadWriteCreate).await.unwrap();
+        let mut f = root_dir.open_file_in_dir("test.txt", Mode::ReadWriteCreate).await.unwrap();
+        f.write(&[0x1,0x2, 0x3]).await.unwrap();
+        assert_eq!(f.length(), 3);
+        let mut buffer = [0u8; 3];
+        f.seek_from_start(0).unwrap();
+        let num_read = f.read(&mut buffer).await.unwrap();
+        assert_eq!(num_read, 3);
+        assert_eq!(buffer[0], 0x1);
+        assert_eq!(buffer[1], 0x2);
+        assert_eq!(buffer[2], 0x3);
     }
 
     #[test]
