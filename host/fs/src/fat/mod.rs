@@ -32,9 +32,11 @@ impl<B: BlockTrait> BlockCache<B> {
     ) -> Result<&B, DeviceError<D::E>> {
         if Some(block_idx) != self.idx {
             self.idx = Some(block_idx);
+            let mut block = D::B::new();
             block_device
-                .read(core::slice::from_mut(&mut D::B::new()), block_idx)
+                .read(core::slice::from_mut(&mut block), block_idx)
                 .await?;
+            self.block = B::copy_from_slice(block.content());
         }
         Ok(&self.block)
     }

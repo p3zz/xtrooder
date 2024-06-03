@@ -280,15 +280,17 @@ where
 
         let (part_type, lba_start, num_blocks) = {
             let mut blocks = [D::B::new()];
+            // read MBR
             self.block_device.read(&mut blocks, BlockIdx(0)).await?;
             let block = &blocks[0];
             // We only support Master Boot Record (MBR) partitioned cards, not
             // GUID Partition Table (GPT)
             let content = block.content();
+            // check if the block valid (last 2 bytes)
             if LittleEndian::read_u16(&content[FOOTER_START..FOOTER_START + 2]) != FOOTER_VALUE {
-                // TODO replace error
                 return Err(DeviceError::FormatError("Invalid MBR signature"));
             }
+            // get the starting byte of the volume partition
             let partition = match volume_idx {
                 VolumeIdx(0) => {
                     &content[PARTITION1_START..(PARTITION1_START + PARTITION_INFO_LENGTH)]
@@ -312,14 +314,18 @@ where
                 // TODO replace error
                 return Err(DeviceError::FormatError("Invalid partition status"));
             }
+            // get the logical block address (first block of data of the partition)
             let lba_start = LittleEndian::read_u32(
                 &partition[PARTITION_INFO_LBA_START_INDEX..(PARTITION_INFO_LBA_START_INDEX + 4)],
             );
+            // get the number of blocks that the partition holds
             let num_blocks = LittleEndian::read_u32(
                 &partition[PARTITION_INFO_NUM_BLOCKS_INDEX..(PARTITION_INFO_NUM_BLOCKS_INDEX + 4)],
             );
+            // get the partition type
+            let partition_type = partition[PARTITION_INFO_TYPE_INDEX];
             (
-                partition[PARTITION_INFO_TYPE_INDEX],
+                partition_type,
                 BlockIdx(lba_start),
                 BlockCount(num_blocks),
             )
@@ -1001,9 +1007,11 @@ where
             let volume_idx = self.get_volume_by_id(file_info.volume_id)?;
             match self.open_volumes[volume_idx].volume_type {
                 VolumeType::Fat(ref mut fat) => {
-                    // debug!("Updating FAT info sector");
+                    #[cfg(test)]
+                    println!("Updating FAT info sector");
                     fat.update_info_sector(&mut self.block_device).await?;
-                    // debug!("Updating dir entry {:?}", file_info.entry);
+                    #[cfg(test)]
+                    println!("Updating dir entry {:?}", file_info.entry);
                     if file_info.entry.size != 0 {
                         // If you have a length, you must have a cluster
                         assert!(file_info.entry.cluster.0 != 0);

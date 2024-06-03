@@ -1054,11 +1054,13 @@ pub async fn parse_volume<D: BlockDevice>(
     num_blocks: BlockCount,
 ) -> Result<VolumeType, DeviceError<D::E>> {
     let mut blocks = [D::B::new()];
+    // read the first block of the partition
     block_device.read(&mut blocks, lba_start).await?;
     let block = &blocks[0];
     let bpb = Bpb::create_from_bytes(block.content()).map_err(DeviceError::FormatError)?;
     match bpb.fat_type {
         FatType::Fat16 => {
+            // check if the bpb block has the correct size
             if bpb.bytes_per_block() as usize != (BLOCK_LEN as usize) {
                 return Err(DeviceError::BadBlockSize(bpb.bytes_per_block()));
             }

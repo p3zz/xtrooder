@@ -218,6 +218,7 @@ impl BlockDevice for LinuxBlockDevice {
             self.file.borrow_mut().write_all(block.content()).await.map_err(|e|DeviceError::DeviceError(e))?;
             println!("Wrote: {:?}", start_block_idx);
         }
+        self.file.borrow_mut().flush().await.unwrap();
         Ok(())
     }
 
@@ -247,29 +248,61 @@ impl TimeSource for Clock {
 
 #[cfg(test)]
 mod tests {
-    use async_std::path::Path;
-    use fs::{filesystem::files::Mode, volume_mgr::{VolumeIdx, VolumeManager}};
+    use async_std::{io::ReadExt, path::Path};
+    use fs::{blockdevice::{BlockDevice, BlockIdx, BlockTrait}, filesystem::files::Mode, volume_mgr::{VolumeIdx, VolumeManager}, BLOCK_LEN};
 
-    use crate::{Clock, LinuxBlockDevice};
+    use crate::{Block, Clock, LinuxBlockDevice};
 
     #[tokio::test]
-    async fn partition0() {
+    async fn file_create_close_open() {
         let file_path = Path::new("assets/linuxdevice.txt");
         let mut device = LinuxBlockDevice::new(file_path).await.unwrap();
         device.initialize(fs::blockdevice::BlockCount(20000)).await;
         let mut c = VolumeManager::new(device, Clock);
         let mut v = c.open_volume(VolumeIdx(0)).await.unwrap();
         let mut root_dir = v.open_root_dir().unwrap();
-        let mut f = root_dir.open_file_in_dir("test.txt", Mode::ReadWriteCreate).await.unwrap();
-        f.write(&[0x1,0x2, 0x3]).await.unwrap();
-        assert_eq!(f.length(), 3);
-        let mut buffer = [0u8; 3];
-        f.seek_from_start(0).unwrap();
-        let num_read = f.read(&mut buffer).await.unwrap();
+        let filename = "test.txt";
+        let f = root_dir.open_file_in_dir(filename, Mode::ReadWriteCreate).await.unwrap();
+        f.close().await.unwrap();
+        let f = root_dir.open_file_in_dir(filename, Mode::ReadOnly).await;
+        assert!(f.is_ok());
+    }
+
+    #[tokio::test]
+    async fn file_create_close_open_2() {
+        let file_path = Path::new("assets/linuxdevice.txt");
+        let mut device = LinuxBlockDevice::new(file_path).await.unwrap();
+        device.initialize(fs::blockdevice::BlockCount(20000)).await;
+        let mut c = VolumeManager::new(device, Clock);
+        let v = c.open_raw_volume(VolumeIdx(0)).await.unwrap();
+        let root_dir = c.open_root_dir(v).unwrap();
+        let filename = "test.txt";
+        let f = c.open_file_in_dir(root_dir, filename, Mode::ReadWriteCreate).await.unwrap();
+        c.close_file(f).await.unwrap();
+        let f = c.open_file_in_dir(root_dir, filename, Mode::ReadOnly).await;
+        assert!(f.is_ok());
+    }
+
+    #[tokio::test]
+    async fn file_create_write_close_open_read() {
+        let file_path = Path::new("assets/linuxdevice.txt");
+        let mut device = LinuxBlockDevice::new(file_path).await.unwrap();
+        device.initialize(fs::blockdevice::BlockCount(20000)).await;
+        let mut c = VolumeManager::new(device, Clock);
+        let mut v = c.open_volume(VolumeIdx(0)).await.unwrap();
+        let mut root_dir = v.open_root_dir().unwrap();
+        let filename = "test.txt";
+        let mut f = root_dir.open_file_in_dir(filename, Mode::ReadWriteCreate).await.unwrap();
+        let buffer_to_write = [0x1,0x2, 0x3];
+        f.write(&buffer_to_write).await.unwrap();
+        f.close().await.unwrap();
+        let mut f = root_dir.open_file_in_dir(filename, Mode::ReadOnly).await.unwrap();
+        let mut buffer_to_read = [0u8; 3];
+        let num_read = f.read(&mut buffer_to_read).await.unwrap();
         assert_eq!(num_read, 3);
-        assert_eq!(buffer[0], 0x1);
-        assert_eq!(buffer[1], 0x2);
-        assert_eq!(buffer[2], 0x3);
+        assert_eq!(buffer_to_read.get(0).unwrap(), buffer_to_write.get(0).unwrap());
+        assert_eq!(buffer_to_read.get(1).unwrap(), buffer_to_write.get(1).unwrap());
+        assert_eq!(buffer_to_read.get(2).unwrap(), buffer_to_write.get(2).unwrap());
     }
 
     #[test]

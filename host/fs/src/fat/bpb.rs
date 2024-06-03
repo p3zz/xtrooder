@@ -24,6 +24,7 @@ impl<'a> Bpb<'a> {
             fat_type: FatType::Fat16,
             cluster_count: 0,
         };
+        // check if the bpb block is valid
         if bpb.footer() != Self::FOOTER_VALUE {
             return Err("Bad BPB footer");
         }
@@ -33,7 +34,9 @@ impl<'a> Bpb<'a> {
         let non_data_blocks = u32::from(bpb.reserved_block_count())
             + (u32::from(bpb.num_fats()) * bpb.fat_size())
             + root_dir_blocks;
+        // compute the total number of data blocks
         let data_blocks = bpb.total_blocks() - non_data_blocks;
+        // compute the total number of clusters
         bpb.cluster_count = data_blocks / u32::from(bpb.blocks_per_cluster());
         if bpb.cluster_count < 4085 {
             return Err("FAT12 is unsupported");
