@@ -1358,6 +1358,10 @@ mod tests {
         fn content(&self) -> &[u8; BLOCK_LEN as usize] {
             &self.inner
         }
+        
+        fn copy_from_slice(slice: &[u8; BLOCK_LEN as usize]) -> Self {
+            Self { inner: slice.clone() }
+        }
     }
     
 

@@ -13,6 +13,8 @@ use crate::{DeviceError, BLOCK_LEN};
 /// bytes.
 
 pub trait BlockTrait {
+    fn copy_from_slice(slice: &[u8; BLOCK_LEN as usize]) -> Self;
+
     fn new() -> Self;
 
     fn content_mut(&mut self) -> &mut [u8; BLOCK_LEN as usize];
