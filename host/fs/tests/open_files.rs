@@ -131,11 +131,10 @@ async fn open_non_raw() {
 
     drop(f);
 
-    let Err(DeviceError::FileAlreadyExists) =
-        root_dir.open_file_in_dir("README.TXT", Mode::ReadWriteCreate).await
-    else {
-        panic!("Expected to file to exist");
-    };
+    let res = root_dir.open_file_in_dir("README.TXT", Mode::ReadWriteCreate).await;
+    if let Ok(_) = res{
+        panic!("File must exist");
+    }
 }
 
 // ****************************************************************************

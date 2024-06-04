@@ -100,6 +100,23 @@ async fn flush_file() {
         .find_directory_entry(root_dir, "README.TXT").await
         .expect("find entry");
     assert_eq!(entry.size, 64 * 3);
+
+    volume_mgr.file_seek_from_start(f, 0).unwrap();
+    volume_mgr.write(f, &[0x1, 0x2, 0x3]).await.expect("file write");
+
+    volume_mgr.close_file(f).await.unwrap();
+
+    let f = volume_mgr
+        .open_file_in_dir(root_dir, "README.TXT", Mode::ReadOnly).await
+        .expect("open file");
+
+    let mut test_data = [0u8; 64];
+    volume_mgr.read(f, &mut test_data).await.expect("file read");
+
+    assert_eq!(*test_data.get(0).unwrap(), 0x1);
+    assert_eq!(*test_data.get(1).unwrap(), 0x2);
+    assert_eq!(*test_data.get(2).unwrap(), 0x3);
+    
 }
 
 // ****************************************************************************
