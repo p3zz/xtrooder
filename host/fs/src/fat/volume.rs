@@ -801,14 +801,14 @@ where {
         for entry in 0..(BLOCK_LEN as usize) / OnDiskDirEntry::LEN {
             let start = entry * OnDiskDirEntry::LEN;
             let end = (entry + 1) * OnDiskDirEntry::LEN;
-            let data = &blocks[0].content()[start..end];
-            let dir_entry = OnDiskDirEntry::new(data);
+            let dir_entry = OnDiskDirEntry::new(&blocks[0].content()[start..end]);
             if dir_entry.is_end() {
                 // Can quit early
                 break;
             } else if dir_entry.matches(match_name) {
+                let mut blocks = blocks;
                 blocks[0].content_mut()[start] = 0xE5;
-                block_device.write(&blocks, block).await?;
+                return block_device.write(&blocks, block).await;
             }
         }
         Err(DeviceError::NotFound)

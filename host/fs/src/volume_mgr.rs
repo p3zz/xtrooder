@@ -415,10 +415,7 @@ where
         }
 
         let dir_entry = match &self.open_volumes[volume_idx].volume_type {
-            VolumeType::Fat(fat) => {
-                fat.find_directory_entry(&mut self.block_device, parent_dir_info, &short_file_name)
-                    .await?
-            }
+            VolumeType::Fat(fat) => fat.find_directory_entry(&mut self.block_device, parent_dir_info, &short_file_name).await?
         };
 
         // debug!("Found dir entry: {:?}", dir_entry);
@@ -745,10 +742,8 @@ where
             .map_err(DeviceError::FilenameError)?;
 
         let dir_entry = match &self.open_volumes[volume_idx].volume_type {
-            VolumeType::Fat(fat) => {
-                fat.find_directory_entry(&mut self.block_device, dir_info, &sfn)
+            VolumeType::Fat(fat) => fat.find_directory_entry(&mut self.block_device, dir_info, &sfn)
                     .await
-            }
         }?;
 
         if dir_entry.attributes.is_directory() {

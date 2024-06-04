@@ -274,7 +274,6 @@ impl FileInfo {
     /// Update the file's length.
     pub(crate) fn update_length(&mut self, new: u32) {
         self.entry.size = new;
-        self.entry.size = new;
     }
 }
 
