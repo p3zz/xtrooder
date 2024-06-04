@@ -119,6 +119,42 @@ async fn flush_file() {
     
 }
 
+#[tokio::test]
+async fn file_write_close_read() {
+    let time_source = utils::make_time_source();
+    let disk = utils::make_block_device(utils::DISK_SOURCE).unwrap();
+    let mut volume_mgr: VolumeManager<utils::RamDisk<Vec<u8>>, utils::TestTimeSource, 4, 2, 1> =
+        VolumeManager::new_with_limits(disk, time_source, 0xAA00_0000);
+    let mut volume = volume_mgr
+        .open_volume(VolumeIdx(0)).await
+        .expect("open volume");
+    let mut root_dir = volume.open_root_dir().expect("open root dir");
+
+    // Open with string
+    let mut f = root_dir
+        .open_file_in_dir("README.TXT", Mode::ReadWriteTruncate).await
+        .expect("open file");
+
+    // Write some data to the file
+    let test_data = vec![0x0, 0x1, 0x2, 0x3, 0x4, 0x5];
+    f.write(&test_data).await.expect("file write");
+    f.close().await.unwrap();
+
+    let mut f = root_dir
+        .open_file_in_dir("README.TXT", Mode::ReadOnly).await
+        .expect("open file");
+
+    f.seek_from_start(3).unwrap();
+
+    let mut test_data = [0u8; 3];
+    f.read(&mut test_data).await.expect("file read");
+
+    assert_eq!(*test_data.get(0).unwrap(), 0x3);
+    assert_eq!(*test_data.get(1).unwrap(), 0x4);
+    assert_eq!(*test_data.get(2).unwrap(), 0x5);
+}
+
+
 // ****************************************************************************
 //
 // End Of File
