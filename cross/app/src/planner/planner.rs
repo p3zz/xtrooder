@@ -4,7 +4,7 @@ use math::common::RotationDirection;
 use math::distance::{Distance, DistanceUnit};
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
-use parser::parser::{GCodeParser, GCommand};
+use parser::gcode::{GCodeParser, GCommand};
 use stepper::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
     no_move, Positioning,
@@ -19,7 +19,7 @@ impl TimerTrait for StepperTimer {
         Timer::after(duration).await
     }
 }
-// we need to have a triple(s, d, T) for every stepper
+
 pub struct Planner<P: StatefulOutputPin> {
     feedrate: Speed,
     positioning: Positioning,

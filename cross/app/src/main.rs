@@ -28,7 +28,7 @@ use embedded_io_async::Write;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
 use math::temperature::Temperature;
-use parser::parser::{GCodeParser, GCommand};
+use parser::gcode::{GCodeParser, GCommand};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
