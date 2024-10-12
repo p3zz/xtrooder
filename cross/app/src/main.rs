@@ -18,15 +18,16 @@ use embassy_stm32::{
     time::hz,
     timer::{
         simple_pwm::{PwmPin, SimplePwm},
-        Channel, CountingMode,
+        Channel as TimerChannel, CountingMode,
     },
     usart::{InterruptHandler, Uart},
 };
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
+use heapless::{String, Vec};
 use math::temperature::Temperature;
 use parser::gcode::{GCodeParser, GCommand, GCommandType};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
@@ -35,7 +36,7 @@ use {defmt_rtt as _, panic_probe as _};
 use core::str;
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
-static INPUT_TASK_COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
@@ -71,81 +72,61 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     let mut uart =
         UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
-    let mut parser = GCodeParser::new();
-    let mut buf = [0u8; 64];
+    let parser = GCodeParser::new();
+    let mut msg: String<16> = String::new();
+    let mut tmp = [0u8; 64];
 
     loop {
-        let mut available = false;
-        // check if the command queue is full
-        {
-            let q = INPUT_TASK_COMMAND_QUEUE.lock().await;
-            available = !q.is_full();
-        }
-
-        if !available {
-            info!("[INPUT_HANDLER_TASK] command queue is full");
-            Timer::after(Duration::from_millis(1)).await;
-            continue;
-        }
-
-        if parser.is_queue_full() {
-            info!("[INPUT_HANDLER_TASK] parser queue is full");
-            Timer::after(Duration::from_millis(1)).await;
-            continue;
-        }
-
-        if let Ok(n) = uart.read_until_idle(&mut buf).await {
-            match parser.parse(&buf) {
-                Ok(()) => {
-                    let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
-                    for _ in 0..parser.queue_len() {
-                        if !q.is_full() {
-                            let cmd = parser.pick_from_queue().unwrap();
-                            // can safely unwrap because we already checked if the command queue is full
-                            q.enqueue(cmd).unwrap();
-                            info!("[INPUT_HANDLER_TASK] command enqueued: {}", cmd);
-                        }
+        if let Ok(n) = uart.read_until_idle(&mut tmp).await {
+            for b in tmp {
+                if b == b'\n'{
+                    if let Some(cmd) = parser.parse_line(msg.as_str()){
+                        COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
                     }
+                    msg.clear();
                 }
-                Err(_) => info!(""),
-            };
+                else{
+                    // TODO handle buffer overflow
+                    msg.push(b.into()).unwrap();
+                }
+            }
+            tmp = [0u8; 64];
         }
-        buf = [0u8; 64];
     }
 }
 
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
-    loop{
-        let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
-        while let Some(cmd) = q.dequeue(){
-            match cmd {
-                GCommand::G0{..} |
-                GCommand::G1{..} |
-                GCommand::G2{..} |
-                GCommand::G3{..} |
-                GCommand::G4{..} | 
-                GCommand::G20 | 
-                GCommand::G21 |
-                GCommand::G90 |
-                GCommand::G91 => {
-                    let mut planner_queue = PLANNER_QUEUE.lock().await;
-                    // TODO check full queue
-                    planner_queue.enqueue(cmd).unwrap();
-                },
-                GCommand::M104 { s } => {
-                    let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
-                    *t = Some(s);
-                },
-                GCommand::M140 { s } => {
-                    let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
-                    *t = Some(s);
-                },
-                GCommand::M149 => todo!(),
-                _ => todo!()
-            }
-        }
-    }
+    // loop{
+    //     let mut q = COMMAND_DISPATCHER_CHANNEL.lock().await;
+    //     while let Some(cmd) = q.dequeue(){
+    //         match cmd {
+    //             GCommand::G0{..} |
+    //             GCommand::G1{..} |
+    //             GCommand::G2{..} |
+    //             GCommand::G3{..} |
+    //             GCommand::G4{..} | 
+    //             GCommand::G20 | 
+    //             GCommand::G21 |
+    //             GCommand::G90 |
+    //             GCommand::G91 => {
+    //                 let mut planner_queue = PLANNER_QUEUE.lock().await;
+    //                 // TODO check full queue
+    //                 planner_queue.enqueue(cmd).unwrap();
+    //             },
+    //             GCommand::M104 { s } => {
+    //                 let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
+    //                 *t = Some(s);
+    //             },
+    //             GCommand::M140 { s } => {
+    //                 let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
+    //                 *t = Some(s);
+    //             },
+    //             GCommand::M149 => todo!(),
+    //             _ => todo!()
+    //         }
+    //     }
+    // }
 }
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
@@ -169,10 +150,8 @@ async fn hotend_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-    let heater = Heater::new(heater_out, Channel::Ch4);
+    let heater = Heater::new(heater_out, TimerChannel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
-
-    hotend.set_temperature(Temperature::from_celsius(100f64));
 
     let dt = Duration::from_millis(500);
     loop {
@@ -214,7 +193,7 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-    let heater = Heater::new(heater_out, Channel::Ch4);
+    let heater = Heater::new(heater_out, TimerChannel::Ch4);
     let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(500);
@@ -256,20 +235,14 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
     let dt = Duration::from_millis(500);
     loop {
         Timer::after(dt).await;
-        let mut available = false;
-        // check if the command queue is full
-        {
-            let q = SD_CARD_INPUT_QUEUE.lock().await;
-            available = !q.is_empty();
-        }
-        if !available{
-            continue;
-        }
-        let mut cmd: Option<GCommand> = None;
-        {
-            let mut q = SD_CARD_INPUT_QUEUE.lock().await;
-            cmd = q.dequeue();
-        }
+        // if !available{
+        //     continue;
+        // }
+        // let mut cmd: Option<GCommand> = None;
+        // {
+        //     let mut q = SD_CARD_INPUT_QUEUE.lock().await;
+        //     cmd = q.dequeue();
+        // }
         // we can unwrap because we checked before that the queue is not empty
         // match cmd.unwrap(){
         //     GCommand::M20 => {
@@ -390,11 +363,11 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     loop {
-        let mut c: Option<GCommand> = None;
-        {
-            let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
-            c = q.dequeue();
-        } // mutex is freed here
+        // let mut c: Option<GCommand> = None;
+        // {
+        //     let mut q = COMMAND_DISPATCHER_CHANNEL.lock().await;
+        //     c = q.dequeue();
+        // } // mutex is freed here
 
         // match c {
         //     Some(cmd) => match cmd {
