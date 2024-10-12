@@ -28,13 +28,14 @@ use embedded_io_async::Write;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
 use heapless::{String, Vec};
+use math::distance::{Distance, DistanceUnit};
 use math::temperature::Temperature;
 use parser::gcode::{GCodeParser, GCommand, GCommandType};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
-static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
+static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<32>, 8> = Channel::new();
 static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
@@ -70,17 +71,14 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     let mut uart =
         UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
-    let parser = GCodeParser::new();
-    let mut msg: String<16> = String::new();
+    let mut msg: String<32> = String::new();
     let mut tmp = [0u8; 64];
 
     loop {
         if let Ok(n) = uart.read_until_idle(&mut tmp).await {
             for b in tmp {
                 if b == b'\n'{
-                    if let Some(cmd) = parser.parse_line(msg.as_str()){
-                        COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
-                    }
+                    COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
                     msg.clear();
                 }
                 else{
@@ -95,35 +93,39 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
 
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
+    let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
     loop{        
-        let cmd = COMMAND_DISPATCHER_CHANNEL.receive().await;
-        match cmd {
-            // every movement command is redirected to the planner channel
-            GCommand::G0{..} |
-            GCommand::G1{..} |
-            GCommand::G2{..} |
-            GCommand::G3{..} |
-            GCommand::G4{..} | 
-            GCommand::G20 | 
-            GCommand::G21 |
-            GCommand::G90 |
-            GCommand::G91 => {
-                PLANNER_CHANNEL.send(cmd).await;
-            },
-            // hotend target temperature is used to update the target temperature of the hotend task
-            GCommand::M104 { s } => {
-                let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
-                *t = Some(s);
-            },
-            // heatbed target temperature is used to update the target temperature of the hotend task
-            GCommand::M140 { s } => {
-                let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
-                *t = Some(s);
-            },
-            GCommand::M149 => todo!(),
-            _ => todo!()
+        let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
+        if let Some(cmd) = parser.parse(msg.as_str()){
+            match cmd {
+                // every movement command is redirected to the planner channel
+                GCommand::G0{..} |
+                GCommand::G1{..} |
+                GCommand::G2{..} |
+                GCommand::G3{..} |
+                GCommand::G4{..} | 
+                GCommand::G90 |
+                GCommand::G91 => {
+                    PLANNER_CHANNEL.send(cmd).await;
+                },
+                GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
+                GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
+                // hotend target temperature is used to update the target temperature of the hotend task
+                GCommand::M104 { s } => {
+                    let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
+                    *t = Some(s);
+                },
+                // heatbed target temperature is used to update the target temperature of the hotend task
+                GCommand::M140 { s } => {
+                    let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
+                    *t = Some(s);
+                },
+                GCommand::M149 => todo!(),
+                _ => todo!()
+            }
         }
+        
         Timer::after(dt).await;
     }
 }
