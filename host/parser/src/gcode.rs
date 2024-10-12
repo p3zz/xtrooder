@@ -8,6 +8,11 @@ use math::{
     temperature::{Temperature, TemperatureUnit},
 };
 
+pub enum GCommandType {
+    G,
+    M,
+}
+
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum GCommand {
     // https://marlinfw.org/docs/gcode/G000-G001.html
@@ -69,7 +74,11 @@ pub enum GCommand {
     M26,
     // set hotend temperature
     M104 {
-        s: Option<Temperature>,
+        s: Temperature,
+    },
+    // set bed temperature
+    M140 {
+        s: Temperature,
     },
     // set temperature unit
     M149,
@@ -97,13 +106,9 @@ impl defmt::Format for GCommand{
             GCommand::M24 { s, t } => todo!(),
             GCommand::M25 => todo!(),
             GCommand::M26 => todo!(),
+            _ => todo!()
         }
     }
-}
-
-enum GCommandType {
-    G,
-    M,
 }
 
 fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
@@ -315,7 +320,12 @@ impl GCodeParser {
             (GCommandType::G, 91) => Some(GCommand::G91),
             (GCommandType::M, 104) => {
                 let s = extract_temperature(&cmd, "S", self.temperature_unit);
-                Some(GCommand::M104 { s })
+                if s.is_some(){
+                    Some(GCommand::M104 { s: s.unwrap() })
+                }
+                else{
+                    None
+                }
             }
             _ => None,
         }

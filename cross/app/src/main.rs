@@ -4,7 +4,7 @@
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
-use defmt::*;
+use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::peripherals::{ADC2, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8};
 use embassy_stm32::sdmmc::{self, Sdmmc};
@@ -28,7 +28,7 @@ use embedded_io_async::Write;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
 use math::temperature::Temperature;
-use parser::gcode::{GCodeParser, GCommand};
+use parser::gcode::{GCodeParser, GCommand, GCommandType};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
@@ -38,6 +38,8 @@ use core::str;
 static INPUT_TASK_COMMAND_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
+static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
+static PLANNER_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<USART3>;
@@ -112,27 +114,39 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     }
 }
 
-// #[embassy_executor::task]
-// async fn command_dispatcher_task() {
-//     loop{
-//         let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
-//         while let Some(cmd) = q.dequeue(){
-//             match cmd{
-//                 GCommand::G0 { x, y, z, f } => todo!(),
-//                 GCommand::G1 { x, y, z, e, f } => todo!(),
-//                 GCommand::G2 { x, y, z, e, f, i, j, r } => todo!(),
-//                 GCommand::G3 { x, y, z, e, f, i, j, r } => todo!(),
-//                 GCommand::G4 { p, s } => todo!(),
-//                 GCommand::G20 => todo!(),
-//                 GCommand::G21 => todo!(),
-//                 GCommand::G90 => todo!(),
-//                 GCommand::G91 => todo!(),
-//                 GCommand::M104 { s } => todo!(),
-//                 GCommand::M149 => todo!(),
-//             }
-//         }
-//     }
-// }
+#[embassy_executor::task]
+async fn command_dispatcher_task() {
+    loop{
+        let mut q = INPUT_TASK_COMMAND_QUEUE.lock().await;
+        while let Some(cmd) = q.dequeue(){
+            match cmd {
+                GCommand::G0{..} |
+                GCommand::G1{..} |
+                GCommand::G2{..} |
+                GCommand::G3{..} |
+                GCommand::G4{..} | 
+                GCommand::G20 | 
+                GCommand::G21 |
+                GCommand::G90 |
+                GCommand::G91 => {
+                    let mut planner_queue = PLANNER_QUEUE.lock().await;
+                    // TODO check full queue
+                    planner_queue.enqueue(cmd).unwrap();
+                },
+                GCommand::M104 { s } => {
+                    let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
+                    *t = Some(s);
+                },
+                GCommand::M140 { s } => {
+                    let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
+                    *t = Some(s);
+                },
+                GCommand::M149 => todo!(),
+                _ => todo!()
+            }
+        }
+    }
+}
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
@@ -162,6 +176,17 @@ async fn hotend_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_
 
     let dt = Duration::from_millis(500);
     loop {
+        // try to read the target temperature on each iterator 
+        // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
+        {
+            let lock = HOTEND_TARGET_TEMPERATURE.try_lock();
+            if let Ok(mut t) = lock{
+                if let Some(temp) = t.take(){
+                    hotend.set_temperature(temp);
+                }
+                *t = None;
+            }
+        }
         hotend.update(dt);
         Timer::after(dt).await;
     }
@@ -190,17 +215,22 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
         CountingMode::EdgeAlignedUp,
     );
     let heater = Heater::new(heater_out, Channel::Ch4);
-    let mut hotend = Hotend::new(heater, thermistor);
+    let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(500);
+    // try to read the target temperature on each iterator 
+    // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
     loop {
         {
-            let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
-            if let Some(t) = t.take(){
-                hotend.set_temperature(t);
+            let lock = HEATBED_TARGET_TEMPERATURE.try_lock();
+            if let Ok(mut t) = lock{
+                if let Some(temp) = t.take(){
+                    heatbed.set_temperature(temp);
+                }
+                *t = None;
             }
         }
-        hotend.update(dt);
+        heatbed.update(dt);
         Timer::after(dt).await;
     }
 }
