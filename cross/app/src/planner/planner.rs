@@ -27,7 +27,6 @@ pub struct Planner<P: StatefulOutputPin> {
     y_stepper: Stepper<P>,
     z_stepper: Stepper<P>,
     e_stepper: Stepper<P>,
-    parser: GCodeParser,
 }
 impl<P: StatefulOutputPin> Planner<P> {
     pub fn new(
@@ -43,7 +42,6 @@ impl<P: StatefulOutputPin> Planner<P> {
             e_stepper,
             feedrate: Speed::from_mm_per_second(0.0),
             positioning: Positioning::Absolute,
-            parser: GCodeParser::new(),
         }
     }
 
@@ -71,14 +69,6 @@ impl<P: StatefulOutputPin> Planner<P> {
                 j,
                 r,
             } => self.g3(x, y, z, e, f, i, j, r).await.map(|_| ()),
-            GCommand::G20 => {
-                self.g20();
-                Ok(())
-            }
-            GCommand::G21 => {
-                self.g21();
-                Ok(())
-            }
             GCommand::G90 => {
                 self.g90();
                 Ok(())
@@ -107,14 +97,6 @@ impl<P: StatefulOutputPin> Planner<P> {
             let t = embassy_time::Duration::from_millis(duration.as_millis() as u64);
             Timer::after(t).await
         }
-    }
-
-    fn g20(&mut self) {
-        self.parser.set_distance_unit(DistanceUnit::Inch);
-    }
-
-    fn g21(&mut self) {
-        self.parser.set_distance_unit(DistanceUnit::Millimeter);
     }
 
     fn g90(&mut self) {
