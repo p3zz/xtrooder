@@ -54,9 +54,13 @@ pub enum GCommand {
         p: Option<Duration>,
         s: Option<Duration>,
     },
+    // set distance unit to inches
     G20,
+    // set distance unit to millimeters
     G21,
+    // set positioning as absolute
     G90,
+    // set positioning as relative
     G91,
     // List SD Card files
     M20,
@@ -175,7 +179,7 @@ pub struct GCodeParser {
 }
 
 impl GCodeParser {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             state: ParserState::ReadingCommand,
             distance_unit: DistanceUnit::Millimeter,
