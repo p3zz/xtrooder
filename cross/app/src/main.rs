@@ -33,14 +33,12 @@ use parser::gcode::{GCodeParser, GCommand, GCommandType};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
-use core::str;
-
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
-static PLANNER_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 
 bind_interrupts!(struct Irqs {
     USART3 => usart::InterruptHandler<USART3>;
@@ -97,36 +95,37 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
 
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
-    // loop{
-    //     let mut q = COMMAND_DISPATCHER_CHANNEL.lock().await;
-    //     while let Some(cmd) = q.dequeue(){
-    //         match cmd {
-    //             GCommand::G0{..} |
-    //             GCommand::G1{..} |
-    //             GCommand::G2{..} |
-    //             GCommand::G3{..} |
-    //             GCommand::G4{..} | 
-    //             GCommand::G20 | 
-    //             GCommand::G21 |
-    //             GCommand::G90 |
-    //             GCommand::G91 => {
-    //                 let mut planner_queue = PLANNER_QUEUE.lock().await;
-    //                 // TODO check full queue
-    //                 planner_queue.enqueue(cmd).unwrap();
-    //             },
-    //             GCommand::M104 { s } => {
-    //                 let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
-    //                 *t = Some(s);
-    //             },
-    //             GCommand::M140 { s } => {
-    //                 let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
-    //                 *t = Some(s);
-    //             },
-    //             GCommand::M149 => todo!(),
-    //             _ => todo!()
-    //         }
-    //     }
-    // }
+    let dt = Duration::from_millis(500);
+    loop{        
+        let cmd = COMMAND_DISPATCHER_CHANNEL.receive().await;
+        match cmd {
+            // every movement command is redirected to the planner channel
+            GCommand::G0{..} |
+            GCommand::G1{..} |
+            GCommand::G2{..} |
+            GCommand::G3{..} |
+            GCommand::G4{..} | 
+            GCommand::G20 | 
+            GCommand::G21 |
+            GCommand::G90 |
+            GCommand::G91 => {
+                PLANNER_CHANNEL.send(cmd).await;
+            },
+            // hotend target temperature is used to update the target temperature of the hotend task
+            GCommand::M104 { s } => {
+                let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
+                *t = Some(s);
+            },
+            // heatbed target temperature is used to update the target temperature of the hotend task
+            GCommand::M140 { s } => {
+                let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
+                *t = Some(s);
+            },
+            GCommand::M149 => todo!(),
+            _ => todo!()
+        }
+        Timer::after(dt).await;
+    }
 }
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
