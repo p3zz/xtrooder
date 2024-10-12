@@ -25,6 +25,7 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
+use fs::filesystem::files::{File, Mode};
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
 use heapless::{String, Vec};
@@ -36,7 +37,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<32>, 8> = Channel::new();
-static SD_CARD_INPUT_QUEUE: Mutex<ThreadModeRawMutex, Queue<GCommand, 8>> = Mutex::new(Queue::new());
+static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
@@ -232,44 +233,50 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
     let clock = Clock::new();
     let device = SdmmcDevice::new(sdmmc);
     let mut volume_manager = VolumeManager::new(device, clock);
+    let mut working_volume = None;
+    let mut working_dir = None;
+    let mut working_file = None;
 
     let dt = Duration::from_millis(500);
     loop {
-        Timer::after(dt).await;
-        // if !available{
-        //     continue;
-        // }
-        // let mut cmd: Option<GCommand> = None;
-        // {
-        //     let mut q = SD_CARD_INPUT_QUEUE.lock().await;
-        //     cmd = q.dequeue();
-        // }
-        // we can unwrap because we checked before that the queue is not empty
-        // match cmd.unwrap(){
-        //     GCommand::M20 => {
-        //         let mut volume0 = match volume_manager.open_volume(VolumeIdx(0)).await {
-        //             Ok(v) => v,
-        //             Err(_) => defmt::panic!("Cannot find module"),
-        //         };
+        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive(){
+            match cmd{
+            GCommand::M20 => {
+                
             
-        //         // info!("Volume 0: {:?}", volume0);
-        //         // Open the root directory (mutably borrows from the volume).
-        //         let mut root_dir = match volume0.open_root_dir() {
-        //             Ok(d) => d,
-        //             Err(_) => defmt::panic!("Cannot open root dir"),
-        //         };
-        //         root_dir.iterate_dir(|e|{
-        //             e.attributes.is_directory()
-        //         });
-        //     },
-        //     GCommand::M21 => todo!(),
-        //     GCommand::M23 { filename } => todo!(),
-        //     GCommand::M24 { s, t } => todo!(),
-        //     GCommand::M25 => todo!(),
-        //     GCommand::M104 { s } => todo!(),
-        //     GCommand::M149 => todo!(),
-        //     _ => todo!()
-        // }
+                // // info!("Volume 0: {:?}", volume0);
+                // // Open the root directory (mutably borrows from the volume).
+                // let mut root_dir = match volume0.open_root_dir() {
+                //     Ok(d) => d,
+                //     Err(_) => defmt::panic!("Cannot open root dir"),
+                // };
+            },
+            GCommand::M21 => {
+                working_volume = match volume_manager.open_volume(VolumeIdx(0)).await {
+                    Ok(v) => Some(v),
+                    Err(_) => defmt::panic!("Cannot find module"),
+                };
+                let mut v = working_volume.unwrap();
+                working_dir = match v.open_root_dir() {
+                    Ok(d) => Some(d),
+                    Err(_) => defmt::panic!("Cannot open root dir")
+                };
+            },
+            GCommand::M23 { filename } => {
+                let mut dir = working_dir.expect("Working directory not set");
+                working_file = match dir.open_file_in_dir(filename, Mode::ReadOnly).await {
+                    Ok(f) => Some(f),
+                    Err(_) => defmt::panic!("Cannot open root dir")
+                }
+            },
+            GCommand::M24 { s, t } => todo!(),
+            GCommand::M25 => todo!(),
+            GCommand::M104 { s } => todo!(),
+            GCommand::M149 => todo!(),
+            _ => todo!()
+            }
+        }
+        Timer::after(dt).await;
     }
 }
 
