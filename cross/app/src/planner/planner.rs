@@ -81,7 +81,7 @@ impl<P: StatefulOutputPin> Planner<P> {
                 self.g4(p, s).await;
                 Ok(())
             }
-            _ => Err(StepperError::NotSupported)
+            _ => Err(StepperError::NotSupported),
         }
     }
 

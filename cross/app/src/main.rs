@@ -10,7 +10,9 @@ use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::{ADC2, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8};
+use embassy_stm32::peripherals::{
+    ADC2, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8,
+};
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::time::mhz;
 use embassy_stm32::usart::{self, UartRx};
@@ -26,7 +28,7 @@ use embassy_stm32::{
     },
     usart::{InterruptHandler, Uart},
 };
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex, channel::Channel};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
 use fs::filesystem::filename::ShortFileName;
@@ -42,9 +44,11 @@ use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
-static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
+static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> =
+    Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
+static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> =
+    Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 
@@ -75,8 +79,7 @@ impl<'d> StatefulOutputPin for StepperPin<'d> {
 async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     let mut config = embassy_stm32::usart::Config::default();
     config.baudrate = 19200;
-    let mut uart =
-        UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
+    let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
     let mut tmp = [0u8; MAX_MESSAGE_LEN];
@@ -84,11 +87,10 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     loop {
         if let Ok(n) = uart.read_until_idle(&mut tmp).await {
             for b in tmp {
-                if b == b'\n'{
+                if b == b'\n' {
                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
                     msg.clear();
-                }
-                else{
+                } else {
                     // TODO handle buffer overflow
                     msg.push(b.into()).unwrap();
                 }
@@ -102,45 +104,45 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
-    loop{        
+    loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
-        if let Some(cmd) = parser.parse(msg.as_str()){
+        if let Some(cmd) = parser.parse(msg.as_str()) {
             match cmd {
                 // every movement command is redirected to the planner channel
-                GCommand::G0{..} |
-                GCommand::G1{..} |
-                GCommand::G2{..} |
-                GCommand::G3{..} |
-                GCommand::G4{..} | 
-                GCommand::G90 |
-                GCommand::G91 => {
+                GCommand::G0 { .. }
+                | GCommand::G1 { .. }
+                | GCommand::G2 { .. }
+                | GCommand::G3 { .. }
+                | GCommand::G4 { .. }
+                | GCommand::G90
+                | GCommand::G91 => {
                     PLANNER_CHANNEL.send(cmd).await;
-                },
+                }
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
                 // hotend target temperature is used to update the target temperature of the hotend task
                 GCommand::M104 { s } => {
                     let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
                     *t = Some(s);
-                },
+                }
                 // heatbed target temperature is used to update the target temperature of the hotend task
                 GCommand::M140 { s } => {
                     let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
                     *t = Some(s);
-                },
+                }
                 GCommand::M149 => todo!(),
-                GCommand::M20 |
-                GCommand::M21 |
-                GCommand::M22 |
-                GCommand::M23 {..} |
-                GCommand::M24 {..} |
-                GCommand::M25 => {
+                GCommand::M20
+                | GCommand::M21
+                | GCommand::M22
+                | GCommand::M23 { .. }
+                | GCommand::M24 { .. }
+                | GCommand::M25 => {
                     SD_CARD_CHANNEL.send(cmd).await;
                 }
-                _ => todo!()
+                _ => todo!(),
             }
         }
-        
+
         Timer::after(dt).await;
     }
 }
@@ -171,12 +173,12 @@ async fn hotend_handler(adc_peri: ADC1, read_pin: PA3, heater_tim: TIM4, heater_
 
     let dt = Duration::from_millis(500);
     loop {
-        // try to read the target temperature on each iterator 
+        // try to read the target temperature on each iterator
         // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
         {
             let lock = HOTEND_TARGET_TEMPERATURE.try_lock();
-            if let Ok(mut t) = lock{
-                if let Some(temp) = t.take(){
+            if let Ok(mut t) = lock {
+                if let Some(temp) = t.take() {
                     hotend.set_temperature(temp);
                 }
                 *t = None;
@@ -213,13 +215,13 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
     let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(500);
-    // try to read the target temperature on each iterator 
+    // try to read the target temperature on each iterator
     // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
     loop {
         {
             let lock = HEATBED_TARGET_TEMPERATURE.try_lock();
-            if let Ok(mut t) = lock{
-                if let Some(temp) = t.take(){
+            if let Ok(mut t) = lock {
+                if let Some(temp) = t.take() {
                     heatbed.set_temperature(temp);
                 }
                 *t = None;
@@ -231,18 +233,16 @@ async fn heatbed_handler(adc_peri: ADC2, read_pin: PA2, heater_tim: TIM8, heater
 }
 
 #[embassy_executor::task]
-async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9, d2: PC10, d3: PC11) {
-    let sdmmc = Sdmmc::new_4bit(
-        spi_peri,
-        Irqs,
-        clk,
-        cmd,
-        d0,
-        d1,
-        d2,
-        d3,
-        Default::default(),
-    );
+async fn sdcard_handler(
+    spi_peri: SDMMC1,
+    clk: PC12,
+    cmd: PD2,
+    d0: PC8,
+    d1: PC9,
+    d2: PC10,
+    d3: PC11,
+) {
+    let sdmmc = Sdmmc::new_4bit(spi_peri, Irqs, clk, cmd, d0, d1, d2, d3, Default::default());
 
     let clock = Clock::new();
     let device = SdmmcDevice::new(sdmmc);
@@ -250,55 +250,66 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
     let mut working_dir = None;
     let mut working_file = None;
     let mut running = false;
-    let mut buf: [u8; MAX_MESSAGE_LEN]= [0u8; MAX_MESSAGE_LEN];
+    let mut buf: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
 
     let dt = Duration::from_millis(500);
     loop {
-        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive(){
-            match cmd{
-            GCommand::M20 => {
-                let dir = working_dir.expect("Working directory not set");
-                let mut msg: String<MAX_MESSAGE_LEN> = String::from_str("Begin file list").unwrap();
-                volume_manager.iterate_dir(dir, |d| {
-                    let name_vec: Vec<u8, 16> = Vec::from_slice(d.clone().name.base_name()).unwrap();
-                    let name = String::from_utf8(name_vec).unwrap();
-                    msg.push_str(name.as_str()).unwrap();
-                    msg.push('\n').unwrap();
-                }).await.expect("Error while listing files");
-                msg.push_str("End file list").unwrap();
-                // TODO send message to UART
-            },
-            GCommand::M21 => {
-                let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
-                    Ok(v) => Some(v),
-                    Err(_) => defmt::panic!("Cannot find module"),
-                };
-                working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
-                    Ok(d) => Some(d),
-                    Err(_) => defmt::panic!("Cannot open root dir")
-                };
-            },
-            GCommand::M23 { filename } => {
-                let dir = working_dir.expect("Working directory not set");
-                working_file = match volume_manager.open_file_in_dir(dir, filename, Mode::ReadOnly).await {
-                    Ok(f) => Some(f),
-                    Err(_) => defmt::panic!("File not found")
+        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
+            match cmd {
+                GCommand::M20 => {
+                    let dir = working_dir.expect("Working directory not set");
+                    let mut msg: String<MAX_MESSAGE_LEN> =
+                        String::from_str("Begin file list").unwrap();
+                    volume_manager
+                        .iterate_dir(dir, |d| {
+                            let name_vec: Vec<u8, 16> =
+                                Vec::from_slice(d.clone().name.base_name()).unwrap();
+                            let name = String::from_utf8(name_vec).unwrap();
+                            msg.push_str(name.as_str()).unwrap();
+                            msg.push('\n').unwrap();
+                        })
+                        .await
+                        .expect("Error while listing files");
+                    msg.push_str("End file list").unwrap();
+                    // TODO send message to UART
                 }
-            },
-            // ignore the parameters of M24, just start/resume the print
-            GCommand::M24 {..} => {
-                running = true;
-            },
-            GCommand::M25 => {
-                running = false;
-            },
-            _ => todo!()
+                GCommand::M21 => {
+                    let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
+                        Ok(v) => Some(v),
+                        Err(_) => defmt::panic!("Cannot find module"),
+                    };
+                    working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
+                        Ok(d) => Some(d),
+                        Err(_) => defmt::panic!("Cannot open root dir"),
+                    };
+                }
+                GCommand::M23 { filename } => {
+                    let dir = working_dir.expect("Working directory not set");
+                    working_file = match volume_manager
+                        .open_file_in_dir(dir, filename, Mode::ReadOnly)
+                        .await
+                    {
+                        Ok(f) => Some(f),
+                        Err(_) => defmt::panic!("File not found"),
+                    }
+                }
+                // ignore the parameters of M24, just start/resume the print
+                GCommand::M24 { .. } => {
+                    running = true;
+                }
+                GCommand::M25 => {
+                    running = false;
+                }
+                _ => todo!(),
             }
         }
 
-        if running && working_file.is_some(){
+        if running && working_file.is_some() {
             // we can safely unwrap because the existence of the file has been checked during M23
-            volume_manager.read_line(working_file.unwrap(), &mut buf).await.unwrap();
+            volume_manager
+                .read_line(working_file.unwrap(), &mut buf)
+                .await
+                .unwrap();
             let vec: Vec<u8, MAX_MESSAGE_LEN> = Vec::from_slice(&buf).expect("Malformed string");
             let str = String::from_utf8(vec).unwrap();
             COMMAND_DISPATCHER_CHANNEL.send(str).await;
@@ -309,10 +320,14 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
 
 #[embassy_executor::task]
 async fn planner_handler(
-    x_step_pin: PA0, x_dir_pin: PB0, 
-    y_step_pin: PA6, y_dir_pin: PB1, 
-    z_step_pin: PA5, z_dir_pin: PB2, 
-    e_step_pin: PA1, e_dir_pin: PB4
+    x_step_pin: PA0,
+    x_dir_pin: PB0,
+    y_step_pin: PA6,
+    y_dir_pin: PB1,
+    z_step_pin: PA5,
+    z_dir_pin: PB2,
+    e_step_pin: PA1,
+    e_dir_pin: PB4,
 ) {
     // --------- X AXIS -----------------
 
@@ -366,19 +381,19 @@ async fn planner_handler(
 
     let dt = Duration::from_millis(500);
 
-    loop{
+    loop {
         let cmd = PLANNER_CHANNEL.receive().await;
         match cmd {
-            GCommand::G0 { .. } |
-            GCommand::G1 { .. } |
-            GCommand::G2 { .. } |
-            GCommand::G3 { .. } |
-            GCommand::G4 { .. } |
-            GCommand::G90 |
-            GCommand::G91 => {
+            GCommand::G0 { .. }
+            | GCommand::G1 { .. }
+            | GCommand::G2 { .. }
+            | GCommand::G3 { .. }
+            | GCommand::G4 { .. }
+            | GCommand::G90
+            | GCommand::G91 => {
                 planner.execute(cmd).await.expect("Planner error");
-            },
-            _ => ()
+            }
+            _ => (),
         }
         Timer::after(dt).await;
     }
@@ -423,9 +438,7 @@ async fn main(_spawner: Spawner) {
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
 
     _spawner
-        .spawn(input_handler(
-            p.USART3, p.PB11, p.DMA1_CH0
-        ))
+        .spawn(input_handler(p.USART3, p.PB11, p.DMA1_CH0))
         .unwrap();
 
     _spawner
@@ -437,7 +450,9 @@ async fn main(_spawner: Spawner) {
         .unwrap();
 
     _spawner
-        .spawn(planner_handler(p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4))
+        .spawn(planner_handler(
+            p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
+        ))
         .unwrap();
 
     loop {
