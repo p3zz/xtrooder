@@ -248,15 +248,15 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
             match cmd{
             GCommand::M20 => {
                 let dir = working_dir.expect("Working directory not set");
-                let mut str: String<256> = String::from_str("Begin file list").unwrap();
+                let mut msg: String<MAX_MESSAGE_LEN> = String::from_str("Begin file list").unwrap();
                 volume_manager.iterate_dir(dir, |d| {
                     let name_vec: Vec<u8, 16> = Vec::from_slice(d.clone().name.base_name()).unwrap();
                     let name = String::from_utf8(name_vec).unwrap();
-                    str.push_str(name.as_str()).unwrap();
-                    str.push('\n').unwrap();
+                    msg.push_str(name.as_str()).unwrap();
+                    msg.push('\n').unwrap();
                 }).await.expect("Error while listing files");
-                str.push_str("End file list").unwrap();
-
+                msg.push_str("End file list").unwrap();
+                // TODO send message to UART
             },
             GCommand::M21 => {
                 let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
