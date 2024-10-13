@@ -53,6 +53,7 @@ pub enum StepperError {
     MoveOutOfBounds,
     MoveNotValid,
     MissingAttachment,
+    NotSupported
 }
 
 #[derive(Clone, Copy)]

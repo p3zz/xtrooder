@@ -77,13 +77,11 @@ impl<P: StatefulOutputPin> Planner<P> {
                 self.g91();
                 Ok(())
             }
-            GCommand::M104 { s } => todo!(),
             GCommand::G4 { p, s } => {
                 self.g4(p, s).await;
                 Ok(())
             }
-            GCommand::M149 => todo!(),
-            _ => todo!()
+            _ => Err(StepperError::NotSupported)
         }
     }
 
