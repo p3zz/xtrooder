@@ -4,11 +4,13 @@
 use core::str::FromStr;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
+use app::planner;
+use app::planner::planner::Planner;
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::{ADC2, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8};
+use embassy_stm32::peripherals::{ADC2, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, TIM8};
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::time::mhz;
 use embassy_stm32::usart::{self, UartRx};
@@ -127,6 +129,14 @@ async fn command_dispatcher_task() {
                     *t = Some(s);
                 },
                 GCommand::M149 => todo!(),
+                GCommand::M20 |
+                GCommand::M21 |
+                GCommand::M22 |
+                GCommand::M23 {..} |
+                GCommand::M24 {..} |
+                GCommand::M25 => {
+                    SD_CARD_CHANNEL.send(cmd).await;
+                }
                 _ => todo!()
             }
         }
@@ -297,6 +307,82 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
     }
 }
 
+#[embassy_executor::task]
+async fn planner_handler(
+    x_step_pin: PA0, x_dir_pin: PB0, 
+    y_step_pin: PA6, y_dir_pin: PB1, 
+    z_step_pin: PA5, z_dir_pin: PB2, 
+    e_step_pin: PA1, e_dir_pin: PB4
+) {
+    // --------- X AXIS -----------------
+
+    let x_step = StepperPin {
+        pin: Output::new(x_step_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let x_dir = StepperPin {
+        pin: Output::new(x_dir_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
+
+    // --------- Y AXIS -----------------
+
+    let y_step = StepperPin {
+        pin: Output::new(y_step_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let y_dir = StepperPin {
+        pin: Output::new(y_dir_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
+
+    // --------- Z AXIS -----------------
+
+    let z_step = StepperPin {
+        pin: Output::new(z_step_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let z_dir = StepperPin {
+        pin: Output::new(z_dir_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
+
+    // --------- E AXIS -----------------
+
+    let e_step = StepperPin {
+        pin: Output::new(e_step_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let e_dir = StepperPin {
+        pin: Output::new(e_dir_pin, Level::Low, PinSpeed::Low),
+    };
+
+    let e_stepper = Stepper::new(e_step, e_dir, StepperOptions::default(), None);
+
+    let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
+
+    let dt = Duration::from_millis(500);
+
+    loop{
+        let cmd = PLANNER_CHANNEL.receive().await;
+        match cmd {
+            GCommand::G0 { .. } |
+            GCommand::G1 { .. } |
+            GCommand::G2 { .. } |
+            GCommand::G3 { .. } |
+            GCommand::G4 { .. } |
+            GCommand::G90 |
+            GCommand::G91 => {
+                planner.execute(cmd).await.expect("Planner error");
+            },
+            _ => ()
+        }
+        Timer::after(dt).await;
+    }
+}
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -334,44 +420,7 @@ async fn main(_spawner: Spawner) {
     }
     let p = embassy_stm32::init(config);
 
-    // --------- X AXIS -----------------
-
-    let x_step = StepperPin {
-        pin: Output::new(p.PA0, Level::Low, PinSpeed::Low),
-    };
-
-    let x_dir = StepperPin {
-        pin: Output::new(p.PB0, Level::Low, PinSpeed::Low),
-    };
-
-    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
-
-    // --------- Y AXIS -----------------
-
-    let y_step = StepperPin {
-        pin: Output::new(p.PA6, Level::Low, PinSpeed::Low),
-    };
-
-    let y_dir = StepperPin {
-        pin: Output::new(p.PB1, Level::Low, PinSpeed::Low),
-    };
-
-    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
-
-    // --------- Z AXIS -----------------
-
-    let z_step = StepperPin {
-        pin: Output::new(p.PA5, Level::Low, PinSpeed::Low),
-    };
-
-    let z_dir = StepperPin {
-        pin: Output::new(p.PB2, Level::Low, PinSpeed::Low),
-    };
-
-    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
-
     let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
-    led.set_high();
 
     _spawner
         .spawn(input_handler(
@@ -387,36 +436,14 @@ async fn main(_spawner: Spawner) {
         .spawn(heatbed_handler(p.ADC2, p.PA2, p.TIM8, p.PC8))
         .unwrap();
 
+    _spawner
+        .spawn(planner_handler(p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4))
+        .unwrap();
+
     loop {
-        // let mut c: Option<GCommand> = None;
-        // {
-        //     let mut q = COMMAND_DISPATCHER_CHANNEL.lock().await;
-        //     c = q.dequeue();
-        // } // mutex is freed here
-
-        // match c {
-        //     Some(cmd) => match cmd {
-        //         GCommand::G0 { x, y, z, f } => {
-        //             info!("performing a linear movement");
-        //             linear_move_to_3d(
-        //                 &mut x_stepper,
-        //                 &mut y_stepper,
-        //                 &mut z_stepper,
-        //                 Vector3D::new(
-        //                     Distance::from_mm(x.unwrap()),
-        //                     Distance::from_mm(y.unwrap()),
-        //                     Distance::from_mm(z.unwrap()),
-        //                 ),
-        //                 StepperSpeed::from_mm_per_second(f.unwrap()),
-        //             )
-        //             .await
-        //             .unwrap_or_else(|_| info!("Cannot perform move"))
-        //         }
-        //         _ => info!("implement movement"),
-        //     },
-        //     None => (),
-        // };
-
-        Timer::after(Duration::from_millis(1)).await;
+        led.set_high();
+        Timer::after(Duration::from_secs(1)).await;
+        led.set_low();
+        Timer::after(Duration::from_secs(1)).await;
     }
 }
