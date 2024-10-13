@@ -814,6 +814,18 @@ where
         Ok(b)
     }
 
+    /// Read a single byte and write it inside the buffer until an endline is found.
+    pub async fn read_line(&mut self, file: RawFile, buffer: &mut [u8]) -> Result<usize, DeviceError<D::E>> {
+        for (i, b) in buffer.iter_mut().enumerate() {
+            let b_read = self.read_byte(file).await?;
+            if b_read == b'\n' {
+                return Ok(i);
+            }
+            *b = b_read;
+        }
+        Err(DeviceError::NotFound)
+    }
+
     /// Read from an open file.
     pub async fn read(
         &mut self,

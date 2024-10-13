@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::str::FromStr;
+
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
@@ -25,6 +27,7 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex, channel::Channel};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
+use fs::filesystem::filename::ShortFileName;
 use fs::filesystem::files::{File, Mode};
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::spsc::Queue;
@@ -36,7 +39,8 @@ use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
-static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<32>, 8> = Channel::new();
+const MAX_MESSAGE_LEN: usize = 255;
+static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
@@ -72,8 +76,8 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
     let mut uart =
         UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
-    let mut msg: String<32> = String::new();
-    let mut tmp = [0u8; 64];
+    let mut msg: String<MAX_MESSAGE_LEN> = String::new();
+    let mut tmp = [0u8; MAX_MESSAGE_LEN];
 
     loop {
         if let Ok(n) = uart.read_until_idle(&mut tmp).await {
@@ -87,7 +91,7 @@ async fn input_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
                     msg.push(b.into()).unwrap();
                 }
             }
-            tmp = [0u8; 64];
+            tmp = [0u8; MAX_MESSAGE_LEN];
         }
     }
 }
@@ -233,48 +237,61 @@ async fn sdcard_handler(spi_peri: SDMMC1, clk: PC12, cmd: PD2, d0: PC8, d1: PC9,
     let clock = Clock::new();
     let device = SdmmcDevice::new(sdmmc);
     let mut volume_manager = VolumeManager::new(device, clock);
-    let mut working_volume = None;
     let mut working_dir = None;
     let mut working_file = None;
+    let mut running = false;
+    let mut buf: [u8; MAX_MESSAGE_LEN]= [0u8; MAX_MESSAGE_LEN];
 
     let dt = Duration::from_millis(500);
     loop {
         if let Ok(cmd) = SD_CARD_CHANNEL.try_receive(){
             match cmd{
             GCommand::M20 => {
-                
-            
-                // // info!("Volume 0: {:?}", volume0);
-                // // Open the root directory (mutably borrows from the volume).
-                // let mut root_dir = match volume0.open_root_dir() {
-                //     Ok(d) => d,
-                //     Err(_) => defmt::panic!("Cannot open root dir"),
-                // };
+                let dir = working_dir.expect("Working directory not set");
+                let mut str: String<256> = String::from_str("Begin file list").unwrap();
+                volume_manager.iterate_dir(dir, |d| {
+                    let name_vec: Vec<u8, 16> = Vec::from_slice(d.clone().name.base_name()).unwrap();
+                    let name = String::from_utf8(name_vec).unwrap();
+                    str.push_str(name.as_str()).unwrap();
+                    str.push('\n').unwrap();
+                }).await.expect("Error while listing files");
+                str.push_str("End file list").unwrap();
+
             },
             GCommand::M21 => {
-                working_volume = match volume_manager.open_volume(VolumeIdx(0)).await {
+                let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
                     Ok(v) => Some(v),
                     Err(_) => defmt::panic!("Cannot find module"),
                 };
-                let mut v = working_volume.unwrap();
-                working_dir = match v.open_root_dir() {
+                working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
                     Ok(d) => Some(d),
                     Err(_) => defmt::panic!("Cannot open root dir")
                 };
             },
             GCommand::M23 { filename } => {
-                let mut dir = working_dir.expect("Working directory not set");
-                working_file = match dir.open_file_in_dir(filename, Mode::ReadOnly).await {
+                let dir = working_dir.expect("Working directory not set");
+                working_file = match volume_manager.open_file_in_dir(dir, filename, Mode::ReadOnly).await {
                     Ok(f) => Some(f),
-                    Err(_) => defmt::panic!("Cannot open root dir")
+                    Err(_) => defmt::panic!("File not found")
                 }
             },
-            GCommand::M24 { s, t } => todo!(),
-            GCommand::M25 => todo!(),
-            GCommand::M104 { s } => todo!(),
-            GCommand::M149 => todo!(),
+            // ignore the parameters of M24, just start/resume the print
+            GCommand::M24 {..} => {
+                running = true;
+            },
+            GCommand::M25 => {
+                running = false;
+            },
             _ => todo!()
             }
+        }
+
+        if running && working_file.is_some(){
+            // we can safely unwrap because the existence of the file has been checked during M23
+            volume_manager.read_line(working_file.unwrap(), &mut buf).await.unwrap();
+            let vec: Vec<u8, MAX_MESSAGE_LEN> = Vec::from_slice(&buf).expect("Malformed string");
+            let str = String::from_utf8(vec).unwrap();
+            COMMAND_DISPATCHER_CHANNEL.send(str).await;
         }
         Timer::after(dt).await;
     }
