@@ -1,24 +1,22 @@
 use defmt::info;
 use embassy_stm32::{
     time::Hertz,
-    timer::{simple_pwm::SimplePwm, CaptureCompare16bitInstance, Channel},
+    timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
 };
 use embassy_time::Duration;
 use math::temperature::Temperature;
 use micromath::F32Ext;
 use pid_lite::Controller;
 
-pub struct Heater<'s, S> {
-    out: SimplePwm<'s, S>,
+pub struct Heater<'s, T: GeneralInstance4Channel> {
+    out: SimplePwm<'s, T>,
     ch: Channel,
     pid: Controller,
 }
 
-impl<'s, S> Heater<'s, S>
-where
-    S: CaptureCompare16bitInstance,
+impl<'s, T: GeneralInstance4Channel> Heater<'s, T>
 {
-    pub fn new(mut out: SimplePwm<'s, S>, ch: Channel) -> Heater<'s, S> {
+    pub fn new(mut out: SimplePwm<'s, T>, ch: Channel) -> Heater<'s, T> {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).to_celsius(),
             20.0,
@@ -53,7 +51,7 @@ where
             duty_cycle = min;
         }
 
-        let duty_cycle = (duty_cycle as f32).trunc() as u16;
+        let duty_cycle = (duty_cycle as f32).trunc() as u32;
 
         info!("duty cycle set to {}", duty_cycle);
         self.out.set_duty(self.ch, duty_cycle);

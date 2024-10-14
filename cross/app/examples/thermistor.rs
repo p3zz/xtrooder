@@ -4,9 +4,9 @@
 use app::hotend::thermistor::Thermistor;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::Resolution;
+use embassy_stm32::adc::{AdcChannel, Resolution};
 use embassy_time::{Duration, Timer};
-use math::temperature::Temperature;
+use math::{resistance::Resistance, temperature::Temperature};
 use {defmt_rtt as _, panic_probe as _};
 
 #[embassy_executor::main]
@@ -48,16 +48,17 @@ async fn main(_spawner: Spawner) {
 
     let mut thermistor = Thermistor::new(
         p.ADC1,
-        p.PA3,
+        p.DMA1_CH0,
+        p.PA0.degrade_adc(),
         Resolution::BITS12,
-        100_000.0,
-        10_000.0,
+        Resistance::from_ohm(100_000),
+        Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
     );
 
     info!("Thermistor example");
     loop {
-        let t = thermistor.read_temperature();
+        let t = thermistor.read_temperature().await;
         info!("Temperature: {}°C", t.to_celsius());
         Timer::after(Duration::from_millis(200)).await;
     }

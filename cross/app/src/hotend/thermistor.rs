@@ -1,8 +1,6 @@
-use defmt::info;
-use embassy_stm32::adc::{Adc, AdcPin, Instance, Resolution, SampleTime};
-use embassy_stm32::gpio::Pin;
+use embassy_stm32::adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime};
 use embassy_stm32::Peripheral;
-use embassy_time::Delay;
+use math::resistance::Resistance;
 use micromath::F32Ext;
 
 use math::temperature::Temperature;
@@ -13,38 +11,41 @@ Vcc: voltage reference of the board
 Varef: voltage of the thermistor
 */
 
-pub struct Thermistor<'a, T, P>
+pub struct Thermistor<'a, T, D>
 where
     T: Instance,
-    P: AdcPin<T> + Pin,
+    D: RxDma<T>
 {
     adc: Adc<'a, T>,
-    read_pin: P,
+    dma_peri: D,
+    read_pin: AnyAdcChannel<T>,
     resolution: Resolution,
-    r0: f64,
-    r_series: f64,
+    r0: Resistance,
+    r_series: Resistance,
     b: Temperature,
 }
 
-impl<'a, T, P> Thermistor<'a, T, P>
+impl<'a, T, D> Thermistor<'a, T, D>
 where
     T: Instance,
-    P: AdcPin<T> + Pin,
+    D: RxDma<T>
 {
     pub fn new(
         adc_peri: impl Peripheral<P = T> + 'a,
-        read_pin: P,
+        dma_peri: D,
+        read_pin: AnyAdcChannel<T>,
         resolution: Resolution,
-        r0: f64,
-        r_series: f64,
+        r0: Resistance,
+        r_series: Resistance,
         b: Temperature,
-    ) -> Thermistor<'a, T, P> {
-        let mut adc = Adc::new(adc_peri, &mut Delay);
+    ) -> Thermistor<'a, T, D> {
+        let mut adc = Adc::new(adc_peri);
         adc.set_sample_time(SampleTime::CYCLES32_5);
         adc.set_resolution(resolution);
         Thermistor {
             adc,
             read_pin,
+            dma_peri,
             resolution,
             r0,
             r_series,
@@ -52,11 +53,11 @@ where
         }
     }
 
-    pub fn read_temperature(&mut self) -> Temperature {
-        let sample = self.adc.read(&mut self.read_pin) as f64;
-        info!("sample: {}", sample);
+    pub async fn read_temperature(&mut self) -> Temperature {
+        let mut readings: [u16; 1] = [0; 1];
+        self.adc.read(&mut self.dma_peri, [(&mut self.read_pin, SampleTime::CYCLES32_5)].into_iter(), &mut readings).await;
         compute_temperature(
-            sample,
+            readings[0] as usize,
             self.resolution,
             Temperature::from_celsius(25.0),
             self.b,
@@ -66,14 +67,14 @@ where
     }
 }
 
-fn get_steps(resolution: Resolution) -> f64 {
+fn get_steps(resolution: Resolution) -> usize {
     match resolution {
-        Resolution::BITS16 => f64::from(1 << 16),
-        Resolution::BITS14 => f64::from(1 << 14),
-        Resolution::BITS12 => f64::from(1 << 12),
-        Resolution::BITS10 => f64::from(1 << 10),
-        Resolution::BITS8 => f64::from(1 << 8),
-        _ => 0.0,
+        Resolution::BITS16 => 1 << 16,
+        Resolution::BITS14 => 1 << 14,
+        Resolution::BITS12 => 1 << 12,
+        Resolution::BITS10 => 1 << 10,
+        Resolution::BITS8 => 1 << 8,
+        _ => 0,
     }
 }
 
@@ -81,17 +82,16 @@ fn get_steps(resolution: Resolution) -> f64 {
 // https://www.petervis.com/electronics%20guides/calculators/thermistor/thermistor.html
 // Steinhart–Hart equation simplified for ntc thermistors
 fn compute_temperature(
-    sample: f64,
+    sample: usize,
     resolution: Resolution,
     t0: Temperature,
     b: Temperature,
-    r0: f64,
-    r_series: f64,
+    r0: Resistance,
+    r_series: Resistance,
 ) -> Temperature {
-    let max_sample = get_steps(resolution) - 1.0;
-    let r_ntc = r_series * (max_sample / sample - 1.0);
-    info!("R: {}", r_ntc);
+    let max_sample = get_steps(resolution) - 1;
+    let r_ntc = Resistance::from_ohm(r_series.as_ohm() * (max_sample / sample - 1));
     let val_inv =
-        (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
+        (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc.as_ohm() / r0.as_ohm()) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }

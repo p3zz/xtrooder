@@ -52,6 +52,7 @@ impl Clock {
         self.start_ticks = 0;
         self.stop_ticks = 0;
         self.elapsed_ticks = 0;
+        self.running = false;
     }
 }
 

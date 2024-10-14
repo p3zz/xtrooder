@@ -1,8 +1,7 @@
 use defmt::info;
 use embassy_stm32::{
-    adc::{AdcPin, Instance},
-    gpio::Pin,
-    timer::CaptureCompare16bitInstance,
+    adc::{Instance, RxDma},
+    timer::GeneralInstance4Channel,
 };
 use embassy_time::Duration;
 use math::temperature::Temperature;
@@ -12,8 +11,8 @@ use super::{heater::Heater, thermistor::Thermistor};
 pub struct Hotend<'l, H, I, P>
 where
     I: Instance,
-    P: AdcPin<I> + Pin,
-    H: CaptureCompare16bitInstance,
+    P: RxDma<I>,
+    H: GeneralInstance4Channel,
 {
     heater: Heater<'l, H>,
     thermistor: Thermistor<'l, I, P>,
@@ -22,8 +21,8 @@ where
 impl<'l, H, I, P> Hotend<'l, H, I, P>
 where
     I: Instance,
-    P: AdcPin<I> + Pin,
-    H: CaptureCompare16bitInstance,
+    P: RxDma<I>,
+    H: GeneralInstance4Channel,
 {
     pub fn new(heater: Heater<'l, H>, thermistor: Thermistor<'l, I, P>) -> Hotend<'l, H, I, P> {
         Hotend { heater, thermistor }
@@ -33,8 +32,8 @@ where
         self.heater.set_target_temperature(temperature);
     }
 
-    pub fn update(&mut self, dt: Duration) {
-        let curr_tmp = self.thermistor.read_temperature();
+    pub async fn update(&mut self, dt: Duration) {
+        let curr_tmp = self.thermistor.read_temperature().await;
         info!("Temperature: {}", curr_tmp.to_celsius());
         self.heater.update(curr_tmp, dt);
     }

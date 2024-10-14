@@ -10,3 +10,4 @@ pub mod duration;
 pub mod speed;
 pub mod temperature;
 pub mod vector;
+pub mod resistance;
