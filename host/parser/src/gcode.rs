@@ -101,7 +101,7 @@ impl defmt::Format for GCommand{
             GCommand::G21 => todo!(),
             GCommand::G90 => todo!(),
             GCommand::G91 => todo!(),
-            GCommand::M104 { s } => todo!(),
+            GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s.to_celsius()),
             GCommand::M149 => todo!(),
             GCommand::M20 => todo!(),
             GCommand::M21 => todo!(),
@@ -173,7 +173,6 @@ enum ParserState {
     ReadingComment,
 }
 pub struct GCodeParser {
-    state: ParserState,
     distance_unit: DistanceUnit,
     temperature_unit: TemperatureUnit,
 }
@@ -181,38 +180,33 @@ pub struct GCodeParser {
 impl GCodeParser {
     pub const fn new() -> Self {
         Self {
-            state: ParserState::ReadingCommand,
             distance_unit: DistanceUnit::Millimeter,
             temperature_unit: TemperatureUnit::Celsius,
         }
     }
 
     pub fn parse(&mut self, data: &str) -> Option<GCommand> {
+        let mut state = ParserState::ReadingCommand;
         let mut data_buffer: String<32> = String::new();
-        let mut result: Option<GCommand> = None;
         for b in data.chars() {
-            match self.state {
+            if b == '\n'{
+                break;
+            }
+            match state {
                 ParserState::ReadingCommand => match b {
-                    ';' | '(' | '\n' => {
-                        result = self.parse_line(&data_buffer.as_str());
-                        data_buffer.clear();
-                        
-                        self.state = if b == '\n' {
-                            ParserState::ReadingCommand
-                        } else {
-                            ParserState::ReadingComment
-                        }
-                    }
+                    ';' | '(' => {
+                        state = ParserState::ReadingComment
+                    },
                     // todo check buffer overflow
                     _ => data_buffer.push(b).unwrap(),
                 },
                 ParserState::ReadingComment => match b {
-                    '\n' | ')' => self.state = ParserState::ReadingCommand,
+                    ')' => state = ParserState::ReadingCommand,
                     _ => (),
                 },
             }
         }
-        result
+        self.parse_line(&data_buffer.as_str())
     }
 
     pub fn set_distance_unit(&mut self, unit: DistanceUnit) {
@@ -361,6 +355,15 @@ mod tests {
         let line = "hello";
         let command = parser.parse_line(line);
         assert!(command.is_none());
+    }
+
+    #[test]
+    fn test_parse_line_m104_valid() {
+        let parser = GCodeParser::new();
+        let line = "M104 S10";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(command.unwrap() == GCommand::M104 { s: Temperature::from_celsius(10.0) });
     }
 
     #[test]
