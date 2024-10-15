@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use core::error;
 use core::str::FromStr;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor, thermistor};
@@ -42,7 +43,7 @@ use math::distance::{Distance, DistanceUnit};
 use math::resistance::Resistance;
 use math::temperature::Temperature;
 use parser::gcode::{GCodeParser, GCommand, GCommandType};
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
 use static_cell::StaticCell;
 
@@ -397,7 +398,7 @@ async fn planner_handler(
         pin: Output::new(x_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), None);
+    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), Some(StepperAttachment::default()));
 
     // --------- Y AXIS -----------------
 
@@ -409,7 +410,7 @@ async fn planner_handler(
         pin: Output::new(y_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), None);
+    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), Some(StepperAttachment::default()));
 
     // --------- Z AXIS -----------------
 
@@ -421,7 +422,7 @@ async fn planner_handler(
         pin: Output::new(z_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), None);
+    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), Some(StepperAttachment::default()));
 
     // --------- E AXIS -----------------
 
@@ -433,7 +434,7 @@ async fn planner_handler(
         pin: Output::new(e_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let e_stepper = Stepper::new(e_step, e_dir, StepperOptions::default(), None);
+    let e_stepper = Stepper::new(e_step, e_dir, StepperOptions::default(), Some(StepperAttachment::default()));
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
@@ -441,6 +442,7 @@ async fn planner_handler(
 
     loop {
         let cmd = PLANNER_CHANNEL.receive().await;
+        info!("[PLANNER HANDLER] {}", cmd);
         match cmd {
             GCommand::G0 { .. }
             | GCommand::G1 { .. }
@@ -451,8 +453,9 @@ async fn planner_handler(
             | GCommand::G91 => {
                 planner.execute(cmd).await.expect("Planner error");
             }
-            _ => (),
+            _ => error!("[PLANNER HANDLER] command not handled"),
         }
+        info!("[PLANNER HANDLER] Move completed");
         Timer::after(dt).await;
     }
 }
@@ -509,11 +512,11 @@ async fn main(spawner: Spawner) {
         .spawn(heatbed_handler(p.ADC2, p.DMA1_CH3, p.PA2, p.TIM8, p.PC8))
         .unwrap();
 
-    // _spawner
-    //     .spawn(planner_handler(
-    //         p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
-    //     ))
-    //     .unwrap();
+    spawner
+        .spawn(planner_handler(
+            p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
+        ))
+        .unwrap();
 
     // _spawner
     //     .spawn(sdcard_handler(
