@@ -4,16 +4,17 @@
 use core::error;
 use core::str::FromStr;
 
-use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor, thermistor};
+use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::planner;
 use app::planner::planner::Planner;
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
-use defmt::{info, error};
+use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC7, PC8, PC9, PD2, SDMMC1, TIM8, UART4
+    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC7, PC8,
+    PC9, PD2, SDMMC1, TIM8, UART4,
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::time::mhz;
@@ -25,8 +26,9 @@ use embassy_stm32::{
     peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA2, PA3, PB10, PB11, PB9, TIM4, USART3},
     time::hz,
     timer::{
+        low_level::CountingMode,
         simple_pwm::{PwmPin, SimplePwm},
-        Channel as TimerChannel, low_level::CountingMode,
+        Channel as TimerChannel,
     },
     usart::{InterruptHandler, Uart},
 };
@@ -43,9 +45,9 @@ use math::distance::{Distance, DistanceUnit};
 use math::resistance::Resistance;
 use math::temperature::Temperature;
 use parser::gcode::{GCodeParser, GCommand, GCommandType};
+use static_cell::StaticCell;
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
-use static_cell::StaticCell;
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
@@ -93,7 +95,7 @@ async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
     let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let tmp = UART_RX_DMA_BUF.init([0u8;MAX_MESSAGE_LEN]);
+    let tmp = UART_RX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
 
     info!("Starting input handler loop");
 
@@ -110,8 +112,7 @@ async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
                 }
             }
             tmp.fill(0u8);
-        }
-        else{
+        } else {
             error!("Cannot read from UART");
         }
     }
@@ -164,18 +165,18 @@ async fn command_dispatcher_task() {
                 | GCommand::G90
                 | GCommand::G91 => {
                     PLANNER_CHANNEL.send(cmd).await;
-                },
+                }
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
                 // hotend target temperature is used to update the target temperature of the hotend task
                 GCommand::M104 { s } => {
                     info!("Setting hotend target");
                     HOTEND_TARGET_TEMPERATURE.signal(s);
-                },
+                }
                 // heatbed target temperature is used to update the target temperature of the hotend task
                 GCommand::M140 { s } => {
                     HEATBED_TARGET_TEMPERATURE.signal(s);
-                },
+                }
                 GCommand::M149 => todo!(),
                 GCommand::M20
                 | GCommand::M21
@@ -184,11 +185,10 @@ async fn command_dispatcher_task() {
                 | GCommand::M24 { .. }
                 | GCommand::M25 => {
                     SD_CARD_CHANNEL.send(cmd).await;
-                },
+                }
                 _ => error!("[COMMAND DISPATCHER] command not handler"),
             }
-        }
-        else{
+        } else {
             error!("[COMMAND DISPATCHER] Invalid command");
         }
 
@@ -198,7 +198,13 @@ async fn command_dispatcher_task() {
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heater_tim: TIM4, heater_out_pin: PB9) {
+async fn hotend_handler(
+    adc_peri: ADC1,
+    dma_peri: DMA1_CH2,
+    read_pin: PA3,
+    heater_tim: TIM4,
+    heater_out_pin: PB9,
+) {
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -209,7 +215,7 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
-        readings
+        readings,
     );
 
     let heater_out = SimplePwm::new(
@@ -243,7 +249,13 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 // TODO test with HEATBED_TARGET_TEMPERATURE
 #[embassy_executor::task]
-async fn heatbed_handler(adc_peri: ADC2, dma_peri: DMA1_CH3, read_pin: PA2, heater_tim: TIM8, heater_out_pin: PC8) {
+async fn heatbed_handler(
+    adc_peri: ADC2,
+    dma_peri: DMA1_CH3,
+    read_pin: PA2,
+    heater_tim: TIM8,
+    heater_out_pin: PC8,
+) {
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -254,7 +266,7 @@ async fn heatbed_handler(adc_peri: ADC2, dma_peri: DMA1_CH3, read_pin: PA2, heat
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
-        readings
+        readings,
     );
 
     let heater_out = SimplePwm::new(
@@ -348,13 +360,13 @@ async fn sdcard_handler(
                 }
                 // ignore the parameters of M24, just start/resume the print
                 GCommand::M24 { .. } => {
-                    if !running{
+                    if !running {
                         clock.start();
                         running = true;
                     }
                 }
                 GCommand::M25 => {
-                    if running{
+                    if running {
                         clock.stop();
                         running = false;
                     }
@@ -398,7 +410,12 @@ async fn planner_handler(
         pin: Output::new(x_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let x_stepper = Stepper::new(x_step, x_dir, StepperOptions::default(), Some(StepperAttachment::default()));
+    let x_stepper = Stepper::new(
+        x_step,
+        x_dir,
+        StepperOptions::default(),
+        Some(StepperAttachment::default()),
+    );
 
     // --------- Y AXIS -----------------
 
@@ -410,7 +427,12 @@ async fn planner_handler(
         pin: Output::new(y_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let y_stepper = Stepper::new(y_step, y_dir, StepperOptions::default(), Some(StepperAttachment::default()));
+    let y_stepper = Stepper::new(
+        y_step,
+        y_dir,
+        StepperOptions::default(),
+        Some(StepperAttachment::default()),
+    );
 
     // --------- Z AXIS -----------------
 
@@ -422,7 +444,12 @@ async fn planner_handler(
         pin: Output::new(z_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let z_stepper = Stepper::new(z_step, z_dir, StepperOptions::default(), Some(StepperAttachment::default()));
+    let z_stepper = Stepper::new(
+        z_step,
+        z_dir,
+        StepperOptions::default(),
+        Some(StepperAttachment::default()),
+    );
 
     // --------- E AXIS -----------------
 
@@ -434,7 +461,12 @@ async fn planner_handler(
         pin: Output::new(e_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let e_stepper = Stepper::new(e_step, e_dir, StepperOptions::default(), Some(StepperAttachment::default()));
+    let e_stepper = Stepper::new(
+        e_step,
+        e_dir,
+        StepperOptions::default(),
+        Some(StepperAttachment::default()),
+    );
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
@@ -500,9 +532,7 @@ async fn main(spawner: Spawner) {
         .spawn(input_handler(p.UART4, p.PC11, p.DMA1_CH0))
         .unwrap();
 
-    spawner
-        .spawn(command_dispatcher_task())
-        .unwrap();
+    spawner.spawn(command_dispatcher_task()).unwrap();
 
     spawner
         .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9))

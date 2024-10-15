@@ -17,21 +17,26 @@ impl Default for Clock {
 
 impl Clock {
     pub fn new() -> Clock {
-        Clock { start_ticks: 0, stop_ticks: 0, elapsed_ticks: 0, running: false }
+        Clock {
+            start_ticks: 0,
+            stop_ticks: 0,
+            elapsed_ticks: 0,
+            running: false,
+        }
     }
 
-    fn now() -> Instant{
+    fn now() -> Instant {
         Instant::now()
     }
 
     pub fn start(&mut self) {
-        if !self.running{
+        if !self.running {
             self.start_ticks = Clock::now().as_ticks();
         }
     }
 
     pub fn stop(&mut self) {
-        if self.running{
+        if self.running {
             self.stop_ticks = Clock::now().as_ticks();
             self.elapsed_ticks += self.stop_ticks - self.start_ticks;
             self.running = false;
@@ -41,14 +46,13 @@ impl Clock {
     pub fn measure(&self) -> Duration {
         let elapsed_ticks = if self.running {
             self.elapsed_ticks + Clock::now().as_ticks() - self.start_ticks
-        }
-        else{
+        } else {
             self.elapsed_ticks
         };
         Duration::from_ticks(elapsed_ticks)
     }
 
-    pub fn reset(&mut self){
+    pub fn reset(&mut self) {
         self.start_ticks = 0;
         self.stop_ticks = 0;
         self.elapsed_ticks = 0;

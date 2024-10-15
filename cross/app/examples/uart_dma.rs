@@ -22,17 +22,20 @@ async fn main_task() {
 
     let mut config = UartConfig::default();
     config.baudrate = 19200;
-    let mut uart = Uart::new(p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH0, p.DMA1_CH1, config).unwrap();
+    let mut uart = Uart::new(
+        p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH0, p.DMA1_CH1, config,
+    )
+    .unwrap();
 
     let tmp = DMA_BUF.init([0u8; 32]);
 
-    loop{
-        match uart.read_until_idle(tmp).await{
+    loop {
+        match uart.read_until_idle(tmp).await {
             Ok(_) => {
                 let vec = Vec::<u8, 32>::from_slice(tmp).unwrap();
                 let str = String::from_utf8(vec).unwrap();
                 info!("{}", str.as_str());
-            },
+            }
             Err(e) => error!("{}", e),
         };
         tmp.fill(0u8);

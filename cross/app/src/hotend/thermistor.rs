@@ -20,7 +20,7 @@ Varef: voltage of the thermistor
 pub struct Thermistor<'a, T, D>
 where
     T: Instance,
-    D: RxDma<T>
+    D: RxDma<T>,
 {
     adc: Adc<'a, T>,
     dma_peri: D,
@@ -29,13 +29,13 @@ where
     r0: Resistance,
     r_series: Resistance,
     b: Temperature,
-    readings: &'a mut DmaBufType
+    readings: &'a mut DmaBufType,
 }
 
 impl<'a, T, D> Thermistor<'a, T, D>
 where
     T: Instance,
-    D: RxDma<T>
+    D: RxDma<T>,
 {
     pub fn new(
         adc_peri: impl Peripheral<P = T> + 'a,
@@ -45,8 +45,7 @@ where
         r0: Resistance,
         r_series: Resistance,
         b: Temperature,
-        readings: &'a mut DmaBufType
-
+        readings: &'a mut DmaBufType,
     ) -> Thermistor<'a, T, D> {
         let mut adc = Adc::new(adc_peri);
         adc.set_sample_time(SampleTime::CYCLES32_5);
@@ -59,13 +58,19 @@ where
             r0,
             r_series,
             b,
-            readings
+            readings,
         }
     }
 
     pub async fn read_temperature(&mut self) -> Temperature {
         let readings = self.readings.as_mut();
-        self.adc.read(&mut self.dma_peri, [(&mut self.read_pin, SampleTime::CYCLES32_5)].into_iter(), readings).await;
+        self.adc
+            .read(
+                &mut self.dma_peri,
+                [(&mut self.read_pin, SampleTime::CYCLES32_5)].into_iter(),
+                readings,
+            )
+            .await;
         compute_temperature(
             readings[0] as usize,
             self.resolution,
@@ -101,7 +106,7 @@ fn compute_temperature(
 ) -> Temperature {
     let max_sample = get_steps(resolution) - 1;
     let r_ntc = Resistance::from_ohm(r_series.as_ohm() * (max_sample / sample - 1));
-    let val_inv =
-        (1.0 / t0.to_kelvin()) + (1.0 / b.to_kelvin()) * (((r_ntc.as_ohm() / r0.as_ohm()) as f32).ln() as f64);
+    let val_inv = (1.0 / t0.to_kelvin())
+        + (1.0 / b.to_kelvin()) * (((r_ntc.as_ohm() / r0.as_ohm()) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }

@@ -60,7 +60,7 @@ async fn main(_spawner: Spawner) {
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
-        readings
+        readings,
     );
 
     info!("Thermistor example");
