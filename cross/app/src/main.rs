@@ -3,7 +3,7 @@
 
 use core::str::FromStr;
 
-use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor};
+use app::hotend::{controller::Hotend, heater::Heater, thermistor::Thermistor, thermistor};
 use app::planner;
 use app::planner::planner::Planner;
 use app::sdcard::SdmmcDevice;
@@ -55,9 +55,12 @@ static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Sig
 static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 
-// static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+#[link_section = ".ram_d3"]
+static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
+#[link_section = ".ram_d3"]
+static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -195,6 +198,8 @@ async fn command_dispatcher_task() {
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heater_tim: TIM4, heater_out_pin: PB9) {
+    let readings = HOTEND_DMA_BUF.init([0u16; 1]);
+
     let thermistor = Thermistor::new(
         adc_peri,
         dma_peri,
@@ -203,6 +208,7 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
+        readings
     );
 
     let heater_out = SimplePwm::new(
@@ -224,6 +230,7 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
         {
             let signal = HOTEND_TARGET_TEMPERATURE.try_take();
             if let Some(t) = signal {
+                info!("[HOTEND HANDLER] Target temperature: {}", t.to_celsius());
                 hotend.set_temperature(t);
             }
         }
@@ -236,6 +243,8 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
 // TODO test with HEATBED_TARGET_TEMPERATURE
 #[embassy_executor::task]
 async fn heatbed_handler(adc_peri: ADC2, dma_peri: DMA1_CH3, read_pin: PA2, heater_tim: TIM8, heater_out_pin: PC8) {
+    let readings = HEATBED_DMA_BUF.init([0u16; 1]);
+
     let thermistor = Thermistor::new(
         adc_peri,
         dma_peri,
@@ -244,6 +253,7 @@ async fn heatbed_handler(adc_peri: ADC2, dma_peri: DMA1_CH3, read_pin: PA2, heat
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
+        readings
     );
 
     let heater_out = SimplePwm::new(
@@ -491,9 +501,9 @@ async fn main(spawner: Spawner) {
         .spawn(command_dispatcher_task())
         .unwrap();
 
-    // _spawner
-    //     .spawn(hotend_handler(p.ADC1, p.PA3, p.TIM4, p.PB9))
-    //     .unwrap();
+    spawner
+        .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9))
+        .unwrap();
 
     // _spawner
     //     .spawn(heatbed_handler(p.ADC2, p.PA2, p.TIM8, p.PC8))

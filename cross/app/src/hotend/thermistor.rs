@@ -4,6 +4,12 @@ use math::resistance::Resistance;
 use micromath::F32Ext;
 
 use math::temperature::Temperature;
+use static_cell::StaticCell;
+
+pub type DmaBufType = [u16; 1];
+
+#[link_section = ".ram_d3"]
+static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
 
 /*
 ADC value = R / (R + R0) * Vcc * resolution / Varef
@@ -23,6 +29,7 @@ where
     r0: Resistance,
     r_series: Resistance,
     b: Temperature,
+    readings: &'a mut DmaBufType
 }
 
 impl<'a, T, D> Thermistor<'a, T, D>
@@ -38,6 +45,8 @@ where
         r0: Resistance,
         r_series: Resistance,
         b: Temperature,
+        readings: &'a mut DmaBufType
+
     ) -> Thermistor<'a, T, D> {
         let mut adc = Adc::new(adc_peri);
         adc.set_sample_time(SampleTime::CYCLES32_5);
@@ -50,12 +59,13 @@ where
             r0,
             r_series,
             b,
+            readings
         }
     }
 
     pub async fn read_temperature(&mut self) -> Temperature {
-        let mut readings: [u16; 1] = [0; 1];
-        self.adc.read(&mut self.dma_peri, [(&mut self.read_pin, SampleTime::CYCLES32_5)].into_iter(), &mut readings).await;
+        let readings = self.readings.as_mut();
+        self.adc.read(&mut self.dma_peri, [(&mut self.read_pin, SampleTime::CYCLES32_5)].into_iter(), readings).await;
         compute_temperature(
             readings[0] as usize,
             self.resolution,
