@@ -29,6 +29,7 @@ use embassy_stm32::{
     },
     usart::{InterruptHandler, Uart},
 };
+use embassy_sync::signal::Signal;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use embedded_io_async::Write;
@@ -50,9 +51,8 @@ const MAX_MESSAGE_LEN: usize = 255;
 static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> =
     Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> =
-    Mutex::new(None);
-static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
+static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
+static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 
 // static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
@@ -142,9 +142,14 @@ async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
+
+    info!("Starting command dispatcher loop");
+
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
+        info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
         if let Some(cmd) = parser.parse(msg.as_str()) {
+            info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
                 // every movement command is redirected to the planner channel
                 GCommand::G0 { .. }
@@ -155,19 +160,18 @@ async fn command_dispatcher_task() {
                 | GCommand::G90
                 | GCommand::G91 => {
                     PLANNER_CHANNEL.send(cmd).await;
-                }
+                },
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
                 // hotend target temperature is used to update the target temperature of the hotend task
                 GCommand::M104 { s } => {
-                    let mut t = HOTEND_TARGET_TEMPERATURE.lock().await;
-                    *t = Some(s);
-                }
+                    info!("Setting hotend target");
+                    HOTEND_TARGET_TEMPERATURE.signal(s);
+                },
                 // heatbed target temperature is used to update the target temperature of the hotend task
                 GCommand::M140 { s } => {
-                    let mut t = HEATBED_TARGET_TEMPERATURE.lock().await;
-                    *t = Some(s);
-                }
+                    HEATBED_TARGET_TEMPERATURE.signal(s);
+                },
                 GCommand::M149 => todo!(),
                 GCommand::M20
                 | GCommand::M21
@@ -176,9 +180,12 @@ async fn command_dispatcher_task() {
                 | GCommand::M24 { .. }
                 | GCommand::M25 => {
                     SD_CARD_CHANNEL.send(cmd).await;
-                }
-                _ => todo!(),
+                },
+                _ => error!("[COMMAND DISPATCHER] command not handler"),
             }
+        }
+        else{
+            error!("[COMMAND DISPATCHER] Invalid command");
         }
 
         Timer::after(dt).await;
@@ -215,12 +222,9 @@ async fn hotend_handler(adc_peri: ADC1, dma_peri: DMA1_CH2, read_pin: PA3, heate
         // try to read the target temperature on each iterator
         // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
         {
-            let lock = HOTEND_TARGET_TEMPERATURE.try_lock();
-            if let Ok(mut t) = lock {
-                if let Some(temp) = t.take() {
-                    hotend.set_temperature(temp);
-                }
-                *t = None;
+            let signal = HOTEND_TARGET_TEMPERATURE.try_take();
+            if let Some(t) = signal {
+                hotend.set_temperature(t);
             }
         }
         hotend.update(dt).await;
@@ -259,12 +263,9 @@ async fn heatbed_handler(adc_peri: ADC2, dma_peri: DMA1_CH3, read_pin: PA2, heat
     // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
     loop {
         {
-            let lock = HEATBED_TARGET_TEMPERATURE.try_lock();
-            if let Ok(mut t) = lock {
-                if let Some(temp) = t.take() {
-                    heatbed.set_temperature(temp);
-                }
-                *t = None;
+            let signal = HEATBED_TARGET_TEMPERATURE.try_take();
+            if let Some(t) = signal {
+                heatbed.set_temperature(t);
             }
         }
         heatbed.update(dt).await;
@@ -484,6 +485,10 @@ async fn main(spawner: Spawner) {
 
     spawner
         .spawn(input_handler(p.UART4, p.PC11, p.DMA1_CH0))
+        .unwrap();
+
+    spawner
+        .spawn(command_dispatcher_task())
         .unwrap();
 
     // _spawner
