@@ -56,7 +56,7 @@ static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Sign
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 
 #[link_section = ".ram_d3"]
-static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 #[link_section = ".ram_d3"]
@@ -92,7 +92,7 @@ async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
     let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let tmp = DMA_BUF.init([0u8;MAX_MESSAGE_LEN]);
+    let tmp = UART_RX_DMA_BUF.init([0u8;MAX_MESSAGE_LEN]);
 
     info!("Starting input handler loop");
 
@@ -505,9 +505,9 @@ async fn main(spawner: Spawner) {
         .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9))
         .unwrap();
 
-    // _spawner
-    //     .spawn(heatbed_handler(p.ADC2, p.PA2, p.TIM8, p.PC8))
-    //     .unwrap();
+    spawner
+        .spawn(heatbed_handler(p.ADC2, p.DMA1_CH3, p.PA2, p.TIM8, p.PC8))
+        .unwrap();
 
     // _spawner
     //     .spawn(planner_handler(

@@ -101,7 +101,8 @@ impl defmt::Format for GCommand{
             GCommand::G21 => todo!(),
             GCommand::G90 => todo!(),
             GCommand::G91 => todo!(),
-            GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s.to_celsius()),
+            GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s),
+            GCommand::M140 { s } => defmt::write!(fmt, "M140 [S: {}]", s),
             GCommand::M149 => todo!(),
             GCommand::M20 => todo!(),
             GCommand::M21 => todo!(),
@@ -301,6 +302,15 @@ impl GCodeParser {
                 let s = extract_temperature(&cmd, "S", self.temperature_unit);
                 if s.is_some(){
                     Some(GCommand::M104 { s: s.unwrap() })
+                }
+                else{
+                    None
+                }
+            },
+            (GCommandType::M, 140) => {
+                let s = extract_temperature(&cmd, "S", self.temperature_unit);
+                if s.is_some(){
+                    Some(GCommand::M140 { s: s.unwrap() })
                 }
                 else{
                     None
