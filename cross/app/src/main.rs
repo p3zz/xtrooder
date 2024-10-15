@@ -8,7 +8,7 @@ use app::planner;
 use app::planner::planner::Planner;
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
-use defmt::info;
+use defmt::{info, error};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::peripherals::{
@@ -43,6 +43,7 @@ use math::temperature::Temperature;
 use parser::gcode::{GCodeParser, GCommand, GCommandType};
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
+use static_cell::StaticCell;
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
@@ -53,6 +54,10 @@ static HEATBED_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>
     Mutex::new(None);
 static HOTEND_TARGET_TEMPERATURE: Mutex<ThreadModeRawMutex, Option<Temperature>> = Mutex::new(None);
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
+
+// static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+#[link_section = ".ram_d3"]
+static DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -78,27 +83,32 @@ impl<'d> StatefulOutputPin for StepperPin<'d> {
 }
 
 #[embassy_executor::task]
-async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH1) {
+async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
     let mut config = embassy_stm32::usart::Config::default();
     config.baudrate = 19200;
     let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
 
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let mut tmp = [0u8; MAX_MESSAGE_LEN];
+    let tmp = DMA_BUF.init([0u8;MAX_MESSAGE_LEN]);
+
+    info!("Starting input handler loop");
 
     loop {
-        if let Ok(n) = uart.read_until_idle(&mut tmp).await {
-            for b in tmp {
-                if b == b'\n' {
+        if let Ok(n) = uart.read_until_idle(tmp).await {
+            for b in 0..n {
+                if tmp[b] == b'\n' {
                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-                    info!("{}", msg.as_str());
+                    info!("[INPUT_HANDLER] {}", msg.as_str());
                     msg.clear();
                 } else {
                     // TODO handle buffer overflow
-                    msg.push(b.into()).unwrap();
+                    msg.push(tmp[b].into()).unwrap();
                 }
             }
-            tmp = [0u8; MAX_MESSAGE_LEN];
+            tmp.fill(0u8);
+        }
+        else{
+            error!("Cannot read from UART");
         }
     }
 }
@@ -437,7 +447,7 @@ async fn planner_handler(
 }
 
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     let mut config = embassy_stm32::Config::default();
     // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
     // program won't run
@@ -472,10 +482,8 @@ async fn main(_spawner: Spawner) {
     }
     let p = embassy_stm32::init(config);
 
-    let mut led = Output::new(p.PD5, Level::Low, PinSpeed::Low);
-
-    _spawner
-        .spawn(input_handler(p.UART4, p.PC11, p.DMA1_CH1))
+    spawner
+        .spawn(input_handler(p.UART4, p.PC11, p.DMA1_CH0))
         .unwrap();
 
     // _spawner
@@ -499,11 +507,7 @@ async fn main(_spawner: Spawner) {
     //     .unwrap();
 
     loop {
-        led.set_high();
-        info!("high");
-        Timer::after(Duration::from_secs(1)).await;
-        led.set_low();
-        info!("low");
+        info!("[MAIN LOOP] alive");
         Timer::after(Duration::from_secs(1)).await;
     }
 }
