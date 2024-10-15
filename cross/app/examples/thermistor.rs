@@ -1,13 +1,17 @@
 #![no_std]
 #![no_main]
 
-use app::hotend::thermistor::Thermistor;
+use app::hotend::thermistor::{self, DmaBufType, Thermistor};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};
 use embassy_time::{Duration, Timer};
 use math::{resistance::Resistance, temperature::Temperature};
+use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
+
+#[link_section = ".ram_d3"]
+static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -46,6 +50,8 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
+    let readings = DMA_BUF.init([0u16; 1]);
+
     let mut thermistor = Thermistor::new(
         p.ADC1,
         p.DMA1_CH0,
@@ -54,6 +60,7 @@ async fn main(_spawner: Spawner) {
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
+        readings
     );
 
     info!("Thermistor example");

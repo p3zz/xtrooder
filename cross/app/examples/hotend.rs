@@ -3,7 +3,8 @@
 
 use app::hotend::controller::Hotend;
 use app::hotend::heater::Heater;
-use app::hotend::thermistor::Thermistor;
+use app::hotend::thermistor::{DmaBufType, Thermistor};
+use cortex_m::register::apsr::read;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};
@@ -13,7 +14,11 @@ use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::{Channel, low_level::CountingMode};
 use embassy_time::{Duration, Timer};
 use math::{temperature::Temperature, resistance::Resistance};
+use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
+
+#[link_section = ".ram_d3"]
+static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -52,6 +57,8 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
+    let readings = DMA_BUF.init([0u16; 1]);
+
     let thermistor = Thermistor::new(
         p.ADC1,
         p.DMA1_CH0,
@@ -60,6 +67,7 @@ async fn main(_spawner: Spawner) {
         Resistance::from_ohm(100_000),
         Resistance::from_ohm(10_000),
         Temperature::from_kelvin(3950.0),
+        readings
     );
 
     let heater_out = SimplePwm::new(
