@@ -1,4 +1,3 @@
-use defmt::info;
 use embassy_stm32::{
     time::Hertz,
     timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},

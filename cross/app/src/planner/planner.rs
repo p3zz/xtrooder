@@ -1,10 +1,10 @@
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
-use math::distance::{Distance, DistanceUnit};
+use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
-use parser::gcode::{GCodeParser, GCommand};
+use parser::gcode::GCommand;
 use stepper::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
     no_move, Positioning,

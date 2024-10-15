@@ -25,7 +25,7 @@ impl BlockTrait for Block {
 
     fn copy_from_slice(slice: &[u8; BLOCK_LEN as usize]) -> Self {
         Self {
-            inner: DataBlock(slice.clone()),
+            inner: DataBlock(*slice),
         }
     }
 }

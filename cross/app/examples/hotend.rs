@@ -4,7 +4,6 @@
 use app::hotend::controller::Hotend;
 use app::hotend::heater::Heater;
 use app::hotend::thermistor::{DmaBufType, Thermistor};
-use cortex_m::register::apsr::read;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};

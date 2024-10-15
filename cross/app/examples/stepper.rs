@@ -25,7 +25,7 @@ struct StepperPin<'a> {
     pin: Output<'a>,
 }
 
-impl<'d> StatefulOutputPin for StepperPin<'d> {
+impl StatefulOutputPin for StepperPin<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }

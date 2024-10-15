@@ -1,4 +1,3 @@
-use defmt::info;
 use embassy_stm32::{
     adc::{Instance, RxDma},
     timer::GeneralInstance4Channel,

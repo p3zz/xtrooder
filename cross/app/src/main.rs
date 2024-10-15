@@ -1,11 +1,9 @@
 #![no_std]
 #![no_main]
 
-use core::error;
 use core::str::FromStr;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::planner;
 use app::planner::planner::Planner;
 use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
@@ -13,38 +11,33 @@ use defmt::{error, info};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC7, PC8,
+    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB4, PC10, PC11, PC12, PC8,
     PC9, PD2, SDMMC1, TIM8, UART4,
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
-use embassy_stm32::time::mhz;
 use embassy_stm32::usart::{self, UartRx};
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    peripherals::{ADC1, DMA1_CH0, DMA1_CH1, PA2, PA3, PB10, PB11, PB9, TIM4, USART3},
+    peripherals::{ADC1, DMA1_CH0, PA2, PA3, PB9, TIM4},
     time::hz,
     timer::{
         low_level::CountingMode,
         simple_pwm::{PwmPin, SimplePwm},
         Channel as TimerChannel,
     },
-    usart::{InterruptHandler, Uart},
 };
 use embassy_sync::signal::Signal;
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel, mutex::Mutex};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
-use embedded_io_async::Write;
-use fs::filesystem::filename::ShortFileName;
-use fs::filesystem::files::{File, Mode};
+use fs::filesystem::files::Mode;
 use fs::volume_mgr::{VolumeIdx, VolumeManager};
-use heapless::spsc::Queue;
 use heapless::{String, Vec};
-use math::distance::{Distance, DistanceUnit};
+use math::distance::DistanceUnit;
 use math::resistance::Resistance;
 use math::temperature::Temperature;
-use parser::gcode::{GCodeParser, GCommand, GCommandType};
+use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
 use {defmt_rtt as _, panic_probe as _};
@@ -74,7 +67,7 @@ struct StepperPin<'a> {
     pin: Output<'a>,
 }
 
-impl<'d> StatefulOutputPin for StepperPin<'d> {
+impl StatefulOutputPin for StepperPin<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }
