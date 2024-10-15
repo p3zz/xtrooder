@@ -8,3 +8,11 @@ MEMORY
     ITCMRAM (xrw) : ORIGIN = 0x00000000, LENGTH = 64K
     FLASH   (rx)  : ORIGIN = 0x8000000,  LENGTH = 2048K
 }
+
+SECTIONS
+{
+    .ram_d3 :
+    {
+        *(.ram_d3)
+    } > RAM_D3
+}
