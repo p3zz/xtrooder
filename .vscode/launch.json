@@ -5,12 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "lldb",
+            "cwd": "${workspaceRoot}",
+            "executable": "${workspaceFolder}/cross/target/thumbv7em-none-eabihf/debug/examples/spi",
+            "name": "Debug with OpenOCD",
             "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceFolder}/",
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        }
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32h7x.cfg"
+            ],
+            "svdFile": "${workspaceRoot}/cross/stm32h753.svd",
+            "searchDir": [],
+            "runToEntryPoint": "main",
+            "showDevDebugOutput": "none",
+        },
     ]
 }
