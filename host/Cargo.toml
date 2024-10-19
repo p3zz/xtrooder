@@ -4,6 +4,5 @@ members = [
     "math",
     "parser",
     "tools",
-    "fs",
     "stepper"
 ]

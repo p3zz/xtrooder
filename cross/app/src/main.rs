@@ -5,7 +5,6 @@ use core::str::FromStr;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::planner::planner::Planner;
-use app::sdcard::SdmmcDevice;
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_executor::Spawner;
@@ -31,8 +30,6 @@ use embassy_stm32::{
 use embassy_sync::signal::Signal;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Duration, Timer};
-use fs::filesystem::files::Mode;
-use fs::volume_mgr::{VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
 use math::distance::DistanceUnit;
 use math::resistance::Resistance;
@@ -299,87 +296,87 @@ async fn sdcard_handler(
     d2: PC10,
     d3: PC11,
 ) {
-    let sdmmc = Sdmmc::new_4bit(spi_peri, Irqs, clk, cmd, d0, d1, d2, d3, Default::default());
+    // let sdmmc = Sdmmc::new_4bit(spi_peri, Irqs, clk, cmd, d0, d1, d2, d3, Default::default());
 
-    let clock = Clock::new();
-    let device = SdmmcDevice::new(sdmmc);
-    let mut volume_manager = VolumeManager::new(device, clock);
-    let mut working_dir = None;
-    let mut working_file = None;
-    let mut running = false;
-    let mut buf: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
-    let mut clock = Clock::new();
+    // let clock = Clock::new();
+    // let device = SdmmcDevice::new(sdmmc);
+    // let mut volume_manager = VolumeManager::new(device, clock);
+    // let mut working_dir = None;
+    // let mut working_file = None;
+    // let mut running = false;
+    // let mut buf: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
+    // let mut clock = Clock::new();
 
-    let dt = Duration::from_millis(500);
-    loop {
-        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
-            match cmd {
-                GCommand::M20 => {
-                    let dir = working_dir.expect("Working directory not set");
-                    let mut msg: String<MAX_MESSAGE_LEN> =
-                        String::from_str("Begin file list").unwrap();
-                    volume_manager
-                        .iterate_dir(dir, |d| {
-                            let name_vec: Vec<u8, 16> =
-                                Vec::from_slice(d.clone().name.base_name()).unwrap();
-                            let name = String::from_utf8(name_vec).unwrap();
-                            msg.push_str(name.as_str()).unwrap();
-                            msg.push('\n').unwrap();
-                        })
-                        .await
-                        .expect("Error while listing files");
-                    msg.push_str("End file list").unwrap();
-                    // TODO send message to UART
-                }
-                GCommand::M21 => {
-                    let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
-                        Ok(v) => Some(v),
-                        Err(_) => defmt::panic!("Cannot find module"),
-                    };
-                    working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
-                        Ok(d) => Some(d),
-                        Err(_) => defmt::panic!("Cannot open root dir"),
-                    };
-                }
-                GCommand::M23 { filename } => {
-                    let dir = working_dir.expect("Working directory not set");
-                    working_file = match volume_manager
-                        .open_file_in_dir(dir, filename, Mode::ReadOnly)
-                        .await
-                    {
-                        Ok(f) => Some(f),
-                        Err(_) => defmt::panic!("File not found"),
-                    }
-                }
-                // ignore the parameters of M24, just start/resume the print
-                GCommand::M24 { .. } => {
-                    if !running {
-                        clock.start();
-                        running = true;
-                    }
-                }
-                GCommand::M25 => {
-                    if running {
-                        clock.stop();
-                        running = false;
-                    }
-                }
-                _ => todo!(),
-            }
-        }
+    // let dt = Duration::from_millis(500);
+    // loop {
+    //     if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
+    //         match cmd {
+    //             GCommand::M20 => {
+    //                 let dir = working_dir.expect("Working directory not set");
+    //                 let mut msg: String<MAX_MESSAGE_LEN> =
+    //                     String::from_str("Begin file list").unwrap();
+    //                 volume_manager
+    //                     .iterate_dir(dir, |d| {
+    //                         let name_vec: Vec<u8, 16> =
+    //                             Vec::from_slice(d.clone().name.base_name()).unwrap();
+    //                         let name = String::from_utf8(name_vec).unwrap();
+    //                         msg.push_str(name.as_str()).unwrap();
+    //                         msg.push('\n').unwrap();
+    //                     })
+    //                     .await
+    //                     .expect("Error while listing files");
+    //                 msg.push_str("End file list").unwrap();
+    //                 // TODO send message to UART
+    //             }
+    //             GCommand::M21 => {
+    //                 let working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)).await {
+    //                     Ok(v) => Some(v),
+    //                     Err(_) => defmt::panic!("Cannot find module"),
+    //                 };
+    //                 working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
+    //                     Ok(d) => Some(d),
+    //                     Err(_) => defmt::panic!("Cannot open root dir"),
+    //                 };
+    //             }
+    //             GCommand::M23 { filename } => {
+    //                 let dir = working_dir.expect("Working directory not set");
+    //                 working_file = match volume_manager
+    //                     .open_file_in_dir(dir, filename, Mode::ReadOnly)
+    //                     .await
+    //                 {
+    //                     Ok(f) => Some(f),
+    //                     Err(_) => defmt::panic!("File not found"),
+    //                 }
+    //             }
+    //             // ignore the parameters of M24, just start/resume the print
+    //             GCommand::M24 { .. } => {
+    //                 if !running {
+    //                     clock.start();
+    //                     running = true;
+    //                 }
+    //             }
+    //             GCommand::M25 => {
+    //                 if running {
+    //                     clock.stop();
+    //                     running = false;
+    //                 }
+    //             }
+    //             _ => todo!(),
+    //         }
+    //     }
 
-        if running && working_file.is_some() {
-            // we can safely unwrap because the existence of the file has been checked during M23
-            volume_manager
-                .read_line(working_file.unwrap(), &mut buf)
-                .await
-                .unwrap();
-            let vec: Vec<u8, MAX_MESSAGE_LEN> = Vec::from_slice(&buf).expect("Malformed string");
-            let str = String::from_utf8(vec).unwrap();
-            COMMAND_DISPATCHER_CHANNEL.send(str).await;
-        }
-        Timer::after(dt).await;
-    }
+    //     if running && working_file.is_some() {
+    //         // we can safely unwrap because the existence of the file has been checked during M23
+    //         volume_manager
+    //             .read_line(working_file.unwrap(), &mut buf)
+    //             .await
+    //             .unwrap();
+    //         let vec: Vec<u8, MAX_MESSAGE_LEN> = Vec::from_slice(&buf).expect("Malformed string");
+    //         let str = String::from_utf8(vec).unwrap();
+    //         COMMAND_DISPATCHER_CHANNEL.send(str).await;
+    //     }
+    //     Timer::after(dt).await;
+    // }
 }
 
 #[embassy_executor::task]

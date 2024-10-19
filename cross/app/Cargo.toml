@@ -34,7 +34,7 @@ pid-lite = {version="1.2.0", default-features = false}
 math = {path="../../host/math", features=["defmt-log"]}
 parser = {path="../../host/parser", features=["defmt-log"]}
 stepper = {path="../../host/stepper"}
-fs = {path="../../host/fs"}
+embedded-sdmmc = {version="0.8.0", default-features=false}
 
 [lib]
 harness = false

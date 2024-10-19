@@ -1,23 +1,50 @@
 #![no_std]
 #![no_main]
 
-use app::sdcard::SdmmcDevice;
+use core::cell::RefCell;
+use core::fmt::Write;
+use core::str::from_utf8;
+
 use app::utils::stopwatch::Clock;
-use defmt::{info, panic};
-use embassy_executor::Spawner;
-use embassy_stm32::sdmmc::Sdmmc;
+use cortex_m_rt::entry;
+use defmt::{panic, info};
+use embassy_stm32::gpio::{Level, Output, Speed};
+use embassy_stm32::peripherals::SPI1;
+use embassy_stm32::spi::Spi;
+use embassy_sync::blocking_mutex::NoopMutex;
+use embassy_time::{Delay, Duration, Timer};
+use embassy_executor::{Executor, Spawner};
+use embassy_stm32::{mode::Blocking};
 use embassy_stm32::time::mhz;
-use embassy_stm32::{bind_interrupts, peripherals, sdmmc, Config};
-use fs::filesystem::files::Mode;
-use fs::volume_mgr::{VolumeIdx, VolumeManager};
+// use embedded_hal_1::spi::SpiBus;
+use embassy_stm32::{spi, Config};
+use embedded_sdmmc::{Mode, SdCard, VolumeIdx, VolumeManager};
+use heapless::String;
+use static_cell::StaticCell;
+use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use {defmt_rtt as _, panic_probe as _};
 
-bind_interrupts!(struct Irqs {
-    SDMMC1 => sdmmc::InterruptHandler<peripherals::SDMMC1>;
-});
+// #[embassy_executor::task]
+// async fn main_task(mut spi: spi::Spi<'static, Blocking>) {
+//     for n in 0u32.. {
+//         let mut write: String<128> = String::new();
+//         core::write!(&mut write, "Hello DMA World {}!\r\n", n).unwrap();
+//         unsafe {
+//             let result = spi.blocking_transfer_in_place(write.as_bytes_mut());
+//             if let Err(_) = result {
+//                 defmt::panic!("crap");
+//             }
+//         }
+//         info!("read via spi: {}", from_utf8(write.as_bytes()).unwrap());
+//     }
+// }
+
+// static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) -> ! {
+    info!("Hello World!");
+
     let mut config = Config::default();
     {
         use embassy_stm32::rcc::*;
@@ -28,7 +55,7 @@ async fn main(_spawner: Spawner) -> ! {
             prediv: PllPreDiv::DIV4,
             mul: PllMul::MUL50,
             divp: Some(PllDiv::DIV2),
-            divq: Some(PllDiv::DIV4), // default clock chosen by SDMMCSEL. 200 Mhz
+            divq: Some(PllDiv::DIV8), // used by SPI3. 100Mhz.
             divr: None,
         });
         config.rcc.sys = Sysclk::PLL1_P; // 400 Mhz
@@ -40,36 +67,27 @@ async fn main(_spawner: Spawner) -> ! {
         config.rcc.voltage_scale = VoltageScale::Scale1;
     }
     let p = embassy_stm32::init(config);
-    info!("Hello World!");
 
-    let mut sdmmc = Sdmmc::new_4bit(
-        p.SDMMC1,
-        Irqs,
-        p.PC12,
-        p.PD2,
-        p.PC8,
-        p.PC9,
-        p.PC10,
-        p.PC11,
-        Default::default(),
-    );
+    static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
+    let spi = spi::Spi::new_blocking(p.SPI1, p.PA5, p.PB5, p.PA6, Default::default());
+    let spi_bus = NoopMutex::new(RefCell::new(spi));
+    let spi_bus = SPI_BUS.init(spi_bus);
 
-    // Should print 400kHz for initialization
-    info!("Configured clock: {}", sdmmc.clock().0);
+    // Device 1, using embedded-hal compatible driver for ST7735 LCD display
+    let cs_pin = Output::new(p.PC12, Level::High, Speed::Low);
 
-    sdmmc.init_card(mhz(25)).await.unwrap();
+    let spi = SpiDevice::new(spi_bus, cs_pin);
+    let sdcard = SdCard::new(spi, Delay);
 
     let clock = Clock::new();
-    let device = SdmmcDevice::new(sdmmc);
+    let mut volume_mgr = VolumeManager::new(sdcard, clock);
 
-    let mut volume_mgr = VolumeManager::new(device, clock);
-
-    let mut volume0 = match volume_mgr.open_volume(VolumeIdx(0)).await {
+    let mut volume0 = match volume_mgr.open_volume(VolumeIdx(0)) {
         Ok(v) => v,
         Err(_) => panic!("Cannot find module"),
     };
 
-    // info!("Volume 0: {:?}", volume0);
+    // info!("Volume 0: {:?}", volume0);main]
     // Open the root directory (mutably borrows from the volume).
     let mut root_dir = match volume0.open_root_dir() {
         Ok(d) => d,
@@ -79,23 +97,13 @@ async fn main(_spawner: Spawner) -> ! {
     // This mutably borrows the directory.
     let mut my_file = match root_dir
         .open_file_in_dir("MY_FILE.TXT", Mode::ReadOnly)
-        .await
     {
         Ok(f) => f,
         Err(_) => panic!("Cannot open file"),
     };
-    // Print the contents of the file
-    while !my_file.is_eof() {
-        let mut buffer = [0u8; 32];
-        match my_file.read(&mut buffer).await {
-            Ok(num_bytes) => {
-                for b in &buffer[0..num_bytes] {
-                    info!("{}", *b as char);
-                }
-            }
-            Err(_) => todo!(),
-        }
-    }
 
-    loop {}
+    loop{
+        info!("main loop");
+        Timer::after(Duration::from_secs(1)).await;
+    }
 }

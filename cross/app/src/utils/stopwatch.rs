@@ -1,5 +1,5 @@
 use embassy_time::{Duration, Instant};
-use fs::filesystem::timestamp::{TimeSource, Timestamp};
+use embedded_sdmmc::{TimeSource, Timestamp};
 
 #[derive(Clone, Copy)]
 pub struct Clock {
@@ -61,7 +61,7 @@ impl Clock {
 }
 
 impl TimeSource for Clock {
-    fn get_timestamp(&self) -> fs::filesystem::timestamp::Timestamp {
+    fn get_timestamp(&self) -> Timestamp {
         Timestamp {
             year_since_1970: 0,
             zero_indexed_day: 0,
