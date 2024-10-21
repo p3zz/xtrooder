@@ -2,8 +2,8 @@
 #![no_main]
 
 use core::cell::RefCell;
-use core::str::FromStr;
 use core::fmt::Write;
+use core::str::FromStr;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::planner::planner::Planner;
@@ -14,7 +14,8 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB3, PB4, PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM8, UART4
+    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB3, PB4, PB5, PC10,
+    PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM8, UART4,
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::spi::{self, Spi};
@@ -96,7 +97,7 @@ async fn input_handler() {
     let tmp = UART_RX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
     let mut rx = UART_RX.lock().await;
     let rx = rx.as_mut().expect("UART RX not initialized");
-    
+
     info!("Starting input handler loop");
 
     loop {
@@ -129,11 +130,11 @@ async fn output_handler() {
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
         let mut len = 0;
-        for (i, b) in msg.into_bytes().iter().enumerate(){
+        for (i, b) in msg.into_bytes().iter().enumerate() {
             tmp[i] = *b;
             len = i;
         }
-        match tx.write(&tmp[0..len]).await{
+        match tx.write(&tmp[0..len]).await {
             Ok(_) => (),
             Err(_) => error!("Cannot write to UART"),
         };
@@ -298,13 +299,7 @@ async fn heatbed_handler(
 }
 
 #[embassy_executor::task]
-async fn sdcard_handler(
-    spi_peri: SPI1,
-    clk: PB3,
-    mosi: PB5,
-    miso: PB4,
-    cs: PC12
-) {
+async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12) {
     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
     let spi = spi::Spi::new_blocking(spi_peri, clk, mosi, miso, Default::default());
     let spi_bus = NoopMutex::new(RefCell::new(spi));
@@ -356,26 +351,30 @@ async fn sdcard_handler(
                         Err(_) => defmt::panic!("Cannot open root dir"),
                     };
                     info!("Directory open");
-                },
+                }
                 GCommand::M22 => {
-                    if working_file.is_some(){
+                    if working_file.is_some() {
                         volume_manager.close_file(working_file.unwrap()).unwrap();
                         info!("File closed");
                     }
-                    if working_dir.is_some(){
+                    if working_dir.is_some() {
                         volume_manager.close_dir(working_dir.unwrap()).unwrap();
                         info!("Directory closed");
                     }
-                    if working_volume.is_some(){
-                        volume_manager.close_volume(working_volume.unwrap()).unwrap();
+                    if working_volume.is_some() {
+                        volume_manager
+                            .close_volume(working_volume.unwrap())
+                            .unwrap();
                         info!("Volume closed");
                     }
-                },
+                }
                 GCommand::M23 { filename } => {
                     let dir = working_dir.expect("Working directory not set");
-                    working_file = match volume_manager
-                        .open_file_in_dir(dir, filename.as_str(), embedded_sdmmc::Mode::ReadOnly)
-                    {
+                    working_file = match volume_manager.open_file_in_dir(
+                        dir,
+                        filename.as_str(),
+                        embedded_sdmmc::Mode::ReadOnly,
+                    ) {
                         Ok(f) => Some(f),
                         Err(_) => defmt::panic!("File not found"),
                     };
@@ -399,8 +398,7 @@ async fn sdcard_handler(
         }
 
         if running && working_file.is_some() {
-            if let Ok(n) = volume_manager
-            .read(working_file.unwrap(), &mut tmp){
+            if let Ok(n) = volume_manager.read(working_file.unwrap(), &mut tmp) {
                 for b in 0..n {
                     if tmp[b] == b'\n' {
                         COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
@@ -561,26 +559,25 @@ async fn main(spawner: Spawner) {
     let mut config = embassy_stm32::usart::Config::default();
     config.baudrate = 19200;
 
-    let uart = Uart::new(p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH1, p.DMA1_CH0, config).unwrap();
+    let uart = Uart::new(
+        p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH1, p.DMA1_CH0, config,
+    )
+    .unwrap();
     let (tx, rx) = uart.split();
 
     {
         let mut uart_rx = UART_RX.lock().await;
         *uart_rx = Some(rx);
     }
-    
+
     {
         let mut uart_tx = UART_TX.lock().await;
         *uart_tx = Some(tx);
     }
 
-    spawner
-        .spawn(input_handler())
-        .unwrap();
+    spawner.spawn(input_handler()).unwrap();
 
-    spawner
-        .spawn(output_handler())
-        .unwrap();
+    spawner.spawn(output_handler()).unwrap();
 
     spawner.spawn(command_dispatcher_task()).unwrap();
 
@@ -599,9 +596,7 @@ async fn main(spawner: Spawner) {
     //     .unwrap();
 
     spawner
-        .spawn(sdcard_handler(
-            p.SPI1, p.PB3, p.PB5, p.PB4, p.PC12
-        ))
+        .spawn(sdcard_handler(p.SPI1, p.PB3, p.PB5, p.PB4, p.PC12))
         .unwrap();
 
     loop {

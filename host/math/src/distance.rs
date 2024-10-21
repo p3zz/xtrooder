@@ -73,7 +73,7 @@ impl Computable for Distance {
 }
 
 #[cfg(feature = "defmt-log")]
-impl defmt::Format for Distance{
+impl defmt::Format for Distance {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "{} mm", self.to_mm())
     }

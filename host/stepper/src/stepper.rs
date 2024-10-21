@@ -53,7 +53,7 @@ pub enum StepperError {
     MoveOutOfBounds,
     MoveNotValid,
     MissingAttachment,
-    NotSupported
+    NotSupported,
 }
 
 #[derive(Clone, Copy)]
@@ -192,7 +192,10 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(())
     }
 
-    pub async fn move_for_steps<T: TimerTrait>(&mut self, steps: u64) -> Result<Duration, StepperError> {
+    pub async fn move_for_steps<T: TimerTrait>(
+        &mut self,
+        steps: u64,
+    ) -> Result<Duration, StepperError> {
         if steps == 0 {
             return Ok(Duration::ZERO);
         }
@@ -401,7 +404,10 @@ mod tests {
         assert!(m.is_ok());
         assert_eq!(s.get_steps(), 20.0);
         assert_eq!(s.get_speed(), 1.0);
-        assert_eq!(m.unwrap().as_micros(), Duration::from_millis(100).as_micros());
+        assert_eq!(
+            m.unwrap().as_micros(),
+            Duration::from_millis(100).as_micros()
+        );
     }
 
     #[tokio::test]
@@ -416,7 +422,10 @@ mod tests {
         let m = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(m.is_ok());
         assert_eq!(s.get_steps(), -20.0);
-        assert_eq!(m.unwrap().as_micros(), Duration::from_millis(20).as_micros());
+        assert_eq!(
+            m.unwrap().as_micros(),
+            Duration::from_millis(20).as_micros()
+        );
     }
 
     #[tokio::test]

@@ -7,7 +7,7 @@ pub mod common;
 pub mod computable;
 pub mod distance;
 pub mod duration;
+pub mod resistance;
 pub mod speed;
 pub mod temperature;
 pub mod vector;
-pub mod resistance;

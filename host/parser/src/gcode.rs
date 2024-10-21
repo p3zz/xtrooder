@@ -69,9 +69,14 @@ pub enum GCommand {
     // Simulate ejection of the SD card
     M22,
     // Select SD file
-    M23 { filename: String<12>},
+    M23 {
+        filename: String<12>,
+    },
     // Start or Resume SD print
-    M24 {s: u64, t: Duration},
+    M24 {
+        s: u64,
+        t: Duration,
+    },
     // Pause SD print
     M25,
     // Report SD print status
@@ -88,14 +93,64 @@ pub enum GCommand {
     M149,
 }
 
-#[cfg(feature="defmt-log")]
-impl defmt::Format for GCommand{
+#[cfg(feature = "defmt-log")]
+impl defmt::Format for GCommand {
     fn format(&self, fmt: defmt::Formatter) {
-        match self{
-            GCommand::G0 { x, y, z, f } => defmt::write!(fmt, "G0 [x: {}] [y: {}] [z: {}] [f: {}]", x, y, z, f),
-            GCommand::G1 { x, y, z, e, f } => defmt::write!(fmt, "G1 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}]", x, y, z, e, f),
-            GCommand::G2 { x, y, z, e, f, i, j, r } => defmt::write!(fmt, "G2 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]", x, y, z, e, f, i, j, r),
-            GCommand::G3 { x, y, z, e, f, i, j, r } => defmt::write!(fmt, "G3 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]", x, y, z, e, f, i, j, r),
+        match self {
+            GCommand::G0 { x, y, z, f } => {
+                defmt::write!(fmt, "G0 [x: {}] [y: {}] [z: {}] [f: {}]", x, y, z, f)
+            }
+            GCommand::G1 { x, y, z, e, f } => defmt::write!(
+                fmt,
+                "G1 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}]",
+                x,
+                y,
+                z,
+                e,
+                f
+            ),
+            GCommand::G2 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => defmt::write!(
+                fmt,
+                "G2 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r
+            ),
+            GCommand::G3 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => defmt::write!(
+                fmt,
+                "G3 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r
+            ),
             GCommand::G4 { p, s } => defmt::write!(fmt, "G4 [p: {}] [s: {}]", p, s),
             GCommand::G20 => defmt::write!(fmt, "G20"),
             GCommand::G21 => defmt::write!(fmt, "G21"),
@@ -111,7 +166,7 @@ impl defmt::Format for GCommand{
             GCommand::M24 { s, t } => defmt::write!(fmt, "M24 [s: {}] [t: {}]", s, t.as_millis()),
             GCommand::M25 => defmt::write!(fmt, "M25"),
             GCommand::M26 => defmt::write!(fmt, "M26"),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }
@@ -183,14 +238,12 @@ impl GCodeParser {
         let mut state = ParserState::ReadingCommand;
         let mut data_buffer: String<32> = String::new();
         for b in data.chars() {
-            if b == '\n'{
+            if b == '\n' {
                 break;
             }
             match state {
                 ParserState::ReadingCommand => match b {
-                    ';' | '(' => {
-                        state = ParserState::ReadingComment
-                    },
+                    ';' | '(' => state = ParserState::ReadingComment,
                     // todo check buffer overflow
                     _ => data_buffer.push(b).unwrap(),
                 },
@@ -219,19 +272,19 @@ impl GCodeParser {
         // we can safely unwrap because we already checked the size of the tokens
         let cmd_type = tokens.remove(0);
         // the command type (G2, M21, etc) must have at least 2 characters (prefix + code)
-        if cmd_type.len() < 2{
+        if cmd_type.len() < 2 {
             return None;
         }
         let (prefix, code) = {
             let key = cmd_type.get(0..1)?;
             let value = cmd_type.get(1..)?.parse::<u64>().ok()?;
-            match key{
+            match key {
                 "G" => (GCommandType::G, value),
                 "M" => (GCommandType::M, value),
-                _ => return None
+                _ => return None,
             }
         };
-        
+
         let mut args: LinearMap<&str, &str, 16> = LinearMap::new();
 
         for t in &tokens {
@@ -308,32 +361,33 @@ impl GCodeParser {
             (GCommandType::M, 21) => Some(GCommand::M21),
             (GCommandType::M, 22) => Some(GCommand::M22),
             (GCommandType::M, 23) => {
-                if tokens.len() == 0{
+                if tokens.len() == 0 {
                     return None;
                 }
                 let filename = tokens.get(0)?;
                 let filename = String::from_str(filename).unwrap();
                 // let filename: String<12> = String::from_str(&filename).unwrap();
-                Some(GCommand::M23{filename})
-            },
+                Some(GCommand::M23 { filename })
+            }
             // FIXME use real params for M24
-            (GCommandType::M, 24) => Some(GCommand::M24{s: 0, t: Duration::from_secs(0)}),
+            (GCommandType::M, 24) => Some(GCommand::M24 {
+                s: 0,
+                t: Duration::from_secs(0),
+            }),
             (GCommandType::M, 25) => Some(GCommand::M25),
             (GCommandType::M, 104) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit);
-                if s.is_some(){
+                if s.is_some() {
                     Some(GCommand::M104 { s: s.unwrap() })
-                }
-                else{
+                } else {
                     None
                 }
-            },
+            }
             (GCommandType::M, 140) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit);
-                if s.is_some(){
+                if s.is_some() {
                     Some(GCommand::M140 { s: s.unwrap() })
-                }
-                else{
+                } else {
                     None
                 }
             }
@@ -394,7 +448,12 @@ mod tests {
         let line = "M104 S10";
         let command = parser.parse_line(line);
         assert!(command.is_some());
-        assert!(command.unwrap() == GCommand::M104 { s: Temperature::from_celsius(10.0) });
+        assert!(
+            command.unwrap()
+                == GCommand::M104 {
+                    s: Temperature::from_celsius(10.0)
+                }
+        );
     }
 
     #[test]

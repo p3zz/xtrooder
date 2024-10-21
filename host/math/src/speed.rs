@@ -95,7 +95,7 @@ impl Computable for Speed {
 }
 
 #[cfg(feature = "defmt-log")]
-impl defmt::Format for Speed{
+impl defmt::Format for Speed {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "{} mm/s", self.to_mm_per_second())
     }

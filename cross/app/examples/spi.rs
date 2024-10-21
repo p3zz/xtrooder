@@ -7,22 +7,22 @@ use core::str::from_utf8;
 
 use app::utils::stopwatch::Clock;
 use cortex_m_rt::entry;
-use defmt::{panic, info};
+use defmt::{info, panic};
+use embassy_executor::{Executor, Spawner};
 use embassy_stm32::gpio::{Level, Output, Speed};
+use embassy_stm32::mode::Blocking;
 use embassy_stm32::pac::iwdg::regs::Pr;
 use embassy_stm32::peripherals::SPI1;
 use embassy_stm32::spi::Spi;
+use embassy_stm32::time::mhz;
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_time::{Delay, Duration, Timer};
-use embassy_executor::{Executor, Spawner};
-use embassy_stm32::{mode::Blocking};
-use embassy_stm32::time::mhz;
 // use embedded_hal_1::spi::SpiBus;
+use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_stm32::{spi, Config};
 use embedded_sdmmc::{Mode, SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
 use static_cell::StaticCell;
-use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use {defmt_rtt as _, panic_probe as _};
 
 // #[embassy_executor::task]
@@ -79,7 +79,7 @@ async fn main(_spawner: Spawner) -> ! {
 
     let spi = SpiDevice::new(spi_bus, cs_pin);
     let sdcard = SdCard::new(spi, Delay);
-    match sdcard.get_card_type(){
+    match sdcard.get_card_type() {
         Some(t) => info!("{}", t as u32),
         None => panic!("cannot read card type"),
     };
@@ -99,32 +99,30 @@ async fn main(_spawner: Spawner) -> ! {
         Err(_) => {
             volume_mgr.close_volume(volume0).unwrap();
             panic!("Cannot open root dir")
-        },
+        }
     };
     // Open a file called "MY_FILE.TXT" in the root directory
     // This mutably borrows the directory.
-    let my_file = match volume_mgr
-        .open_file_in_dir(root_dir, "MY_FILE.TXT", Mode::ReadOnly)
-    {
+    let my_file = match volume_mgr.open_file_in_dir(root_dir, "MY_FILE.TXT", Mode::ReadOnly) {
         Ok(f) => f,
         Err(_) => {
             volume_mgr.close_dir(root_dir).unwrap();
             volume_mgr.close_volume(volume0).unwrap();
             panic!("Cannot open file");
-        },
+        }
     };
-    
-    let mut buf = [0u8;64];
 
-    while let Ok(n) = volume_mgr.read(my_file, &mut buf){
-        if n == 0{
+    let mut buf = [0u8; 64];
+
+    while let Ok(n) = volume_mgr.read(my_file, &mut buf) {
+        if n == 0 {
             break;
         }
         let vec: Vec<u8, 64> = Vec::from_slice(&buf).expect("Malformed string");
         let str = String::from_utf8(vec).unwrap();
         info!("{}", str.as_str());
         // for b in &buf[0..n] {
-            // info!("{}", *b as char);
+        // info!("{}", *b as char);
         // }
     }
 
@@ -140,7 +138,7 @@ async fn main(_spawner: Spawner) -> ! {
     //         Err(_) => todo!(),
     //     }
     // }
-    
+
     volume_mgr.close_file(my_file).unwrap();
     volume_mgr.close_dir(root_dir).unwrap();
     volume_mgr.close_volume(volume0).unwrap();
@@ -161,7 +159,7 @@ async fn main(_spawner: Spawner) -> ! {
     //     info!("read via spi: {}", from_utf8(write.as_bytes()).unwrap());
     // }
 
-    loop{
+    loop {
         info!("main loop");
         Timer::after(Duration::from_secs(1)).await;
     }

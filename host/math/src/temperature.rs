@@ -50,7 +50,7 @@ impl Temperature {
 }
 
 #[cfg(feature = "defmt-log")]
-impl defmt::Format for Temperature{
+impl defmt::Format for Temperature {
     fn format(&self, fmt: defmt::Formatter) {
         defmt::write!(fmt, "{} °C", self.to_celsius())
     }

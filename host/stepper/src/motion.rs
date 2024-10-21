@@ -2,7 +2,9 @@ use core::time::Duration;
 
 use futures::join;
 use math::angle::{cos, sin};
-use math::common::{abs, compute_arc_destination, compute_arc_length, floor, max, RotationDirection};
+use math::common::{
+    abs, compute_arc_destination, compute_arc_length, floor, max, RotationDirection,
+};
 use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
@@ -53,7 +55,7 @@ async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait>(
         (Ok(da), Ok(db)) => {
             let max = *max(&[da.as_micros(), db.as_micros()]).unwrap();
             Ok(Duration::from_micros(max as u64))
-        },
+        }
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -117,7 +119,7 @@ async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait>(
         (Ok(da), Ok(db), Ok(dc)) => {
             let max = *max(&[da.as_micros(), db.as_micros(), dc.as_micros()]).unwrap();
             Ok(Duration::from_micros(max as u64))
-        },
+        }
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -224,7 +226,7 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
         (Ok(dabc), Ok(de)) => {
             let max = *max(&[dabc.as_micros(), de.as_micros()]).unwrap();
             Ok(Duration::from_micros(max as u64))
-        },
+        }
         _ => Err(StepperError::MoveNotValid),
     }
 }
@@ -320,7 +322,7 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
         (Ok(dab), Ok(dc), Ok(de)) => {
             let max = *max(&[dab.as_micros(), dc.as_micros(), de.as_micros()]).unwrap();
             Ok(Duration::from_micros(max as u64))
-        },
+        }
         _ => Err(StepperError::MoveNotValid),
     }
 }
