@@ -153,6 +153,7 @@ async fn command_dispatcher_task() {
         info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
         core::write!(&mut response, "Hello DMA World {}!\r\n", msg.as_str()).unwrap();
         FEEDBACK_CHANNEL.send(response.clone()).await;
+        response.clear();
         if let Some(cmd) = parser.parse(msg.as_str()) {
             info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
