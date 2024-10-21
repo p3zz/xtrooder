@@ -1,6 +1,6 @@
 use core::{str::FromStr, time::Duration};
 
-use heapless::{spsc::Queue, LinearMap, String, Vec};
+use heapless::{LinearMap, String, Vec};
 use math::{
     distance::{Distance, DistanceUnit},
     duration::DurationUnit,
@@ -226,6 +226,12 @@ pub struct GCodeParser {
     temperature_unit: TemperatureUnit,
 }
 
+impl Default for GCodeParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GCodeParser {
     pub const fn new() -> Self {
         Self {
@@ -247,13 +253,10 @@ impl GCodeParser {
                     // todo check buffer overflow
                     _ => data_buffer.push(b).unwrap(),
                 },
-                ParserState::ReadingComment => match b {
-                    ')' => state = ParserState::ReadingCommand,
-                    _ => (),
-                },
+                ParserState::ReadingComment => if b == ')' { state = ParserState::ReadingCommand },
             }
         }
-        self.parse_line(&data_buffer.as_str())
+        self.parse_line(data_buffer.as_str())
     }
 
     pub fn set_distance_unit(&mut self, unit: DistanceUnit) {
@@ -361,10 +364,10 @@ impl GCodeParser {
             (GCommandType::M, 21) => Some(GCommand::M21),
             (GCommandType::M, 22) => Some(GCommand::M22),
             (GCommandType::M, 23) => {
-                if tokens.len() == 0 {
+                if tokens.is_empty() {
                     return None;
                 }
-                let filename = tokens.get(0)?;
+                let filename = tokens.first()?;
                 let filename = String::from_str(filename).unwrap();
                 // let filename: String<12> = String::from_str(&filename).unwrap();
                 Some(GCommand::M23 { filename })

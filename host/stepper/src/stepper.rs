@@ -103,7 +103,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
             step,
             dir,
             options,
-            attachment: attachment,
+            attachment,
             step_duration: Duration::from_secs(1),
             steps: 0f64,
         }

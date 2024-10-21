@@ -6,7 +6,6 @@ use crate::{
     angle::{asin, cos, sin, Angle},
     computable::Computable,
     distance::Distance,
-    speed::Speed,
     vector::Vector2D,
 };
 
@@ -26,7 +25,7 @@ impl From<RotationDirection> for i8 {
 }
 
 pub fn max<T: PartialEq + PartialOrd>(other: &[T]) -> Option<&T> {
-    let mut max = other.get(0)?;
+    let mut max = other.first()?;
     for e in other {
         if *e > *max {
             max = e;
@@ -188,7 +187,7 @@ mod tests {
 
     use crate::{
         common::{
-            abs, compute_arc_length, compute_revolutions_per_second, compute_step_duration,
+            compute_arc_length, compute_revolutions_per_second, compute_step_duration,
             RotationDirection,
         },
         distance::Distance,
@@ -401,8 +400,8 @@ mod tests {
         let unit_length = Distance::from_mm(1.0);
         let points = approximate_arc(start, center, arc_length, direction, unit_length);
         assert_eq!(points.len(), 21);
-        assert_float_absolute_eq!(points.get(0).unwrap().get_x().to_mm(), 0.0, 0.00001);
-        assert_float_absolute_eq!(points.get(0).unwrap().get_y().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.first().unwrap().get_x().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.first().unwrap().get_y().to_mm(), 0.0, 0.00001);
         assert_float_absolute_eq!(points.get(1).unwrap().get_x().to_mm(), -0.681527, 0.00001);
         assert_float_absolute_eq!(points.get(1).unwrap().get_y().to_mm(), 0.731507, 0.00001);
         assert_float_absolute_eq!(points.get(10).unwrap().get_x().to_mm(), -4.098815, 0.00001);
@@ -422,8 +421,8 @@ mod tests {
         let unit_length = Distance::from_mm(1.0);
         let points = approximate_arc(start, center, arc_length, direction, unit_length);
         assert_eq!(points.len(), 45);
-        assert_float_absolute_eq!(points.get(0).unwrap().get_x().to_mm(), 0.0, 0.00001);
-        assert_float_absolute_eq!(points.get(0).unwrap().get_y().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.first().unwrap().get_x().to_mm(), 0.0, 0.00001);
+        assert_float_absolute_eq!(points.first().unwrap().get_y().to_mm(), 0.0, 0.00001);
         assert_float_absolute_eq!(points.get(44).unwrap().get_x().to_mm(), 19.692222, 0.00001);
         assert_float_absolute_eq!(points.get(44).unwrap().get_y().to_mm(), 20.298583, 0.00001);
     }
