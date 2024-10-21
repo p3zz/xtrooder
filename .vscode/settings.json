@@ -8,6 +8,5 @@
         "./host/math/Cargo.toml",
         "./host/parser/Cargo.toml",
         "./host/stepper/Cargo.toml",
-        "./host/fs/Cargo.toml",
     ],
 }
