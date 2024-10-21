@@ -3,6 +3,7 @@
 
 use core::cell::RefCell;
 use core::str::FromStr;
+use core::fmt::Write;
 
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::planner::planner::Planner;
@@ -11,13 +12,13 @@ use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
-use embassy_stm32::mode::Blocking;
+use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB3, PB4, PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM8, UART4
+    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB3, PB4, PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM8, UART4
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::spi::{self, Spi};
-use embassy_stm32::usart::{self, UartRx};
+use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
@@ -31,6 +32,7 @@ use embassy_stm32::{
     },
 };
 use embassy_sync::blocking_mutex::NoopMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
@@ -52,9 +54,15 @@ static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new(
 static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
+static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
+
+static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
+static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 
 #[link_section = ".ram_d3"]
 static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+#[link_section = ".ram_d3"]
+static UART_TX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 #[link_section = ".ram_d3"]
@@ -62,7 +70,6 @@ static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
-    SDMMC1 => sdmmc::InterruptHandler<SDMMC1>;
 });
 
 struct StepperPin<'a> {
@@ -84,18 +91,16 @@ impl StatefulOutputPin for StepperPin<'_> {
 }
 
 #[embassy_executor::task]
-async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
-    let mut config = embassy_stm32::usart::Config::default();
-    config.baudrate = 19200;
-    let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
-
+async fn input_handler() {
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
     let tmp = UART_RX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
-
+    let mut rx = UART_RX.lock().await;
+    let rx = rx.as_mut().expect("UART RX not initialized");
+    
     info!("Starting input handler loop");
 
     loop {
-        if let Ok(n) = uart.read_until_idle(tmp).await {
+        if let Ok(n) = rx.read_until_idle(tmp).await {
             for b in 0..n {
                 if tmp[b] == b'\n' {
                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
@@ -113,41 +118,41 @@ async fn input_handler(peri: UART4, rx: PC11, dma_rx: DMA1_CH0) {
     }
 }
 
-// #[embassy_executor::task]
-// async fn output_handler(peri: USART3, rx: PB11, dma_rx: DMA1_CH0) {
-//     let mut config = embassy_stm32::usart::Config::default();
-//     config.baudrate = 19200;
-//     let mut uart = UartRx::new(peri, Irqs, rx, dma_rx, config).expect("Cannot initialize UART RX");
+#[embassy_executor::task]
+async fn output_handler() {
+    let tmp = UART_TX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
+    let mut tx = UART_TX.lock().await;
+    let tx = tx.as_mut().expect("UART TX not initialized");
 
-//     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-//     let mut tmp = [0u8; MAX_MESSAGE_LEN];
-
-//     loop {
-//         if let Ok(n) = uart.read_until_idle(&mut tmp).await {
-//             for b in tmp {
-//                 if b == b'\n' {
-//                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-//                     msg.clear();
-//                 } else {
-//                     // TODO handle buffer overflow
-//                     msg.push(b.into()).unwrap();
-//                 }
-//             }
-//             tmp = [0u8; MAX_MESSAGE_LEN];
-//         }
-//     }
-// }
+    loop {
+        // retrieve the channel content and copy the message inside the shared memory of DMA to send t
+        // over UART
+        let msg = FEEDBACK_CHANNEL.receive().await;
+        let mut len = 0;
+        for (i, b) in msg.into_bytes().iter().enumerate(){
+            tmp[i] = *b;
+            len = i;
+        }
+        match tx.write(&tmp[0..len]).await{
+            Ok(_) => (),
+            Err(_) => error!("Cannot write to UART"),
+        };
+        tmp.fill(0u8);
+    }
+}
 
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
-
+    let mut response: String<MAX_MESSAGE_LEN> = String::new();
     info!("Starting command dispatcher loop");
 
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
         info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
+        core::write!(&mut response, "Hello DMA World {}!\r\n", msg.as_str()).unwrap();
+        FEEDBACK_CHANNEL.send(response.clone()).await;
         if let Some(cmd) = parser.parse(msg.as_str()) {
             info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
@@ -552,9 +557,28 @@ async fn main(spawner: Spawner) {
         config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
     }
     let p = embassy_stm32::init(config);
+    let mut config = embassy_stm32::usart::Config::default();
+    config.baudrate = 19200;
+
+    let uart = Uart::new(p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH1, p.DMA1_CH0, config).unwrap();
+    let (tx, rx) = uart.split();
+
+    {
+        let mut uart_rx = UART_RX.lock().await;
+        *uart_rx = Some(rx);
+    }
+    
+    {
+        let mut uart_tx = UART_TX.lock().await;
+        *uart_tx = Some(tx);
+    }
 
     spawner
-        .spawn(input_handler(p.UART4, p.PC11, p.DMA1_CH0))
+        .spawn(input_handler())
+        .unwrap();
+
+    spawner
+        .spawn(output_handler())
         .unwrap();
 
     spawner.spawn(command_dispatcher_task()).unwrap();
