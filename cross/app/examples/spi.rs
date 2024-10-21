@@ -70,7 +70,7 @@ async fn main(_spawner: Spawner) -> ! {
     let p = embassy_stm32::init(config);
 
     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
-    let spi = spi::Spi::new_blocking(p.SPI3, p.PB3, p.PB5, p.PB4, Default::default());
+    let spi = spi::Spi::new_blocking(p.SPI1, p.PB3, p.PB5, p.PB4, Default::default());
     let spi_bus = NoopMutex::new(RefCell::new(spi));
     let spi_bus = SPI_BUS.init(spi_bus);
 
