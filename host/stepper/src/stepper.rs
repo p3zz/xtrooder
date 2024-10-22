@@ -15,6 +15,10 @@ pub trait StatefulOutputPin {
     fn is_high(&self) -> bool;
 }
 
+pub trait StepperInputPin {
+    fn is_high(&self) -> bool;
+}
+
 #[derive(Clone, Copy)]
 pub struct StepperAttachment {
     pub distance_per_step: Distance,
@@ -47,7 +51,7 @@ impl Default for StepperOptions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
@@ -275,8 +279,16 @@ impl<P: StatefulOutputPin> Stepper<P> {
         self.steps
     }
 
+    pub fn set_steps(&mut self, steps: f64) {
+        self.steps = steps;
+    }
+
     pub fn get_speed(&self) -> f64 {
         compute_revolutions_per_second(self.step_duration, self.options.steps_per_revolution)
+    }
+
+    pub fn get_options(&self) -> StepperOptions {
+        self.options
     }
 
     pub fn get_speed_from_attachment(&self) -> Result<Speed, StepperError> {
@@ -291,8 +303,27 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Err(StepperError::MissingAttachment)
     }
 
+    pub fn get_step_duration(&self) -> Duration {
+        self.step_duration
+    }
+
+    // if the steps are negative and the positive direction is clockwise, we need to go clockwise
+    // if the steps are negative and the positive direction is counter-clockwise, we need to go counter-clockwise
+    // if the steps are positive and the positive direction is clockwise, we need to go counter-clockwise
+    // if the steps are positive and the positive direction is counter-clockwise, we need to go clockwise
     pub async fn home<T: TimerTrait>(&mut self) -> Result<Duration, StepperError> {
-        self.move_to_destination::<T>(Distance::from_mm(0.0)).await
+        let sign = self.steps * f64::from(i8::from(self.options.positive_direction));
+        let direction = if sign.is_sign_positive(){
+            RotationDirection::CounterClockwise
+        } else{
+            RotationDirection::Clockwise
+        };
+        self.set_direction(direction);
+        // we need to get the total number of effective steps we have already performed, so we can
+        // come back to the origin (0). steps member is normalized in full-steps, so we need to multiply
+        // it by the stepping mode we're in
+        let steps = (abs(self.steps) * f64::from(u8::from(self.options.stepping_mode))) as u64;
+        self.move_for_steps::<T>(steps).await
     }
 
     #[cfg(test)]
@@ -707,8 +738,7 @@ mod tests {
         s.set_stepping_mode(SteppingMode::FullStep);
 
         let res = s.home::<StepperTimer>().await;
-        assert!(res.is_err());
-        assert_eq!(s.get_steps(), 0.0);
+        assert!(res.is_ok());
     }
 
     #[test]

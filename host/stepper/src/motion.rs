@@ -1,3 +1,4 @@
+use core::ops::AddAssign;
 use core::time::Duration;
 
 use futures::join;
@@ -10,7 +11,7 @@ use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 
-use crate::stepper::{StatefulOutputPin, Stepper, StepperError, TimerTrait};
+use crate::stepper::{StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -368,8 +369,39 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     .await
 }
 
+pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(stepper: &mut Stepper<O>, trigger: &I) -> Result<Duration, StepperError> {
+    stepper.set_direction(RotationDirection::Clockwise);
+    stepper.set_speed(1.0).unwrap();
+
+    // calibrate x
+    while !trigger.is_high(){
+        stepper.step().unwrap();
+        T::after(stepper.get_step_duration()).await;
+    }
+    let bounds = stepper.get_options().bounds.ok_or(StepperError::MoveOutOfBounds)?;
+    stepper.set_steps(bounds.1);
+    stepper.home::<T>().await
+}
+
+// perform one calibration at a time
+pub async fn auto_home_3d<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(
+    stepper_a: &mut Stepper<O>,
+    stepper_b: &mut Stepper<O>,
+    stepper_c: &mut Stepper<O>,
+    trigger_a: &I,
+    trigger_b: &I,
+    trigger_c: &I
+) -> Result<Duration, StepperError> {
+    let mut duration = Duration::from_millis(0);
+    duration.add_assign(auto_home::<I, O, T>(stepper_a, trigger_a).await?);
+    duration.add_assign(auto_home::<I, O, T>(stepper_b, trigger_b).await?);
+    duration.add_assign(auto_home::<I, O, T>(stepper_c, trigger_c).await?);
+    Ok(duration)
+}
+
 #[cfg(test)]
 mod tests {
+
     use math::{
         common::RotationDirection,
         distance::Distance,
@@ -411,6 +443,29 @@ mod tests {
     impl TimerTrait for StepperTimer {
         async fn after(duration: core::time::Duration) {
             sleep(duration).await
+        }
+    }
+
+    struct InputPinMock {
+        state: bool,
+    }
+
+    impl InputPinMock{
+        fn new() -> Self{
+            Self{state: false}
+        }
+
+        fn set_high(&mut self){
+            self.state = true;
+        }
+        fn set_low(&mut self){
+            self.state = false;
+        }
+    }
+
+    impl StepperInputPin for InputPinMock{
+        fn is_high(&self) -> bool {
+            self.state
         }
     }
 
@@ -949,5 +1004,43 @@ mod tests {
         assert_eq!(s_y.get_position().unwrap().to_mm(), 18.0);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
+    }
+
+    #[tokio::test]
+    async fn test_auto_home_failure() {
+        let mut stepper = Stepper::new(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions::default(),
+            None
+        );
+        let mut trigger: InputPinMock = InputPinMock::new();
+        trigger.set_high();
+        
+        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger).await;
+        assert!(result.is_err());
+        assert_eq!(StepperError::MoveOutOfBounds, result.err().unwrap());
+        // assert_eq!(3, result.unwrap().as_secs());
+    }
+
+    #[tokio::test]
+    async fn test_auto_home_success() {
+        let mut stepper = Stepper::new(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions{
+                steps_per_revolution: 100,
+                stepping_mode: SteppingMode::FullStep,
+                bounds: Some((-100.0, 100.0)),
+                positive_direction: RotationDirection::Clockwise
+            },
+            None
+        );
+        let mut trigger: InputPinMock = InputPinMock::new();
+        trigger.set_high();
+        
+        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger).await;
+        assert!(result.is_ok());
+        assert_eq!(1, result.unwrap().as_secs());
     }
 }

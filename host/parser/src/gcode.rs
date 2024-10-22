@@ -361,6 +361,7 @@ impl GCodeParser {
             }
             (GCommandType::G, 20) => Some(GCommand::G20),
             (GCommandType::G, 21) => Some(GCommand::G21),
+            (GCommandType::G, 28) => Some(GCommand::G28),
             (GCommandType::G, 90) => Some(GCommand::G90),
             (GCommandType::G, 91) => Some(GCommand::G91),
             (GCommandType::M, 21) => Some(GCommand::M21),

@@ -1,3 +1,4 @@
+use embassy_stm32::gpio::Input;
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
@@ -6,10 +7,9 @@ use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 use stepper::motion::{
-    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
-    no_move, Positioning,
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d, linear_move_3d_e, no_move, Positioning
 };
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, TimerTrait};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
 
 struct StepperTimer {}
 
@@ -338,5 +338,10 @@ impl<P: StatefulOutputPin> Planner<P> {
     ) -> Result<core::time::Duration, StepperError> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
             .await
+    }
+
+    // auto home
+    pub async fn g28<I: StepperInputPin>(&mut self, x_button: &I, y_button: &I, z_button: &I) -> Result<core::time::Duration, StepperError>{
+        auto_home_3d::<I, P, StepperTimer>(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, x_button, y_button, z_button).await
     }
 }
