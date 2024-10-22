@@ -58,6 +58,8 @@ pub enum GCommand {
     G20,
     // set distance unit to millimeters
     G21,
+    // auto home
+    G28,
     // set positioning as absolute
     G90,
     // set positioning as relative
