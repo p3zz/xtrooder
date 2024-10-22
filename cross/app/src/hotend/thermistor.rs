@@ -8,9 +8,6 @@ use static_cell::StaticCell;
 
 pub type DmaBufType = [u16; 1];
 
-#[link_section = ".ram_d3"]
-static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
-
 /*
 ADC value = R / (R + R0) * Vcc * resolution / Varef
 Vcc: voltage reference of the board

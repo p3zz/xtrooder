@@ -138,7 +138,6 @@ async fn output_handler() {
             Ok(_) => (),
             Err(_) => error!("Cannot write to UART"),
         };
-        tmp.fill(0u8);
     }
 }
 
