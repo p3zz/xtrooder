@@ -370,7 +370,9 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
 }
 
 pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(stepper: &mut Stepper<O>, trigger: &I) -> Result<Duration, StepperError> {
-    stepper.set_direction(RotationDirection::Clockwise);
+    // set the rotation direction to positive
+    let direction = stepper.get_options().positive_direction;
+    stepper.set_direction(direction);
     stepper.set_speed(1.0).unwrap();
 
     // calibrate x
@@ -379,6 +381,7 @@ pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(
         T::after(stepper.get_step_duration()).await;
     }
     let bounds = stepper.get_options().bounds.ok_or(StepperError::MoveOutOfBounds)?;
+    // set the current steps to the positive bound so we can safely home performing the correct number of steps
     stepper.set_steps(bounds.1);
     stepper.home::<T>().await
 }
@@ -1037,6 +1040,7 @@ mod tests {
             None
         );
         let mut trigger: InputPinMock = InputPinMock::new();
+        // simulate collision with the trigger switch
         trigger.set_high();
         
         let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger).await;
