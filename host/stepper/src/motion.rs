@@ -369,18 +369,24 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     .await
 }
 
-pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(stepper: &mut Stepper<O>, trigger: &I) -> Result<Duration, StepperError> {
+pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait>(
+    stepper: &mut Stepper<O>,
+    trigger: &I,
+) -> Result<Duration, StepperError> {
     // set the rotation direction to positive
     let direction = stepper.get_options().positive_direction;
     stepper.set_direction(direction);
     stepper.set_speed(1.0).unwrap();
 
     // calibrate x
-    while !trigger.is_high(){
+    while !trigger.is_high() {
         stepper.step().unwrap();
         T::after(stepper.get_step_duration()).await;
     }
-    let bounds = stepper.get_options().bounds.ok_or(StepperError::MoveOutOfBounds)?;
+    let bounds = stepper
+        .get_options()
+        .bounds
+        .ok_or(StepperError::MoveOutOfBounds)?;
     // set the current steps to the positive bound so we can safely home performing the correct number of steps
     stepper.set_steps(bounds.1);
     stepper.home::<T>().await
@@ -393,7 +399,7 @@ pub async fn auto_home_3d<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrai
     stepper_c: &mut Stepper<O>,
     trigger_a: &I,
     trigger_b: &I,
-    trigger_c: &I
+    trigger_c: &I,
 ) -> Result<Duration, StepperError> {
     let mut duration = Duration::from_millis(0);
     duration.add_assign(auto_home::<I, O, T>(stepper_a, trigger_a).await?);
@@ -453,20 +459,20 @@ mod tests {
         state: bool,
     }
 
-    impl InputPinMock{
-        fn new() -> Self{
-            Self{state: false}
+    impl InputPinMock {
+        fn new() -> Self {
+            Self { state: false }
         }
 
-        fn set_high(&mut self){
+        fn set_high(&mut self) {
             self.state = true;
         }
-        fn set_low(&mut self){
+        fn set_low(&mut self) {
             self.state = false;
         }
     }
 
-    impl StepperInputPin for InputPinMock{
+    impl StepperInputPin for InputPinMock {
         fn is_high(&self) -> bool {
             self.state
         }
@@ -1015,12 +1021,14 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            None
+            None,
         );
         let mut trigger: InputPinMock = InputPinMock::new();
         trigger.set_high();
-        
-        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger).await;
+
+        let result =
+            auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger)
+                .await;
         assert!(result.is_err());
         assert_eq!(StepperError::MoveOutOfBounds, result.err().unwrap());
         // assert_eq!(3, result.unwrap().as_secs());
@@ -1031,19 +1039,21 @@ mod tests {
         let mut stepper = Stepper::new(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
-            StepperOptions{
+            StepperOptions {
                 steps_per_revolution: 100,
                 stepping_mode: SteppingMode::FullStep,
                 bounds: Some((-100.0, 100.0)),
-                positive_direction: RotationDirection::Clockwise
+                positive_direction: RotationDirection::Clockwise,
             },
-            None
+            None,
         );
         let mut trigger: InputPinMock = InputPinMock::new();
         // simulate collision with the trigger switch
         trigger.set_high();
-        
-        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger).await;
+
+        let result =
+            auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer>(&mut stepper, &trigger)
+                .await;
         assert!(result.is_ok());
         assert_eq!(1, result.unwrap().as_secs());
     }

@@ -313,9 +313,9 @@ impl<P: StatefulOutputPin> Stepper<P> {
     // if the steps are positive and the positive direction is counter-clockwise, we need to go clockwise
     pub async fn home<T: TimerTrait>(&mut self) -> Result<Duration, StepperError> {
         let sign = self.steps * f64::from(i8::from(self.options.positive_direction));
-        let direction = if sign.is_sign_positive(){
+        let direction = if sign.is_sign_positive() {
             RotationDirection::CounterClockwise
-        } else{
+        } else {
             RotationDirection::Clockwise
         };
         self.set_direction(direction);

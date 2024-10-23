@@ -93,54 +93,54 @@ pub enum GCommand {
     M105,
     // set fan speed
     // 0 to 255, 255 -> max speed
-    M106{
-        s: u8
+    M106 {
+        s: u8,
     },
     // [future] wait for hotend temperature
-    M109{
+    M109 {
         r: Temperature,
-        s: Temperature
+        s: Temperature,
     },
     // get head position
     M114,
     // report fan speed
     // optional duration s
-    M123{
-        s: Option<Duration>
+    M123 {
+        s: Option<Duration>,
     },
     // set bed temperature
     M140 {
         s: Temperature,
     },
     // set temperature unit
-    M149{
-        u: TemperatureUnit
+    M149 {
+        u: TemperatureUnit,
     },
     // position auto-report
-    M154{
-        s: Duration
+    M154 {
+        s: Duration,
     },
     // temperature auto-report
-    M155{
-        s: Duration
+    M155 {
+        s: Duration,
     },
     // [future] wait for bed temperature
-    M190{
+    M190 {
         r: Temperature,
-        s: Temperature
+        s: Temperature,
     },
     // [future] wait for probe temperature
-    M192{
+    M192 {
         r: Temperature,
-        s: Temperature
+        s: Temperature,
     },
     // set max feedrate
-    M203{
+    M203 {
         x: Speed,
         y: Speed,
         z: Speed,
         e: Speed,
-    }
+    },
 }
 
 #[cfg(feature = "defmt-log")]
@@ -208,7 +208,7 @@ impl defmt::Format for GCommand {
             GCommand::G91 => todo!(),
             GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s),
             GCommand::M140 { s } => defmt::write!(fmt, "M140 [S: {}]", s),
-            GCommand::M149 { u} => defmt::write!(fmt, "M149 [U: {}]", u),
+            GCommand::M149 { u } => defmt::write!(fmt, "M149 [U: {}]", u),
             GCommand::M20 => defmt::write!(fmt, "M20"),
             GCommand::M21 => defmt::write!(fmt, "M21"),
             GCommand::M22 => defmt::write!(fmt, "M22"),
@@ -303,7 +303,11 @@ impl GCodeParser {
                     // todo check buffer overflow
                     _ => data_buffer.push(b).unwrap(),
                 },
-                ParserState::ReadingComment => if b == ')' { state = ParserState::ReadingCommand },
+                ParserState::ReadingComment => {
+                    if b == ')' {
+                        state = ParserState::ReadingCommand
+                    }
+                }
             }
         }
         self.parse_line(data_buffer.as_str())
@@ -430,37 +434,29 @@ impl GCodeParser {
             }),
             (GCommandType::M, 25) => Some(GCommand::M25),
             (GCommandType::M, 104) => {
-                let s = extract_temperature(&args, "S", self.temperature_unit);
-                if s.is_some() {
-                    Some(GCommand::M104 { s: s.unwrap() })
-                } else {
-                    None
-                }
-            },
+                let s = extract_temperature(&args, "S", self.temperature_unit)?;
+                Some(GCommand::M104 { s })
+            }
             (GCommandType::M, 106) => {
-                let s = extract_token_as_number(&args, "S");
-                if s.is_some() && s.unwrap() >= 0f64 && s.unwrap() < 255f64 {
-                    Some(GCommand::M106 { s: s.unwrap() as u8 })
+                let s = extract_token_as_number(&args, "S")?;
+                if s >= 0f64 && s < 255f64 {
+                    Some(GCommand::M106 { s: s as u8 })
                 } else {
                     None
                 }
-            },
+            }
             (GCommandType::M, 140) => {
-                let s = extract_temperature(&args, "S", self.temperature_unit);
-                if s.is_some() {
-                    Some(GCommand::M140 { s: s.unwrap() })
-                } else {
-                    None
-                }
-            },
+                let s = extract_temperature(&args, "S", self.temperature_unit)?;
+                Some(GCommand::M140 { s })
+            }
             (GCommandType::M, 149) => {
                 let filename = tokens.first()?;
-                let u = match *filename{
-                    "C" => TemperatureUnit::Celsius,
-                    "F" => TemperatureUnit::Farhenheit,
-                    "K" => TemperatureUnit::Kelvin,
-                    _ => return None
-                };
+                let u = match *filename {
+                    "C" => Some(TemperatureUnit::Celsius),
+                    "F" => Some(TemperatureUnit::Farhenheit),
+                    "K" => Some(TemperatureUnit::Kelvin),
+                    _ => None,
+                }?;
                 Some(GCommand::M149 { u })
             }
             _ => None,

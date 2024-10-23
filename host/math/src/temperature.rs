@@ -59,10 +59,10 @@ impl defmt::Format for Temperature {
 #[cfg(feature = "defmt-log")]
 impl defmt::Format for TemperatureUnit {
     fn format(&self, fmt: defmt::Formatter) {
-        match self{
+        match self {
             TemperatureUnit::Celsius => defmt::write!(fmt, "°C"),
             TemperatureUnit::Kelvin => defmt::write!(fmt, "°K"),
-            TemperatureUnit::Farhenheit => defmt::write!(fmt, "°F")
+            TemperatureUnit::Farhenheit => defmt::write!(fmt, "°F"),
         }
     }
 }
