@@ -438,9 +438,9 @@ impl GCodeParser {
                 }
             },
             (GCommandType::M, 106) => {
-                let s = extract_temperature(&args, "S", self.temperature_unit);
-                if s.is_some() {
-                    Some(GCommand::M104 { s: s.unwrap() })
+                let s = extract_token_as_number(&args, "S");
+                if s.is_some() && s.unwrap() >= 0f64 && s.unwrap() < 255f64 {
+                    Some(GCommand::M106 { s: s.unwrap() as u8 })
                 } else {
                     None
                 }
@@ -578,6 +578,34 @@ mod tests {
                     z: None,
                     e: None,
                     f: None
+                }
+        );
+    }
+
+    #[test]
+    fn test_parse_line_m149_celsius() {
+        let parser = GCodeParser::new();
+        let line = "M149 C";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::M149 {
+                    u: TemperatureUnit::Celsius,
+                }
+        );
+    }
+
+    #[test]
+    fn test_parse_line_m149_farhenheit() {
+        let parser = GCodeParser::new();
+        let line = "M149 F";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::M149 {
+                    u: TemperatureUnit::Farhenheit,
                 }
         );
     }
