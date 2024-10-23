@@ -54,7 +54,6 @@ static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAG
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
-// static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
 
@@ -307,15 +306,10 @@ async fn heatbed_handler(
     let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(500);
-    // try to read the target temperature on each iterator
-    // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
     loop {
-        {
-            let signal = HEATBED_TARGET_TEMPERATURE.try_take();
-            if let Some(t) = signal {
-                heatbed.set_temperature(t);
-            }
-        }
+        if let Some(t) = HEATBED_TARGET_TEMPERATURE.try_take(){
+            heatbed.set_temperature(t);
+        };
         heatbed.update(dt).await;
         Timer::after(dt).await;
     }
