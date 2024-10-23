@@ -1,4 +1,4 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TemperatureUnit {
     Celsius,
     Kelvin,
@@ -52,6 +52,17 @@ impl Temperature {
 #[cfg(feature = "defmt-log")]
 impl defmt::Format for Temperature {
     fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "{} °C", self.to_celsius())
+        defmt::write!(fmt, "{} {}", self.to_celsius(), TemperatureUnit::Celsius)
+    }
+}
+
+#[cfg(feature = "defmt-log")]
+impl defmt::Format for TemperatureUnit {
+    fn format(&self, fmt: defmt::Formatter) {
+        match self{
+            TemperatureUnit::Celsius => defmt::write!(fmt, "°C"),
+            TemperatureUnit::Kelvin => defmt::write!(fmt, "°K"),
+            TemperatureUnit::Farhenheit => defmt::write!(fmt, "°F")
+        }
     }
 }

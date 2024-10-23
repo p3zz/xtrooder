@@ -179,7 +179,9 @@ async fn command_dispatcher_task() {
                 GCommand::M140 { s } => {
                     HEATBED_TARGET_TEMPERATURE.signal(s);
                 }
-                GCommand::M149 => todo!(),
+                GCommand::M149 { u } => {
+                    parser.set_temperature_unit(u);
+                },
                 GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
