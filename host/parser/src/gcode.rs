@@ -346,7 +346,7 @@ impl GCodeParser {
 
         for t in &tokens {
             let key = t.get(0..1)?;
-            let v = t.get(1..).or(Some("")).unwrap();
+            let v = t.get(1..).unwrap_or("");
             args.insert(key, v).unwrap();
         }
 
@@ -439,7 +439,7 @@ impl GCodeParser {
             }
             (GCommandType::M, 106) => {
                 let s = extract_token_as_number(&args, "S")?;
-                if s >= 0f64 && s < 255f64 {
+                if (0f64..255f64).contains(&s) {
                     Some(GCommand::M106 { s: s as u8 })
                 } else {
                     None
