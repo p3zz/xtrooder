@@ -5,6 +5,7 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
+use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::planner::planner::Planner;
 use app::utils::stopwatch::Clock;
@@ -14,8 +15,7 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PB0, PB1, PB2, PB3, PB4, PB5, PC10,
-    PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM8, UART4,
+    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB10, PB2, PB3, PB4, PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM3, TIM8, UART4
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::spi::{self, Spi};
@@ -52,8 +52,9 @@ const MAX_MESSAGE_LEN: usize = 255;
 static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> =
     Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
+static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
-static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
+// static HOTEND_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
 
@@ -170,9 +171,9 @@ async fn command_dispatcher_task() {
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
                 // hotend target temperature is used to update the target temperature of the hotend task
-                GCommand::M104 { s } => {
-                    info!("Setting hotend target");
-                    HOTEND_TARGET_TEMPERATURE.signal(s);
+                GCommand::M104 { .. } |
+                GCommand::M106 { .. } => {
+                    HOTEND_CHANNEL.send(cmd).await;
                 }
                 // heatbed target temperature is used to update the target temperature of the hotend task
                 GCommand::M140 { s } => {
@@ -205,6 +206,8 @@ async fn hotend_handler(
     read_pin: PA3,
     heater_tim: TIM4,
     heater_out_pin: PB9,
+    fan_time: TIM3,
+    fan_out_pin: PA7,
 ) {
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
@@ -228,18 +231,37 @@ async fn hotend_handler(
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
+
+    let fan_out = SimplePwm::new(
+        fan_time,
+        None,
+        Some(PwmPin::new_ch2(fan_out_pin, OutputType::PushPull)),
+        None,
+        None,
+        hz(1),
+        CountingMode::EdgeAlignedUp
+    );
+
+    let mut fan_controller = FanController::new(fan_out, TimerChannel::Ch2, 10f64);
     let heater = Heater::new(heater_out, TimerChannel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(500);
     loop {
-        // try to read the target temperature on each iterator
-        // we cannot lock to read the target temperature because the update of the hotend must be performed regardless
-        {
-            let signal = HOTEND_TARGET_TEMPERATURE.try_take();
-            if let Some(t) = signal {
-                info!("[HOTEND HANDLER] Target temperature: {}", t.to_celsius());
-                hotend.set_temperature(t);
+        if let Ok(cmd) = HOTEND_CHANNEL.try_receive(){
+            match cmd{
+                GCommand::M104 { s } => {
+                    info!("[HOTEND HANDLER] Target temperature: {}", s.to_celsius());
+                    hotend.set_temperature(s);
+                },
+                GCommand::M106 { s } => {
+                    let s = s.max(255);
+                    let multiplier = f64::from(255) / f64::from(s);
+                    let speed = fan_controller.get_max_speed() * multiplier;
+                    fan_controller.set_speed(speed);
+                    info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
+                },
+                _ => ()
             }
         }
         hotend.update(dt).await;
@@ -581,7 +603,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(command_dispatcher_task()).unwrap();
 
     spawner
-        .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9))
+        .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7))
         .unwrap();
 
     spawner

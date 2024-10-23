@@ -4,7 +4,6 @@ use math::resistance::Resistance;
 use micromath::F32Ext;
 
 use math::temperature::Temperature;
-use static_cell::StaticCell;
 
 pub type DmaBufType = [u16; 1];
 

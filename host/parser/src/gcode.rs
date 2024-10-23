@@ -82,10 +82,30 @@ pub enum GCommand {
     // Pause SD print
     M25,
     // Report SD print status
-    M26,
+    M27,
+    // report print time
+    M31,
     // set hotend temperature
     M104 {
         s: Temperature,
+    },
+    // report temperatures
+    M105,
+    // set fan speed
+    // 0 to 255, 255 -> max speed
+    M106{
+        s: u8
+    },
+    // [future] wait for hotend temperature
+    M109{
+        r: Temperature,
+        s: Temperature
+    },
+    // get head position
+    M114,
+    // fan tachometers
+    M123{
+        s: Duration
     },
     // set bed temperature
     M140 {
@@ -93,6 +113,31 @@ pub enum GCommand {
     },
     // set temperature unit
     M149,
+    // position auto-report
+    M154{
+        s: Duration
+    },
+    // temperature auto-report
+    M155{
+        s: Duration
+    },
+    // [future] wait for bed temperature
+    M190{
+        r: Temperature,
+        s: Temperature
+    },
+    // [future] wait for probe temperature
+    M192{
+        r: Temperature,
+        s: Temperature
+    },
+    // set max feedrate
+    M203{
+        x: Speed,
+        y: Speed,
+        z: Speed,
+        e: Speed,
+    }
 }
 
 #[cfg(feature = "defmt-log")]
@@ -167,7 +212,7 @@ impl defmt::Format for GCommand {
             GCommand::M23 { filename } => defmt::write!(fmt, "M23 [{}]", filename.as_str()),
             GCommand::M24 { s, t } => defmt::write!(fmt, "M24 [s: {}] [t: {}]", s, t.as_millis()),
             GCommand::M25 => defmt::write!(fmt, "M25"),
-            GCommand::M26 => defmt::write!(fmt, "M26"),
+            GCommand::M27 => defmt::write!(fmt, "M27"),
             _ => todo!(),
         }
     }
