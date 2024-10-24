@@ -543,11 +543,11 @@ async fn planner_handler(
         pin: Output::new(x_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let x_stepper = Stepper::new(
+    let x_stepper = Stepper::new_with_attachment(
         x_step,
         x_dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default()),
+        StepperAttachment::default(),
     );
 
     // --------- Y AXIS -----------------
@@ -560,11 +560,11 @@ async fn planner_handler(
         pin: Output::new(y_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let y_stepper = Stepper::new(
+    let y_stepper = Stepper::new_with_attachment(
         y_step,
         y_dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default()),
+        StepperAttachment::default(),
     );
 
     // --------- Z AXIS -----------------
@@ -577,11 +577,11 @@ async fn planner_handler(
         pin: Output::new(z_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let z_stepper = Stepper::new(
+    let z_stepper = Stepper::new_with_attachment(
         z_step,
         z_dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default()),
+        StepperAttachment::default(),
     );
 
     // --------- E AXIS -----------------
@@ -594,11 +594,11 @@ async fn planner_handler(
         pin: Output::new(e_dir_pin, Level::Low, PinSpeed::Low),
     };
 
-    let e_stepper = Stepper::new(
+    let e_stepper = Stepper::new_with_attachment(
         e_step,
         e_dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default()),
+        StepperAttachment::default(),
     );
 
     let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
@@ -620,9 +620,9 @@ async fn planner_handler(
                 if debug{
                     match cmd{
                         GCommand::G0 { .. } => {
-                            let x = planner.get_x_position().unwrap();
-                            let y = planner.get_x_position().unwrap();
-                            let z = planner.get_x_position().unwrap();
+                            let x = planner.get_x_position();
+                            let y = planner.get_x_position();
+                            let z = planner.get_x_position();
                             let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
                             let res = GCommand::D0 { x, y, z, t };
                             report.clear();
@@ -634,10 +634,10 @@ async fn planner_handler(
                             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());        
                         },
                         GCommand::G1 { .. } => {
-                            let x = planner.get_x_position().unwrap();
-                            let y = planner.get_x_position().unwrap();
-                            let z = planner.get_x_position().unwrap();
-                            let e = planner.get_e_position().unwrap();
+                            let x = planner.get_x_position();
+                            let y = planner.get_x_position();
+                            let z = planner.get_x_position();
+                            let e = planner.get_e_position();
                             let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
                             let res = GCommand::D1 { x, y, z, e, t };
                             report.clear();
@@ -657,10 +657,10 @@ async fn planner_handler(
                 write!(
                     &mut report,
                     "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
-                    planner.get_x_position().unwrap(),
-                    planner.get_y_position().unwrap(),
-                    planner.get_z_position().unwrap(),
-                    planner.get_e_position().unwrap(),
+                    planner.get_x_position(),
+                    planner.get_y_position(),
+                    planner.get_z_position(),
+                    planner.get_e_position(),
                 )
                 .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());

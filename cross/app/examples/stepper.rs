@@ -61,11 +61,11 @@ async fn main(_spawner: Spawner) {
         pin: Output::new(p.PB0, Level::Low, PinSpeed::Low),
     };
 
-    let mut stepper = Stepper::new(
+    let mut stepper = Stepper::new_with_attachment(
         step,
         dir,
         StepperOptions::default(),
-        Some(StepperAttachment::default()),
+        StepperAttachment::default(),
     );
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);
@@ -79,7 +79,7 @@ async fn main(_spawner: Spawner) {
         if let Err(_) = stepper.move_for_steps::<StepperTimer>(400).await {
             info!("Cannot move");
         };
-        info!("Position: {}", stepper.get_position().unwrap().to_mm());
+        info!("Position: {}", stepper.get_position().to_mm());
 
         // Timer::after(Duration::from_millis(100)).await;
 
@@ -89,7 +89,7 @@ async fn main(_spawner: Spawner) {
             info!("Cannot move");
         };
 
-        info!("Position: {}", stepper.get_position().unwrap().to_mm());
+        info!("Position: {}", stepper.get_position().to_mm());
 
         // info!("Moving to {}mm", d.to_mm());
         // if let Err(e) = stepper.move_to_destination(d).await {

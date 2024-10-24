@@ -10,7 +10,7 @@ use stepper::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
     linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
+use stepper::stepper::{Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
 
 struct StepperTimer {}
 
@@ -29,17 +29,17 @@ pub struct Planner<P: StatefulOutputPin> {
     recover_length: Option<Distance>,
     feedrate: Speed,
     positioning: Positioning,
-    x_stepper: Stepper<P>,
-    y_stepper: Stepper<P>,
-    z_stepper: Stepper<P>,
-    e_stepper: Stepper<P>,
+    x_stepper: Stepper<P, Attached>,
+    y_stepper: Stepper<P, Attached>,
+    z_stepper: Stepper<P, Attached>,
+    e_stepper: Stepper<P, Attached>,
 }
 impl<P: StatefulOutputPin> Planner<P> {
     pub fn new(
-        x_stepper: Stepper<P>,
-        y_stepper: Stepper<P>,
-        z_stepper: Stepper<P>,
-        e_stepper: Stepper<P>,
+        x_stepper: Stepper<P, Attached>,
+        y_stepper: Stepper<P, Attached>,
+        z_stepper: Stepper<P, Attached>,
+        e_stepper: Stepper<P, Attached>,
     ) -> Self {
         Planner {
             x_stepper,
@@ -56,19 +56,19 @@ impl<P: StatefulOutputPin> Planner<P> {
         }
     }
 
-    pub fn get_x_position(&self) -> Result<Distance, StepperError> {
+    pub fn get_x_position(&self) -> Distance {
         self.x_stepper.get_position()
     }
 
-    pub fn get_y_position(&self) -> Result<Distance, StepperError> {
+    pub fn get_y_position(&self) -> Distance {
         self.y_stepper.get_position()
     }
 
-    pub fn get_z_position(&self) -> Result<Distance, StepperError> {
+    pub fn get_z_position(&self) -> Distance {
         self.z_stepper.get_position()
     }
 
-    pub fn get_e_position(&self) -> Result<Distance, StepperError> {
+    pub fn get_e_position(&self) -> Distance {
         self.e_stepper.get_position()
     }
 
@@ -176,17 +176,17 @@ impl<P: StatefulOutputPin> Planner<P> {
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning)?,
+            None => no_move(&self.x_stepper, self.positioning),
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning)?,
+            None => no_move(&self.y_stepper, self.positioning),
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning)?,
+            None => no_move(&self.z_stepper, self.positioning),
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -215,22 +215,22 @@ impl<P: StatefulOutputPin> Planner<P> {
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning)?,
+            None => no_move(&self.x_stepper, self.positioning),
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning)?,
+            None => no_move(&self.y_stepper, self.positioning),
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning)?,
+            None => no_move(&self.z_stepper, self.positioning),
         };
 
         let e = match e {
             Some(v) => v,
-            None => no_move(&self.e_stepper, self.positioning)?,
+            None => no_move(&self.e_stepper, self.positioning),
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -287,23 +287,23 @@ impl<P: StatefulOutputPin> Planner<P> {
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, Positioning::Absolute)?,
+            None => no_move(&self.z_stepper, Positioning::Absolute),
         };
 
         let e = match e {
             Some(v) => v,
-            None => no_move(&self.z_stepper, Positioning::Relative)?,
+            None => no_move(&self.z_stepper, Positioning::Relative),
         };
 
         if i.is_some() || j.is_some() {
             let x = match x {
                 Some(v) => v,
-                None => no_move(&self.x_stepper, Positioning::Absolute)?,
+                None => no_move(&self.x_stepper, Positioning::Absolute),
             };
 
             let y = match y {
                 Some(v) => v,
-                None => no_move(&self.y_stepper, Positioning::Absolute)?,
+                None => no_move(&self.y_stepper, Positioning::Absolute),
             };
 
             let dst = Vector3D::new(x, y, z);
@@ -340,12 +340,12 @@ impl<P: StatefulOutputPin> Planner<P> {
 
             let x = match x {
                 Some(v) => v,
-                None => no_move(&self.x_stepper, Positioning::Absolute)?,
+                None => no_move(&self.x_stepper, Positioning::Absolute),
             };
 
             let y = match y {
                 Some(v) => v,
-                None => no_move(&self.y_stepper, Positioning::Absolute)?,
+                None => no_move(&self.y_stepper, Positioning::Absolute),
             };
 
             let dst = Vector3D::new(x, y, z);
@@ -418,7 +418,7 @@ impl<P: StatefulOutputPin> Planner<P> {
     async fn g11(&mut self) -> Result<core::time::Duration, StepperError> {
         let recover_length = self.recover_length.ok_or(StepperError::MoveNotValid)?;
         let recover_speed = self.recover_feedrate.ok_or(StepperError::MoveNotValid)?;
-        let e_destination = self.e_stepper.get_position()?.add(&recover_length);
+        let e_destination = self.e_stepper.get_position().add(&recover_length);
         linear_move_to::<P, StepperTimer>(&mut self.e_stepper, e_destination, recover_speed).await
     }
 
@@ -429,7 +429,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         y_button: &I,
         z_button: &I,
     ) -> Result<core::time::Duration, StepperError> {
-        auto_home_3d::<I, P, StepperTimer>(
+        auto_home_3d::<I, P, StepperTimer, Attached>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,

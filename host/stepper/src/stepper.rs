@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use core::time::Duration;
 use math::common::compute_step_duration;
 use math::common::{abs, compute_revolutions_per_second, floor, RotationDirection};
@@ -81,7 +82,15 @@ impl From<SteppingMode> for u8 {
     }
 }
 
-pub struct Stepper<P: StatefulOutputPin> {
+pub struct NotAttached{}
+pub struct Attached{}
+
+pub trait AttachmentMode{}
+
+impl AttachmentMode for Attached{}
+impl AttachmentMode for NotAttached{}
+
+pub struct Stepper<P: StatefulOutputPin, M: AttachmentMode> {
     // properties that won't change
     step: P,
     dir: P,
@@ -94,14 +103,16 @@ pub struct Stepper<P: StatefulOutputPin> {
     // will result in a fraction of a step
     // steps are positive when the stepper moves in clockwise order
     steps: f64,
+    // used to keep the attachment mode
+    _attachment_mode: PhantomData<M>
 }
 
-impl<P: StatefulOutputPin> Stepper<P> {
-    pub fn new(
+impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
+    fn new_inner(
         step: P,
         dir: P,
-        options: StepperOptions,
         attachment: Option<StepperAttachment>,
+        options: StepperOptions,
     ) -> Self {
         Self {
             step,
@@ -110,6 +121,7 @@ impl<P: StatefulOutputPin> Stepper<P> {
             attachment,
             step_duration: Duration::from_secs(1),
             steps: 0f64,
+            _attachment_mode: PhantomData
         }
     }
 
@@ -132,26 +144,9 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(())
     }
 
-    pub fn set_speed_from_attachment(&mut self, speed: Speed) -> Result<(), StepperError> {
-        if self.attachment.is_none() {
-            return Err(StepperError::MissingAttachment);
-        }
-        let attachment = self.attachment.unwrap();
-        let rps = speed.to_revolutions_per_second(
-            self.options.steps_per_revolution,
-            attachment.distance_per_step,
-        );
-        self.set_speed(rps)
-    }
-
     // this option must be modifiable so that during the execution we can freely switch between different stepping modes for higher precision
     pub fn set_stepping_mode(&mut self, mode: SteppingMode) {
         self.options.stepping_mode = mode;
-    }
-
-    #[cfg(test)]
-    pub fn set_attachment(&mut self, attachment: StepperAttachment) {
-        self.attachment = Some(attachment);
     }
 
     #[cfg(test)]
@@ -215,66 +210,6 @@ impl<P: StatefulOutputPin> Stepper<P> {
         Ok(total_duration)
     }
 
-    fn move_for_distance_inner(&mut self, distance: Distance) -> Result<u64, StepperError> {
-        if self.attachment.is_none() {
-            return Err(StepperError::MissingAttachment);
-        }
-        let attachment = self.attachment.unwrap();
-
-        let steps_n = abs(distance.to_mm()) / attachment.distance_per_step.to_mm();
-
-        let steps_n = floor(steps_n) as u64;
-
-        // the steps number is computed using distance_per_step that is the distance covered by the stepper
-        // when running on full-step mode.
-        // if the stepping mode is half-step or below, we need to adapt the number of steps to cover the correct
-        // distance as well
-        let steps_n = steps_n * u64::from(u8::from(self.options.stepping_mode));
-
-        let direction = if distance.to_mm().is_sign_positive() {
-            RotationDirection::Clockwise
-        } else {
-            RotationDirection::CounterClockwise
-        };
-
-        self.set_direction(direction);
-
-        Ok(steps_n)
-    }
-
-    pub async fn move_for_distance<T: TimerTrait>(
-        &mut self,
-        distance: Distance,
-    ) -> Result<Duration, StepperError> {
-        let steps = self.move_for_distance_inner(distance)?;
-        self.move_for_steps::<T>(steps).await
-    }
-
-    fn move_to_destination_inner(
-        &mut self,
-        destination: Distance,
-    ) -> Result<Distance, StepperError> {
-        let p = self.get_position()?;
-        let distance = destination.sub(&p);
-        Ok(distance)
-    }
-
-    pub async fn move_to_destination<T: TimerTrait>(
-        &mut self,
-        destination: Distance,
-    ) -> Result<Duration, StepperError> {
-        let distance = self.move_to_destination_inner(destination)?;
-        self.move_for_distance::<T>(distance).await
-    }
-
-    pub fn get_position(&self) -> Result<Distance, StepperError> {
-        let steps = self.get_steps();
-        match self.attachment {
-            Some(a) => Ok(Distance::from_mm(steps * a.distance_per_step.to_mm())),
-            None => Err(StepperError::MissingAttachment),
-        }
-    }
-
     pub fn get_steps(&self) -> f64 {
         self.steps
     }
@@ -289,18 +224,6 @@ impl<P: StatefulOutputPin> Stepper<P> {
 
     pub fn get_options(&self) -> StepperOptions {
         self.options
-    }
-
-    pub fn get_speed_from_attachment(&self) -> Result<Speed, StepperError> {
-        if let Some(attachment) = self.attachment {
-            let rev_per_second = self.get_speed() / f64::from(u8::from(self.options.stepping_mode));
-            return Ok(Speed::from_revolutions_per_second(
-                rev_per_second,
-                self.options.steps_per_revolution,
-                attachment.distance_per_step,
-            ));
-        }
-        Err(StepperError::MissingAttachment)
     }
 
     pub fn get_step_duration(&self) -> Duration {
@@ -334,6 +257,103 @@ impl<P: StatefulOutputPin> Stepper<P> {
         self.options = StepperOptions::default();
         self.attachment = None;
     }
+
+}
+
+impl<P: StatefulOutputPin> Stepper<P, NotAttached> {
+    pub fn new(
+        step: P,
+        dir: P,
+        options: StepperOptions
+    ) -> Self {
+        Self::new_inner(step, dir, None, options)
+    }
+}
+
+impl<P: StatefulOutputPin> Stepper<P, Attached> {
+    pub fn new_with_attachment(
+        step: P,
+        dir: P,
+        options: StepperOptions,
+        attachment: StepperAttachment
+    ) -> Self {
+        Self::new_inner(step, dir, Some(attachment), options)
+    }
+
+    pub fn set_speed_from_attachment(&mut self, speed: Speed) -> Result<(), StepperError> {
+        let attachment = self.attachment.unwrap();
+        let rps = speed.to_revolutions_per_second(
+            self.options.steps_per_revolution,
+            attachment.distance_per_step,
+        );
+        self.set_speed(rps)
+    }
+
+    fn move_for_distance_inner(&mut self, distance: Distance) -> u64 {
+        let attachment = self.attachment.unwrap();
+
+        let steps_n = abs(distance.to_mm()) / attachment.distance_per_step.to_mm();
+
+        let steps_n = floor(steps_n) as u64;
+
+        // the steps number is computed using distance_per_step that is the distance covered by the stepper
+        // when running on full-step mode.
+        // if the stepping mode is half-step or below, we need to adapt the number of steps to cover the correct
+        // distance as well
+        let steps_n = steps_n * u64::from(u8::from(self.options.stepping_mode));
+
+        let direction = if distance.to_mm().is_sign_positive() {
+            RotationDirection::Clockwise
+        } else {
+            RotationDirection::CounterClockwise
+        };
+
+        self.set_direction(direction);
+
+        steps_n
+    }
+
+    pub async fn move_for_distance<T: TimerTrait>(
+        &mut self,
+        distance: Distance,
+    ) -> Result<Duration, StepperError> {
+        let steps = self.move_for_distance_inner(distance);
+        self.move_for_steps::<T>(steps).await
+    }
+
+    fn move_to_destination_inner(
+        &mut self,
+        destination: Distance,
+    ) -> Result<Distance, StepperError> {
+        let p = self.get_position();
+        let distance = destination.sub(&p);
+        Ok(distance)
+    }
+
+    pub async fn move_to_destination<T: TimerTrait>(
+        &mut self,
+        destination: Distance,
+    ) -> Result<Duration, StepperError> {
+        let distance = self.move_to_destination_inner(destination)?;
+        self.move_for_distance::<T>(distance).await
+    }
+
+    pub fn get_position(&self) -> Distance {
+        let attachment = self.attachment.unwrap();
+        let steps = self.get_steps();
+        Distance::from_mm(steps * attachment.distance_per_step.to_mm())
+    }
+
+    pub fn get_speed_from_attachment(&self) -> Speed {
+        let attachment = self.attachment.unwrap();
+        let rev_per_second = self.get_speed() / f64::from(u8::from(self.options.stepping_mode));
+        Speed::from_revolutions_per_second(
+            rev_per_second,
+            self.options.steps_per_revolution,
+            attachment.distance_per_step,
+        )
+    }
+
 }
 
 #[cfg(test)]
@@ -385,7 +405,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_direction(RotationDirection::Clockwise);
         let res = s.step();
         assert!(res.is_ok());
@@ -398,7 +418,7 @@ mod tests {
         let direction = StatefulOutputPinMock::new();
         let mut options = StepperOptions::default();
         options.bounds = Some((-1.0, 1.0));
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_direction(RotationDirection::Clockwise);
         let res = s.step();
         assert!(res.is_ok());
@@ -413,7 +433,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_direction(RotationDirection::Clockwise);
         let res = s.set_speed(0.0);
         assert!(res.is_ok());
@@ -427,7 +447,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_direction(RotationDirection::Clockwise);
         s.set_speed(1.0).unwrap();
         let steps = 20;
@@ -446,7 +466,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_direction(RotationDirection::CounterClockwise);
         s.set_speed(5.0).unwrap();
@@ -464,7 +484,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::HalfStep);
         s.set_direction(RotationDirection::Clockwise);
@@ -479,7 +499,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::HalfStep);
         s.set_direction(RotationDirection::CounterClockwise);
@@ -493,7 +513,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::FullStep);
         s.set_direction(RotationDirection::Clockwise);
@@ -510,7 +530,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::FullStep);
         s.set_direction(RotationDirection::Clockwise);
@@ -527,7 +547,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::FullStep);
         s.set_direction(RotationDirection::CounterClockwise);
@@ -544,7 +564,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 20;
         s.set_stepping_mode(SteppingMode::FullStep);
         s.set_direction(RotationDirection::CounterClockwise);
@@ -557,31 +577,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_stepper_move_for_distance_no_attachment() {
-        let step = StatefulOutputPinMock::new();
-        let direction = StatefulOutputPinMock::new();
-        let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        let distance = Distance::from_mm(20.0);
-        let res = s.move_for_distance::<StepperTimer>(distance).await;
-        assert!(res.is_err());
-    }
-
-    #[tokio::test]
     async fn test_stepper_move_for_distance() {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let distance = Distance::from_mm(10.0);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
         let m = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(m.is_ok());
         assert_eq!(s.get_steps(), 10.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+        assert_eq!(s.get_position().to_mm(), 10.0);
         assert_eq!(m.unwrap().as_micros(), Duration::from_secs(10).as_micros());
     }
 
@@ -590,16 +595,12 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let distance = Distance::from_mm(10.5);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 10.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 10.0);
+        assert_eq!(s.get_position().to_mm(), 10.0);
     }
 
     #[tokio::test]
@@ -607,16 +608,12 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let distance = Distance::from_mm(0.5);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 0.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.get_position().to_mm(), 0.0);
     }
 
     #[tokio::test]
@@ -624,16 +621,12 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let distance = Distance::from_mm(-0.5);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 0.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.get_position().to_mm(), 0.0);
     }
 
     #[tokio::test]
@@ -641,16 +634,14 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        let distance = Distance::from_mm(10.5);
-        s.set_attachment(StepperAttachment {
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment {
             distance_per_step: Distance::from_mm(0.5),
         });
+        let distance = Distance::from_mm(10.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 21.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 10.5);
+        assert_eq!(s.get_position().to_mm(), 10.5);
     }
 
     #[tokio::test]
@@ -658,16 +649,14 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        let distance = Distance::from_mm(-10.5);
-        s.set_attachment(StepperAttachment {
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment {
             distance_per_step: Distance::from_mm(0.5),
         });
+        let distance = Distance::from_mm(-10.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), -21.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), -10.5);
+        assert_eq!(s.get_position().to_mm(), -10.5);
     }
 
     #[tokio::test]
@@ -675,16 +664,14 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        let distance = Distance::from_mm(0.0);
-        s.set_attachment(StepperAttachment {
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment {
             distance_per_step: Distance::from_mm(0.5),
         });
+        let distance = Distance::from_mm(0.0);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
         assert_eq!(s.get_steps(), 0.0);
-        assert!(s.get_position().is_ok());
-        assert_eq!(s.get_position().unwrap().to_mm(), 0.0);
+        assert_eq!(s.get_position().to_mm(), 0.0);
     }
 
     #[tokio::test]
@@ -692,7 +679,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         let steps = 10;
         s.set_stepping_mode(SteppingMode::FullStep);
         s.set_direction(RotationDirection::CounterClockwise);
@@ -714,11 +701,9 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let steps = 10;
         s.set_stepping_mode(SteppingMode::FullStep);
-        s.set_attachment(StepperAttachment::default());
-
         s.set_direction(RotationDirection::Clockwise);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
@@ -734,7 +719,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_stepping_mode(SteppingMode::FullStep);
 
         let res = s.home::<StepperTimer>().await;
@@ -746,7 +731,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_stepping_mode(SteppingMode::FullStep);
         let res = s.set_speed(1.0);
         assert!(res.is_ok());
@@ -758,7 +743,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_stepping_mode(SteppingMode::FullStep);
         let res = s.set_speed(0.0);
         assert!(res.is_ok());
@@ -769,19 +754,9 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
+        let mut s = Stepper::new(step, direction, options);
         s.set_stepping_mode(SteppingMode::FullStep);
         let res = s.set_speed(-10.0);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_stepper_set_speed_from_attachment_no_attachment() {
-        let step = StatefulOutputPinMock::new();
-        let direction = StatefulOutputPinMock::new();
-        let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        let res = s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
         assert!(res.is_err());
     }
 
@@ -790,10 +765,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let res = s.set_speed_from_attachment(Speed::from_mm_per_second(3.0));
         assert!(res.is_ok());
     }
@@ -803,10 +775,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let res = s.set_speed_from_attachment(Speed::from_mm_per_second(-3.0));
         assert!(res.is_err());
     }
@@ -816,10 +785,7 @@ mod tests {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
-        let mut s = Stepper::new(step, direction, options, None);
-        s.set_attachment(StepperAttachment {
-            distance_per_step: Distance::from_mm(1.0),
-        });
+        let mut s = Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         let res = s.set_speed_from_attachment(Speed::from_mm_per_second(0.0));
         assert!(res.is_ok());
         assert_eq!(s.get_speed(), 0.0);
