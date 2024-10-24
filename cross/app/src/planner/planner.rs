@@ -10,7 +10,9 @@ use stepper::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
     linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
-use stepper::stepper::{Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
+use stepper::stepper::{
+    Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait,
+};
 
 struct StepperTimer {}
 
@@ -78,12 +80,12 @@ impl<P: StatefulOutputPin> Planner<P> {
                 let duration = self.g0(x, y, z, f).await?;
                 let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
-            },
+            }
             GCommand::G1 { x, y, z, e, f } => {
                 let duration = self.g1(x, y, z, e, f).await?;
                 let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
-            },
+            }
             GCommand::G2 {
                 x,
                 y,
@@ -97,7 +99,7 @@ impl<P: StatefulOutputPin> Planner<P> {
                 let duration = self.g2(x, y, z, e, f, i, j, r).await?;
                 let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
-            },
+            }
             GCommand::G3 {
                 x,
                 y,
@@ -111,7 +113,7 @@ impl<P: StatefulOutputPin> Planner<P> {
                 let duration = self.g3(x, y, z, e, f, i, j, r).await?;
                 let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
-            },
+            }
             GCommand::G90 => {
                 self.g90();
                 Ok(None)

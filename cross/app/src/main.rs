@@ -15,8 +15,8 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB2, PB3, PB4,
-    PB5, PC12, PC8, SPI1, TIM3, TIM8, UART4,
+    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB2, PB3, PB4, PB5, PC12, PC8,
+    SPI1, TIM3, TIM8, UART4,
 };
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
@@ -617,38 +617,32 @@ async fn planner_handler(
             | GCommand::G90
             | GCommand::G91 => {
                 let duration = planner.execute(cmd.clone()).await.expect("Planner error");
-                if debug{
-                    match cmd{
+                if debug {
+                    match cmd {
                         GCommand::G0 { .. } => {
                             let x = planner.get_x_position();
                             let y = planner.get_x_position();
                             let z = planner.get_x_position();
-                            let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let t =
+                                core::time::Duration::from_millis(duration.unwrap().as_millis());
                             let res = GCommand::D0 { x, y, z, t };
                             report.clear();
-                            write!(
-                                &mut report,
-                                "{}",
-                                &res
-                            ).unwrap();
-                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());        
-                        },
+                            write!(&mut report, "{}", &res).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        }
                         GCommand::G1 { .. } => {
                             let x = planner.get_x_position();
                             let y = planner.get_x_position();
                             let z = planner.get_x_position();
                             let e = planner.get_e_position();
-                            let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let t =
+                                core::time::Duration::from_millis(duration.unwrap().as_millis());
                             let res = GCommand::D1 { x, y, z, e, t };
                             report.clear();
-                            write!(
-                                &mut report,
-                                "{}",
-                                &res
-                            ).unwrap();
-                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());        
-                        },
-                        _ => todo!()
+                            write!(&mut report, "{}", &res).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        }
+                        _ => todo!(),
                     }
                 }
             }
@@ -667,7 +661,7 @@ async fn planner_handler(
             }
             GCommand::D114 => {
                 debug = true;
-            },
+            }
             GCommand::D115 => {
                 debug = false;
             }
