@@ -210,6 +210,7 @@ async fn hotend_handler(
     fan_time: TIM3,
     fan_out_pin: PA7,
 ) {
+    let temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -247,8 +248,18 @@ async fn hotend_handler(
     let heater = Heater::new(heater_out, TimerChannel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
 
-    let dt = Duration::from_millis(500);
+    let dt = Duration::from_millis(100);
+    let mut counter = Duration::from_secs(0);
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
+
     loop {
+        // temperature report period must be a multiple of the loop delay
+        if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
+            let temp = hotend.read_temperature().await;
+            core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            counter = Duration::from_secs(0);
+        }
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive(){
             match cmd{
                 GCommand::M104 { s } => {
@@ -280,6 +291,7 @@ async fn heatbed_handler(
     heater_tim: TIM8,
     heater_out_pin: PC8,
 ) {
+    let temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -305,13 +317,27 @@ async fn heatbed_handler(
     let heater = Heater::new(heater_out, TimerChannel::Ch4);
     let mut heatbed = Hotend::new(heater, thermistor);
 
-    let dt = Duration::from_millis(500);
+    let dt = Duration::from_millis(100);
+    let mut counter = Duration::from_secs(0);
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
+
     loop {
+        // temperature report period must be a multiple of the loop delay
+        if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
+            let temp = heatbed.read_temperature().await;
+            core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            counter = Duration::from_secs(0);
+        }
         if let Some(t) = HEATBED_TARGET_TEMPERATURE.try_take(){
             heatbed.set_temperature(t);
         };
         heatbed.update(dt).await;
         Timer::after(dt).await;
+        
+        if counter.checked_add(dt).is_none(){
+            counter = Duration::from_secs(0);
+        }
     }
 }
 

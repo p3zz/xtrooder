@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TemperatureUnit {
     Celsius,
@@ -64,5 +66,21 @@ impl defmt::Format for TemperatureUnit {
             TemperatureUnit::Kelvin => defmt::write!(fmt, "°K"),
             TemperatureUnit::Farhenheit => defmt::write!(fmt, "°F"),
         }
+    }
+}
+
+impl Display for TemperatureUnit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            TemperatureUnit::Celsius => core::write!(f, "°C"),
+            TemperatureUnit::Kelvin => core::write!(f, "°K"),
+            TemperatureUnit::Farhenheit => core::write!(f, "°F"),
+        }
+    }
+}
+
+impl Display for Temperature{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::write!(f, "{} {}", self.to_celsius(), TemperatureUnit::Celsius)
     }
 }

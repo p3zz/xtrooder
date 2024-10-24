@@ -32,8 +32,12 @@ where
     }
 
     pub async fn update(&mut self, dt: Duration) {
-        let curr_tmp = self.thermistor.read_temperature().await;
+        let curr_tmp = self.read_temperature().await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
         self.heater.update(curr_tmp, dt);
+    }
+
+    pub async fn read_temperature(&mut self) -> Temperature{
+        self.thermistor.read_temperature().await
     }
 }
