@@ -185,6 +185,10 @@ async fn command_dispatcher_task() {
                 GCommand::M149 { u } => {
                     parser.set_temperature_unit(u);
                 },
+                GCommand::M155 { .. } => {
+                    HOTEND_CHANNEL.send(cmd.clone()).await;
+                    HEATBED_CHANNEL.send(cmd.clone()).await;
+                },
                 GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
@@ -214,7 +218,8 @@ async fn hotend_handler(
     fan_time: TIM3,
     fan_out_pin: PA7,
 ) {
-    let temperature_report_dt: Option<Duration> = None;
+    // TODO adjust the period using the dt of the loop
+    let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -274,7 +279,7 @@ async fn hotend_handler(
                 GCommand::M105 => {
                     let temp = hotend.read_temperature().await;
                     report.clear();
-                    core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+                    core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 },
                 GCommand::M106 { s } => {
@@ -284,11 +289,19 @@ async fn hotend_handler(
                     fan_controller.set_speed(speed);
                     info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
                 },
+                GCommand::M155 { s } => {
+                    let duration =  Duration::from_millis(s.as_millis() as u64);
+                    temperature_report_dt.replace(duration);
+                },
                 _ => ()
             }
         }
         hotend.update(dt).await;
         Timer::after(dt).await;
+
+        if counter.checked_add(dt).is_none(){
+            counter = Duration::from_secs(0);
+        }
     }
 }
 
@@ -302,7 +315,8 @@ async fn heatbed_handler(
     heater_tim: TIM8,
     heater_out_pin: PC8,
 ) {
-    let temperature_report_dt: Option<Duration> = None;
+    // TODO adjust the period using the dt of the loop
+    let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
@@ -350,6 +364,10 @@ async fn heatbed_handler(
                     report.clear();
                     core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                },
+                GCommand::M155 { s } => {
+                    let duration =  Duration::from_millis(s.as_millis() as u64);
+                    temperature_report_dt.replace(duration);
                 },
                 _ => ()
             }
@@ -633,12 +651,12 @@ async fn main(spawner: Spawner) {
 
     {
         let mut uart_rx = UART_RX.lock().await;
-        *uart_rx = Some(rx);
+        uart_rx.replace(rx);
     }
 
     {
         let mut uart_tx = UART_TX.lock().await;
-        *uart_tx = Some(tx);
+        uart_tx.replace(tx);
     }
 
     spawner.spawn(input_handler()).unwrap();
