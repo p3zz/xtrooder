@@ -53,7 +53,7 @@ static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAG
     Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static HEATBED_TARGET_TEMPERATURE: Signal<ThreadModeRawMutex, Temperature> = Signal::new();
+static HEATBED_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
 static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
 
@@ -173,10 +173,14 @@ async fn command_dispatcher_task() {
                 GCommand::M104 { .. } |
                 GCommand::M106 { .. } => {
                     HOTEND_CHANNEL.send(cmd).await;
+                },
+                GCommand::M105 { .. } => {
+                    HOTEND_CHANNEL.send(cmd.clone()).await;
+                    HEATBED_CHANNEL.send(cmd.clone()).await;
                 }
                 // heatbed target temperature is used to update the target temperature of the hotend task
-                GCommand::M140 { s } => {
-                    HEATBED_TARGET_TEMPERATURE.signal(s);
+                GCommand::M140 { .. } => {
+                    HOTEND_CHANNEL.send(cmd).await;
                 }
                 GCommand::M149 { u } => {
                     parser.set_temperature_unit(u);
@@ -256,6 +260,7 @@ async fn hotend_handler(
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
             let temp = hotend.read_temperature().await;
+            report.clear();
             core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
@@ -265,6 +270,12 @@ async fn hotend_handler(
                 GCommand::M104 { s } => {
                     info!("[HOTEND HANDLER] Target temperature: {}", s.to_celsius());
                     hotend.set_temperature(s);
+                },
+                GCommand::M105 => {
+                    let temp = hotend.read_temperature().await;
+                    report.clear();
+                    core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 },
                 GCommand::M106 { s } => {
                     let s = s.max(255);
@@ -325,13 +336,25 @@ async fn heatbed_handler(
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
             let temp = heatbed.read_temperature().await;
+            report.clear();
             core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
-        if let Some(t) = HEATBED_TARGET_TEMPERATURE.try_take(){
-            heatbed.set_temperature(t);
+
+        if let Ok(cmd) = HEATBED_CHANNEL.try_receive(){
+            match cmd{
+                GCommand::M140 { s } => heatbed.set_temperature(s),
+                GCommand::M105 => {
+                    let temp = heatbed.read_temperature().await;
+                    report.clear();
+                    core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                },
+                _ => ()
+            }
         };
+
         heatbed.update(dt).await;
         Timer::after(dt).await;
         
