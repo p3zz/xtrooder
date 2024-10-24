@@ -79,7 +79,7 @@ impl Display for TemperatureUnit {
     }
 }
 
-impl Display for Temperature{
+impl Display for Temperature {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::write!(f, "{} {}", self.to_celsius(), TemperatureUnit::Celsius)
     }

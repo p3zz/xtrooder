@@ -77,7 +77,7 @@ impl Computable for Distance {
 #[cfg(feature = "defmt-log")]
 impl defmt::Format for DistanceUnit {
     fn format(&self, fmt: defmt::Formatter) {
-        match self{
+        match self {
             DistanceUnit::Millimeter => defmt::write!(fmt, "mm"),
             DistanceUnit::Inch => defmt::write!(fmt, "in"),
         }
@@ -93,7 +93,7 @@ impl defmt::Format for Distance {
 
 impl Display for DistanceUnit {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self{
+        match self {
             DistanceUnit::Millimeter => core::write!(f, "mm"),
             DistanceUnit::Inch => core::write!(f, "in"),
         }

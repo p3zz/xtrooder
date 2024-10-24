@@ -37,7 +37,7 @@ where
         self.heater.update(curr_tmp, dt);
     }
 
-    pub async fn read_temperature(&mut self) -> Temperature{
+    pub async fn read_temperature(&mut self) -> Temperature {
         self.thermistor.read_temperature().await
     }
 }

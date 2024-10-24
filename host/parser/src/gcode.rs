@@ -146,26 +146,26 @@ pub enum GCommand {
         e: Speed,
     },
     // firmware retraction settings
-    M207{
+    M207 {
         f: Speed,
         s: Distance,
-        z: Distance
+        z: Distance,
     },
     // firmware recover settings
-    M208{
+    M208 {
         f: Speed,
-        s: Distance
+        s: Distance,
     },
     // set feedrate multiplier
-    M220{
+    M220 {
         s: u64,
     },
     // set flow multiplier
-    M221{
+    M221 {
         s: u64,
     },
     // abort sd print
-    M524
+    M524,
 }
 
 #[cfg(feature = "defmt-log")]
@@ -471,12 +471,12 @@ impl GCodeParser {
                 } else {
                     None
                 }
-            },
+            }
             (GCommandType::M, 114) => Some(GCommand::M114),
             (GCommandType::M, 123) => {
                 let s = extract_duration(&args, "S", DurationUnit::Second);
                 Some(GCommand::M123 { s })
-            },
+            }
             (GCommandType::M, 140) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit)?;
                 Some(GCommand::M140 { s })
@@ -490,21 +490,21 @@ impl GCodeParser {
                     _ => None,
                 }?;
                 Some(GCommand::M149 { u })
-            },
+            }
             (GCommandType::M, 154) => {
                 let s = extract_duration(&args, "S", DurationUnit::Second)?;
                 Some(GCommand::M154 { s })
-            },
+            }
             (GCommandType::M, 155) => {
                 let s = extract_duration(&args, "S", DurationUnit::Second)?;
                 Some(GCommand::M155 { s })
-            },
+            }
             (GCommandType::M, 207) => {
                 let f = extract_speed(&args, "F", self.distance_unit)?;
                 let s = extract_distance(&args, "S", self.distance_unit)?;
                 let z = extract_distance(&args, "Z", self.distance_unit)?;
                 Some(GCommand::M207 { f, s, z })
-            },
+            }
             (GCommandType::M, 208) => {
                 let f = extract_speed(&args, "F", self.distance_unit)?;
                 let s = extract_distance(&args, "S", self.distance_unit)?;

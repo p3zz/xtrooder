@@ -15,7 +15,8 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB10, PB2, PB3, PB4, PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM3, TIM8, UART4
+    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB10, PB2, PB3, PB4,
+    PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM3, TIM8, UART4,
 };
 use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::spi::{self, Spi};
@@ -179,10 +180,9 @@ async fn command_dispatcher_task() {
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
                 // hotend target temperature is used to update the target temperature of the hotend task
-                GCommand::M104 { .. } |
-                GCommand::M106 { .. } => {
+                GCommand::M104 { .. } | GCommand::M106 { .. } => {
                     HOTEND_CHANNEL.send(cmd).await;
-                },
+                }
                 GCommand::M105 { .. } => {
                     HOTEND_CHANNEL.send(cmd.clone()).await;
                     HEATBED_CHANNEL.send(cmd.clone()).await;
@@ -193,17 +193,17 @@ async fn command_dispatcher_task() {
                 }
                 GCommand::M149 { u } => {
                     parser.set_temperature_unit(u);
-                },
+                }
                 GCommand::M155 { .. } => {
                     HOTEND_CHANNEL.send(cmd.clone()).await;
                     HEATBED_CHANNEL.send(cmd.clone()).await;
-                },
+                }
                 GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
                 | GCommand::M23 { .. }
                 | GCommand::M24 { .. }
-                | GCommand::M25 
+                | GCommand::M25
                 | GCommand::M31 => {
                     SD_CARD_CHANNEL.send(cmd).await;
                 }
@@ -260,7 +260,7 @@ async fn hotend_handler(
         None,
         None,
         hz(1),
-        CountingMode::EdgeAlignedUp
+        CountingMode::EdgeAlignedUp,
     );
 
     let mut fan_controller = FanController::new(fan_out, TimerChannel::Ch2, 10f64);
@@ -273,43 +273,45 @@ async fn hotend_handler(
 
     loop {
         // temperature report period must be a multiple of the loop delay
-        if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
+        if temperature_report_dt.is_some()
+            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+        {
             let temp = hotend.read_temperature().await;
             report.clear();
             core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
-        if let Ok(cmd) = HOTEND_CHANNEL.try_receive(){
-            match cmd{
+        if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
+            match cmd {
                 GCommand::M104 { s } => {
                     info!("[HOTEND HANDLER] Target temperature: {}", s.to_celsius());
                     hotend.set_temperature(s);
-                },
+                }
                 GCommand::M105 => {
                     let temp = hotend.read_temperature().await;
                     report.clear();
                     core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
-                },
+                }
                 GCommand::M106 { s } => {
                     let s = s.max(255);
                     let multiplier = f64::from(255) / f64::from(s);
                     let speed = fan_controller.get_max_speed() * multiplier;
                     fan_controller.set_speed(speed);
                     info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
-                },
+                }
                 GCommand::M155 { s } => {
-                    let duration =  Duration::from_millis(s.as_millis() as u64);
+                    let duration = Duration::from_millis(s.as_millis() as u64);
                     temperature_report_dt.replace(duration);
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
         hotend.update(dt).await;
         Timer::after(dt).await;
 
-        if counter.checked_add(dt).is_none(){
+        if counter.checked_add(dt).is_none() {
             counter = Duration::from_secs(0);
         }
     }
@@ -358,7 +360,9 @@ async fn heatbed_handler(
 
     loop {
         // temperature report period must be a multiple of the loop delay
-        if temperature_report_dt.is_some() && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0{
+        if temperature_report_dt.is_some()
+            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+        {
             let temp = heatbed.read_temperature().await;
             report.clear();
             core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
@@ -366,27 +370,27 @@ async fn heatbed_handler(
             counter = Duration::from_secs(0);
         }
 
-        if let Ok(cmd) = HEATBED_CHANNEL.try_receive(){
-            match cmd{
+        if let Ok(cmd) = HEATBED_CHANNEL.try_receive() {
+            match cmd {
                 GCommand::M140 { s } => heatbed.set_temperature(s),
                 GCommand::M105 => {
                     let temp = heatbed.read_temperature().await;
                     report.clear();
                     core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
-                },
+                }
                 GCommand::M155 { s } => {
-                    let duration =  Duration::from_millis(s.as_millis() as u64);
+                    let duration = Duration::from_millis(s.as_millis() as u64);
                     temperature_report_dt.replace(duration);
-                },
-                _ => ()
+                }
+                _ => (),
             }
         };
 
         heatbed.update(dt).await;
         Timer::after(dt).await;
-        
-        if counter.checked_add(dt).is_none(){
+
+        if counter.checked_add(dt).is_none() {
             counter = Duration::from_secs(0);
         }
     }
@@ -615,17 +619,20 @@ async fn planner_handler(
             | GCommand::G90
             | GCommand::G91 => {
                 planner.execute(cmd).await.expect("Planner error");
-            },
+            }
             GCommand::M114 => {
                 report.clear();
-                write!(&mut report, "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
+                write!(
+                    &mut report,
+                    "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
                     planner.get_x_position().unwrap(),
                     planner.get_y_position().unwrap(),
                     planner.get_z_position().unwrap(),
                     planner.get_e_position().unwrap(),
-                ).unwrap();
+                )
+                .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-            },
+            }
             _ => error!("[PLANNER HANDLER] command not handled"),
         }
         info!("[PLANNER HANDLER] Move completed");
@@ -694,7 +701,9 @@ async fn main(spawner: Spawner) {
     spawner.spawn(command_dispatcher_task()).unwrap();
 
     spawner
-        .spawn(hotend_handler(p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7))
+        .spawn(hotend_handler(
+            p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7,
+        ))
         .unwrap();
 
     spawner
