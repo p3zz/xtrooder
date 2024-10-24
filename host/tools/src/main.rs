@@ -1,12 +1,12 @@
+use kiss3d::light::Light;
+use kiss3d::nalgebra::{Point3, UnitQuaternion, Vector3};
+use kiss3d::scene::SceneNode;
+use kiss3d::window::Window;
 use std::env;
 use std::fs;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Write;
-use kiss3d::light::Light;
-use kiss3d::scene::SceneNode;
-use kiss3d::nalgebra::{Point3, UnitQuaternion, Vector3};
-use kiss3d::window::Window;
 
 pub struct AxisColor {
     red: Point3<f32>,
@@ -20,7 +20,6 @@ impl AxisColor {
             red: Point3::new(1.0, 0.0, 0.0),
             green: Point3::new(0.0, 1.0, 0.0),
             blue: Point3::new(0.0, 0.0, 1.0),
-
         }
     }
 }
@@ -78,9 +77,21 @@ impl GraphicEnvironment {
     }
 
     pub fn draw_axis(&mut self) {
-        self.window.draw_line(&self.axis.x.origin, &self.axis.x.destination, &self.axis.x.color);
-        self.window.draw_line(&self.axis.y.origin, &self.axis.y.destination, &self.axis.y.color);
-        self.window.draw_line(&self.axis.z.origin, &self.axis.z.destination, &self.axis.z.color);
+        self.window.draw_line(
+            &self.axis.x.origin,
+            &self.axis.x.destination,
+            &self.axis.x.color,
+        );
+        self.window.draw_line(
+            &self.axis.y.origin,
+            &self.axis.y.destination,
+            &self.axis.y.color,
+        );
+        self.window.draw_line(
+            &self.axis.z.origin,
+            &self.axis.z.destination,
+            &self.axis.z.color,
+        );
     }
 }
 

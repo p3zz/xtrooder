@@ -11,7 +11,7 @@ use math::{
 pub enum GCommandType {
     G,
     M,
-    D
+    D,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -168,14 +168,14 @@ pub enum GCommand {
     // abort sd print
     M524,
     // debug command - linear movement xyz
-    D0{
+    D0 {
         x: Distance,
         y: Distance,
         z: Distance,
         t: Duration,
     },
     // debug command - linear movement xyze
-    D1{
+    D1 {
         x: Distance,
         y: Distance,
         z: Distance,
@@ -261,19 +261,44 @@ impl defmt::Format for GCommand {
             GCommand::M24 { s, t } => defmt::write!(fmt, "M24 [s: {}] [t: {}]", s, t.as_millis()),
             GCommand::M25 => defmt::write!(fmt, "M25"),
             GCommand::M27 => defmt::write!(fmt, "M27"),
-            GCommand::D0 { x, y, z, t } => defmt::write!(fmt, "D0 [x: {}] [y: {}] [z: {}] [t: {}]", x, y, z, t),
-            GCommand::D1 { x, y, z, e, t } => defmt::write!(fmt, "D1 [x: {}] [y: {}] [z: {}] [e: {}] [t: {}]", x, y, z, e, t),
+            GCommand::D0 { x, y, z, t } => {
+                defmt::write!(fmt, "D0 [x: {}] [y: {}] [z: {}] [t: {}]", x, y, z, t)
+            }
+            GCommand::D1 { x, y, z, e, t } => defmt::write!(
+                fmt,
+                "D1 [x: {}] [y: {}] [z: {}] [e: {}] [t: {}]",
+                x,
+                y,
+                z,
+                e,
+                t
+            ),
             _ => panic!("Format not implemented"),
         }
     }
 }
 
-impl Display for GCommand{
+impl Display for GCommand {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self{
-            GCommand::D0 { x, y, z, t } => core::write!(f, "D0 X{} Y{} Z{} T{}", x.to_mm(), y.to_mm(), z.to_mm(), t.as_millis()),
-            GCommand::D1 { x, y, z, e, t } => core::write!(f, "D0 X{} Y{} Z{} E{} T{}", x.to_mm(), y.to_mm(), z.to_mm(), e.to_mm(), t.as_millis()),
-            _ => panic!("Format not implemented")
+        match self {
+            GCommand::D0 { x, y, z, t } => core::write!(
+                f,
+                "D0 X{} Y{} Z{} T{}",
+                x.to_mm(),
+                y.to_mm(),
+                z.to_mm(),
+                t.as_millis()
+            ),
+            GCommand::D1 { x, y, z, e, t } => core::write!(
+                f,
+                "D0 X{} Y{} Z{} E{} T{}",
+                x.to_mm(),
+                y.to_mm(),
+                z.to_mm(),
+                e.to_mm(),
+                t.as_millis()
+            ),
+            _ => panic!("Format not implemented"),
         }
     }
 }

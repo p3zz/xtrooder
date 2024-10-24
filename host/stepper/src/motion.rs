@@ -11,7 +11,9 @@ use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 
-use crate::stepper::{Attached, AttachmentMode, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
+use crate::stepper::{
+    Attached, AttachmentMode, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait,
+};
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -369,7 +371,12 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     .await
 }
 
-pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait, M: AttachmentMode>(
+pub async fn auto_home<
+    I: StepperInputPin,
+    O: StatefulOutputPin,
+    T: TimerTrait,
+    M: AttachmentMode,
+>(
     stepper: &mut Stepper<O, M>,
     trigger: &I,
 ) -> Result<Duration, StepperError> {
@@ -393,7 +400,12 @@ pub async fn auto_home<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait, 
 }
 
 // perform one calibration at a time
-pub async fn auto_home_3d<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrait, M: AttachmentMode>(
+pub async fn auto_home_3d<
+    I: StepperInputPin,
+    O: StatefulOutputPin,
+    T: TimerTrait,
+    M: AttachmentMode,
+>(
     stepper_a: &mut Stepper<O, M>,
     stepper_b: &mut Stepper<O, M>,
     stepper_c: &mut Stepper<O, M>,
@@ -509,7 +521,7 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Distance::from_mm(0.0);
         let speed = Speed::from_mm_per_second(10.0);
@@ -527,7 +539,7 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Distance::from_mm(10.0);
         let speed = Speed::from_mm_per_second(10.0);
@@ -537,10 +549,7 @@ mod tests {
         assert_eq!(s.get_steps(), 10.0);
         assert_eq!(s.get_position().to_mm(), 10.0);
         assert_eq!(s.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s.get_speed_from_attachment().to_mm_per_second(),
-            10.0
-        );
+        assert_eq!(s.get_speed_from_attachment().to_mm_per_second(), 10.0);
     }
 
     #[tokio::test]
@@ -549,7 +558,7 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Distance::from_mm(-10.0);
         let speed = Speed::from_mm_per_second(-10.0);
@@ -567,13 +576,13 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector2D::new(Distance::from_mm(-10.0), Distance::from_mm(-10.0));
         let speed = Speed::from_mm_per_second(-10.0);
@@ -607,13 +616,13 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
         let speed = Speed::from_mm_per_second(-10.0);
@@ -631,14 +640,8 @@ mod tests {
         assert_eq!(s_y.get_position().to_mm(), 0.0);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            10.0
-        );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            0.0
-        );
+        assert_eq!(s_x.get_speed_from_attachment().to_mm_per_second(), 10.0);
+        assert_eq!(s_y.get_speed_from_attachment().to_mm_per_second(), 0.0);
     }
 
     #[tokio::test]
@@ -647,13 +650,13 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
         let speed = Speed::from_mm_per_second(10.0);
@@ -687,13 +690,13 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
         let speed = Speed::from_mm_per_second(10.0);
@@ -729,19 +732,19 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_z = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector3D::new(
             Distance::from_mm(-5.0),
@@ -794,19 +797,19 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            attachment
+            attachment,
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            attachment
+            attachment,
         );
         let mut s_z = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            attachment
+            attachment,
         );
         let destination = Vector3D::new(
             Distance::from_mm(-5.0),
@@ -855,19 +858,19 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_z = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let destination = Vector3D::new(
             Distance::from_mm(0.0),
@@ -904,13 +907,13 @@ mod tests {
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let mut s_y = Stepper::new_with_attachment(
             StatefulOutputPinMock::new(),
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
-            StepperAttachment::default()
+            StepperAttachment::default(),
         );
         let arc_length = Distance::from_mm(20.0);
         let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
@@ -939,9 +942,11 @@ mod tests {
         let mut trigger: InputPinMock = InputPinMock::new();
         trigger.set_high();
 
-        let result =
-            auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer, NotAttached>(&mut stepper, &trigger)
-                .await;
+        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer, NotAttached>(
+            &mut stepper,
+            &trigger,
+        )
+        .await;
         assert!(result.is_err());
         assert_eq!(StepperError::MoveOutOfBounds, result.err().unwrap());
         // assert_eq!(3, result.unwrap().as_secs());
@@ -963,9 +968,11 @@ mod tests {
         // simulate collision with the trigger switch
         trigger.set_high();
 
-        let result =
-            auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer, NotAttached>(&mut stepper, &trigger)
-                .await;
+        let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer, NotAttached>(
+            &mut stepper,
+            &trigger,
+        )
+        .await;
         assert!(result.is_ok());
         assert_eq!(1, result.unwrap().as_secs());
     }
