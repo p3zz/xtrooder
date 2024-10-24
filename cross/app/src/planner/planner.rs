@@ -1,4 +1,4 @@
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 use math::common::RotationDirection;
 
 use math::computable::Computable;
@@ -72,10 +72,18 @@ impl<P: StatefulOutputPin> Planner<P> {
         self.e_stepper.get_position()
     }
 
-    pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
+    pub async fn execute(&mut self, command: GCommand) -> Result<Option<Duration>, StepperError> {
         match command {
-            GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_| ()),
-            GCommand::G1 { x, y, z, e, f } => self.g1(x, y, z, e, f).await.map(|_| ()),
+            GCommand::G0 { x, y, z, f } => {
+                let duration = self.g0(x, y, z, f).await?;
+                let duration = Duration::from_millis(duration.as_millis() as u64);
+                Ok(Some(duration))
+            },
+            GCommand::G1 { x, y, z, e, f } => {
+                let duration = self.g1(x, y, z, e, f).await?;
+                let duration = Duration::from_millis(duration.as_millis() as u64);
+                Ok(Some(duration))
+            },
             GCommand::G2 {
                 x,
                 y,
@@ -85,7 +93,11 @@ impl<P: StatefulOutputPin> Planner<P> {
                 i,
                 j,
                 r,
-            } => self.g2(x, y, z, e, f, i, j, r).await.map(|_| ()),
+            } => {
+                let duration = self.g2(x, y, z, e, f, i, j, r).await?;
+                let duration = Duration::from_millis(duration.as_millis() as u64);
+                Ok(Some(duration))
+            },
             GCommand::G3 {
                 x,
                 y,
@@ -95,18 +107,22 @@ impl<P: StatefulOutputPin> Planner<P> {
                 i,
                 j,
                 r,
-            } => self.g3(x, y, z, e, f, i, j, r).await.map(|_| ()),
+            } => {
+                let duration = self.g3(x, y, z, e, f, i, j, r).await?;
+                let duration = Duration::from_millis(duration.as_millis() as u64);
+                Ok(Some(duration))
+            },
             GCommand::G90 => {
                 self.g90();
-                Ok(())
+                Ok(None)
             }
             GCommand::G91 => {
                 self.g91();
-                Ok(())
+                Ok(None)
             }
             GCommand::G4 { p, s } => {
                 self.g4(p, s).await;
-                Ok(())
+                Ok(None)
             }
             _ => Err(StepperError::NotSupported),
         }

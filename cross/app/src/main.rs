@@ -293,7 +293,6 @@ async fn hotend_handler(
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M106 { s } => {
-                    let s = 255;
                     let multiplier = f64::from(255) / f64::from(s);
                     let speed = fan_controller.get_max_speed() * multiplier;
                     fan_controller.set_speed(speed);
@@ -532,6 +531,7 @@ async fn planner_handler(
     e_dir_pin: PB4,
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let mut debug = false;
 
     // --------- X AXIS -----------------
 
@@ -616,7 +616,41 @@ async fn planner_handler(
             | GCommand::G4 { .. }
             | GCommand::G90
             | GCommand::G91 => {
-                planner.execute(cmd).await.expect("Planner error");
+                let duration = planner.execute(cmd.clone()).await.expect("Planner error");
+                if debug{
+                    match cmd{
+                        GCommand::G0 { .. } => {
+                            let x = planner.get_x_position().unwrap();
+                            let y = planner.get_x_position().unwrap();
+                            let z = planner.get_x_position().unwrap();
+                            let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let res = GCommand::D0 { x, y, z, t };
+                            report.clear();
+                            write!(
+                                &mut report,
+                                "{}",
+                                &res
+                            ).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());        
+                        },
+                        GCommand::G1 { .. } => {
+                            let x = planner.get_x_position().unwrap();
+                            let y = planner.get_x_position().unwrap();
+                            let z = planner.get_x_position().unwrap();
+                            let e = planner.get_e_position().unwrap();
+                            let t = core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let res = GCommand::D1 { x, y, z, e, t };
+                            report.clear();
+                            write!(
+                                &mut report,
+                                "{}",
+                                &res
+                            ).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());        
+                        },
+                        _ => todo!()
+                    }
+                }
             }
             GCommand::M114 => {
                 report.clear();
@@ -630,6 +664,12 @@ async fn planner_handler(
                 )
                 .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            }
+            GCommand::D114 => {
+                debug = true;
+            },
+            GCommand::D115 => {
+                debug = false;
             }
             _ => error!("[PLANNER HANDLER] command not handled"),
         }
