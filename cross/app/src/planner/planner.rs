@@ -1,5 +1,3 @@
-use core::future::join;
-
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
