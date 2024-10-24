@@ -2,19 +2,13 @@
 #![no_main]
 
 use core::cell::RefCell;
-use core::fmt::Write;
-use core::str::from_utf8;
 
 use app::utils::stopwatch::Clock;
-use cortex_m_rt::entry;
 use defmt::{info, panic};
-use embassy_executor::{Executor, Spawner};
+use embassy_executor::Spawner;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::mode::Blocking;
-use embassy_stm32::pac::iwdg::regs::Pr;
-use embassy_stm32::peripherals::SPI1;
 use embassy_stm32::spi::Spi;
-use embassy_stm32::time::mhz;
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_time::{Delay, Duration, Timer};
 // use embedded_hal_1::spi::SpiBus;

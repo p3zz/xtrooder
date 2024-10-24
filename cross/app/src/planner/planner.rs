@@ -8,7 +8,7 @@ use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 use stepper::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
-    linear_move_3d_e, linear_move_for_3d, linear_move_to, no_move, retract, Positioning,
+    linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
 

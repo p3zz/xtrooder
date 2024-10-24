@@ -15,17 +15,16 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC2, DMA1_CH1, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB10, PB2, PB3, PB4,
-    PB5, PC10, PC11, PC12, PC8, PC9, PD2, SDMMC1, SPI1, TIM3, TIM8, UART4,
+    ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB2, PB3, PB4,
+    PB5, PC12, PC8, SPI1, TIM3, TIM8, UART4,
 };
-use embassy_stm32::sdmmc::{self, Sdmmc};
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    peripherals::{ADC1, DMA1_CH0, PA2, PA3, PB9, TIM4},
+    peripherals::{ADC1, PA2, PA3, PB9, TIM4},
     time::hz,
     timer::{
         low_level::CountingMode,
@@ -35,7 +34,6 @@ use embassy_stm32::{
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_sync::signal::Signal;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
@@ -295,7 +293,7 @@ async fn hotend_handler(
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M106 { s } => {
-                    let s = s.max(255);
+                    let s = 255;
                     let multiplier = f64::from(255) / f64::from(s);
                     let speed = fan_controller.get_max_speed() * multiplier;
                     fan_controller.set_speed(speed);
