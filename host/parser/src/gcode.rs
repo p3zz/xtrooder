@@ -138,7 +138,7 @@ pub enum GCommand {
         r: Temperature,
         s: Temperature,
     },
-    // set max feedrate
+    // [future] set max feedrate
     M203 {
         x: Speed,
         y: Speed,
@@ -471,7 +471,12 @@ impl GCodeParser {
                 } else {
                     None
                 }
-            }
+            },
+            (GCommandType::M, 114) => Some(GCommand::M114),
+            (GCommandType::M, 123) => {
+                let s = extract_duration(&args, "S", DurationUnit::Second);
+                Some(GCommand::M123 { s })
+            },
             (GCommandType::M, 140) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit)?;
                 Some(GCommand::M140 { s })
@@ -485,6 +490,14 @@ impl GCodeParser {
                     _ => None,
                 }?;
                 Some(GCommand::M149 { u })
+            },
+            (GCommandType::M, 154) => {
+                let s = extract_duration(&args, "S", DurationUnit::Second)?;
+                Some(GCommand::M154 { s })
+            },
+            (GCommandType::M, 155) => {
+                let s = extract_duration(&args, "S", DurationUnit::Second)?;
+                Some(GCommand::M155 { s })
             },
             (GCommandType::M, 207) => {
                 let f = extract_speed(&args, "F", self.distance_unit)?;
