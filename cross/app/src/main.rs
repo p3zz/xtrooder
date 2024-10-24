@@ -172,7 +172,8 @@ async fn command_dispatcher_task() {
                 | GCommand::G3 { .. }
                 | GCommand::G4 { .. }
                 | GCommand::G90
-                | GCommand::G91 => {
+                | GCommand::G91
+                | GCommand::M114 => {
                     PLANNER_CHANNEL.send(cmd).await;
                 }
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
@@ -528,6 +529,8 @@ async fn planner_handler(
     e_step_pin: PA1,
     e_dir_pin: PB4,
 ) {
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
+
     // --------- X AXIS -----------------
 
     let x_step = StepperPin {
@@ -612,7 +615,17 @@ async fn planner_handler(
             | GCommand::G90
             | GCommand::G91 => {
                 planner.execute(cmd).await.expect("Planner error");
-            }
+            },
+            GCommand::M114 => {
+                report.clear();
+                write!(&mut report, "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
+                    planner.get_x_position().unwrap(),
+                    planner.get_y_position().unwrap(),
+                    planner.get_z_position().unwrap(),
+                    planner.get_e_position().unwrap(),
+                ).unwrap();
+                FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            },
             _ => error!("[PLANNER HANDLER] command not handled"),
         }
         info!("[PLANNER HANDLER] Move completed");

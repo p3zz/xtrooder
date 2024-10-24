@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use super::computable::Computable;
 
 #[derive(Clone, Copy)]
@@ -73,8 +75,33 @@ impl Computable for Distance {
 }
 
 #[cfg(feature = "defmt-log")]
+impl defmt::Format for DistanceUnit {
+    fn format(&self, fmt: defmt::Formatter) {
+        match self{
+            DistanceUnit::Millimeter => defmt::write!(fmt, "mm"),
+            DistanceUnit::Inch => defmt::write!(fmt, "in"),
+        }
+    }
+}
+
+#[cfg(feature = "defmt-log")]
 impl defmt::Format for Distance {
     fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "{} mm", self.to_mm())
+        defmt::write!(fmt, "{} {}", self.to_mm(), DistanceUnit::Millimeter)
+    }
+}
+
+impl Display for DistanceUnit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self{
+            DistanceUnit::Millimeter => core::write!(f, "mm"),
+            DistanceUnit::Inch => core::write!(f, "in"),
+        }
+    }
+}
+
+impl Display for Distance {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::write!(f, "{} {}", self.to_mm(), DistanceUnit::Millimeter)
     }
 }

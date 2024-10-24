@@ -45,6 +45,22 @@ impl<P: StatefulOutputPin> Planner<P> {
         }
     }
 
+    pub fn get_x_position(&self) -> Result<Distance, StepperError> {
+        self.x_stepper.get_position()
+    }
+
+    pub fn get_y_position(&self) -> Result<Distance, StepperError> {
+        self.y_stepper.get_position()
+    }
+
+    pub fn get_z_position(&self) -> Result<Distance, StepperError> {
+        self.z_stepper.get_position()
+    }
+
+    pub fn get_e_position(&self) -> Result<Distance, StepperError> {
+        self.e_stepper.get_position()
+    }
+
     pub async fn execute(&mut self, command: GCommand) -> Result<(), StepperError> {
         match command {
             GCommand::G0 { x, y, z, f } => self.g0(x, y, z, f).await.map(|_| ()),

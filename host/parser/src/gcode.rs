@@ -101,7 +101,7 @@ pub enum GCommand {
         r: Temperature,
         s: Temperature,
     },
-    // get head position
+    // report position
     M114,
     // report fan speed
     // optional duration s
