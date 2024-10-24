@@ -54,6 +54,10 @@ pub enum GCommand {
         p: Option<Duration>,
         s: Option<Duration>,
     },
+    // retract
+    G10,
+    // recover
+    G11,
     // set distance unit to inches
     G20,
     // set distance unit to millimeters
@@ -141,6 +145,27 @@ pub enum GCommand {
         z: Speed,
         e: Speed,
     },
+    // firmware retraction settings
+    M207{
+        f: Speed,
+        s: Distance,
+        z: Distance
+    },
+    // firmware recover settings
+    M208{
+        f: Speed,
+        s: Distance
+    },
+    // set feedrate multiplier
+    M220{
+        s: u64,
+    },
+    // set flow multiplier
+    M221{
+        s: u64,
+    },
+    // abort sd print
+    M524
 }
 
 #[cfg(feature = "defmt-log")]
@@ -411,6 +436,8 @@ impl GCodeParser {
                 let s = extract_duration(&args, "S", DurationUnit::Second);
                 Some(GCommand::G4 { p, s })
             }
+            (GCommandType::G, 10) => Some(GCommand::G10),
+            (GCommandType::G, 11) => Some(GCommand::G11),
             (GCommandType::G, 20) => Some(GCommand::G20),
             (GCommandType::G, 21) => Some(GCommand::G21),
             (GCommandType::G, 28) => Some(GCommand::G28),
@@ -458,6 +485,17 @@ impl GCodeParser {
                     _ => None,
                 }?;
                 Some(GCommand::M149 { u })
+            },
+            (GCommandType::M, 207) => {
+                let f = extract_speed(&args, "F", self.distance_unit)?;
+                let s = extract_distance(&args, "S", self.distance_unit)?;
+                let z = extract_distance(&args, "Z", self.distance_unit)?;
+                Some(GCommand::M207 { f, s, z })
+            },
+            (GCommandType::M, 208) => {
+                let f = extract_speed(&args, "F", self.distance_unit)?;
+                let s = extract_distance(&args, "S", self.distance_unit)?;
+                Some(GCommand::M208 { f, s })
             }
             _ => None,
         }

@@ -1,13 +1,15 @@
-use embassy_stm32::gpio::Input;
+use core::future::join;
+
 use embassy_time::Timer;
 use math::common::RotationDirection;
 
+use math::computable::Computable;
 use math::distance::Distance;
 use math::speed::Speed;
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 use stepper::motion::{
-    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d, linear_move_3d_e, no_move, Positioning
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d, linear_move_3d_e, linear_move_for_3d, linear_move_to, no_move, retract, Positioning
 };
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait};
 
@@ -21,6 +23,11 @@ impl TimerTrait for StepperTimer {
 }
 
 pub struct Planner<P: StatefulOutputPin> {
+    retraction_feedrate: Option<Speed>,
+    retraction_length: Option<Distance>,
+    retraction_z_lift: Option<Distance>,
+    recover_feedrate: Option<Speed>,
+    recover_length: Option<Distance>,
     feedrate: Speed,
     positioning: Positioning,
     x_stepper: Stepper<P>,
@@ -42,6 +49,11 @@ impl<P: StatefulOutputPin> Planner<P> {
             e_stepper,
             feedrate: Speed::from_mm_per_second(0.0),
             positioning: Positioning::Absolute,
+            recover_feedrate: None,
+            retraction_length: None,
+            retraction_z_lift: None,
+            recover_length: None,
+            retraction_feedrate: None,
         }
     }
 
@@ -121,7 +133,22 @@ impl<P: StatefulOutputPin> Planner<P> {
         self.positioning = Positioning::Relative;
     }
 
-    pub async fn g0(
+    // firmware retraction settings
+    fn m207(&mut self, f: Speed, s: Distance, z: Distance){
+        self.retraction_feedrate.replace(f);
+        self.retraction_length.replace(s);
+        self.retraction_z_lift.replace(z);
+    }
+
+    fn m208(&mut self, f: Speed, s: Distance){
+        if self.retraction_length.is_none(){
+            return;
+        }
+        self.retraction_feedrate.replace(f);
+        self.retraction_length.replace(s.add(&self.recover_length.unwrap()));
+    }
+
+    async fn g0(
         &mut self,
         x: Option<Distance>,
         y: Option<Distance>,
@@ -159,7 +186,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         .await
     }
 
-    pub async fn g1(
+    async fn g1(
         &mut self,
         x: Option<Distance>,
         y: Option<Distance>,
@@ -326,7 +353,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         Err(StepperError::MoveNotValid)
     }
 
-    pub async fn g2(
+    async fn g2(
         &mut self,
         x: Option<Distance>,
         y: Option<Distance>,
@@ -341,7 +368,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             .await
     }
 
-    pub async fn g3(
+    async fn g3(
         &mut self,
         x: Option<Distance>,
         y: Option<Distance>,
@@ -355,9 +382,25 @@ impl<P: StatefulOutputPin> Planner<P> {
         self.g2_3(x, y, z, e, f, i, j, r, RotationDirection::CounterClockwise)
             .await
     }
+    
+    // retract
+    async fn g10(&mut self) -> Result<core::time::Duration, StepperError>{
+        let retraction_length = self.retraction_length.ok_or(StepperError::MoveNotValid)?;
+        let retraction_speed = self.retraction_feedrate.ok_or(StepperError::MoveNotValid)?;
+        let retraction_z_lift = self.retraction_z_lift.ok_or(StepperError::MoveNotValid)?;
+        retract::<P, StepperTimer>(&mut self.e_stepper, &mut self.z_stepper, retraction_speed, retraction_length, retraction_z_lift).await
+    }
+
+    // recover
+    async fn g11(&mut self) -> Result<core::time::Duration, StepperError>{
+        let recover_length = self.recover_length.ok_or(StepperError::MoveNotValid)?;
+        let recover_speed = self.recover_feedrate.ok_or(StepperError::MoveNotValid)?;
+        let e_destination = self.e_stepper.get_position()?.add(&recover_length);
+        linear_move_to::<P, StepperTimer>(&mut self.e_stepper, e_destination, recover_speed).await
+    }
 
     // auto home
-    pub async fn g28<I: StepperInputPin>(&mut self, x_button: &I, y_button: &I, z_button: &I) -> Result<core::time::Duration, StepperError>{
+    async fn g28<I: StepperInputPin>(&mut self, x_button: &I, y_button: &I, z_button: &I) -> Result<core::time::Duration, StepperError>{
         auto_home_3d::<I, P, StepperTimer>(&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, x_button, y_button, z_button).await
     }
 }

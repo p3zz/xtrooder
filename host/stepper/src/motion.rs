@@ -408,6 +408,30 @@ pub async fn auto_home_3d<I: StepperInputPin, O: StatefulOutputPin, T: TimerTrai
     Ok(duration)
 }
 
+pub async fn retract<O: StatefulOutputPin, T: TimerTrait>(
+    e_stepper: &mut Stepper<O>,
+    z_stepper: &mut Stepper<O>,
+    e_speed: Speed,
+    e_distance: Distance,
+    z_distance: Distance
+) -> Result <Duration, StepperError> {
+    let e_destination = e_stepper.get_position()?.sub(&e_distance);
+    let z_destination = z_stepper.get_position()?.add(&z_distance);
+    let e_time = Duration::from_millis((e_distance.to_mm() / e_speed.to_mm_per_second() * 1000f64) as u64);
+    let z_speed = Speed::from_mm_per_second(z_distance.to_mm() / e_time.as_millis() as f64);
+    
+    match join!(
+        linear_move_to::<O, T>(e_stepper, e_destination, e_speed),
+        linear_move_to::<O, T>(z_stepper, z_destination, z_speed)
+    ){
+        (Ok(da), Ok(db)) => {
+            let duration = Duration::from_millis(da.as_millis().max(db.as_millis()) as u64);
+            Ok(duration)
+        },
+        _ => Err(StepperError::MoveNotValid)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
