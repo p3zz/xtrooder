@@ -81,7 +81,7 @@ pub enum GCommand {
     },
     // Pause SD print
     M25,
-    // Report SD print status
+    // [future] Report SD print status
     M27,
     // report print time
     M31,

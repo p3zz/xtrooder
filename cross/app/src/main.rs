@@ -121,23 +121,31 @@ async fn input_handler() {
 
 #[embassy_executor::task]
 async fn output_handler() {
+    let mut clock = Clock::new();
     let tmp = UART_TX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
     let mut tx = UART_TX.lock().await;
     let tx = tx.as_mut().expect("UART TX not initialized");
+    let dt = Duration::from_millis(100);
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
+
+    clock.start();
 
     loop {
         // retrieve the channel content and copy the message inside the shared memory of DMA to send t
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
+        core::write!(&mut report, "[{}] {}", clock.measure(), &msg).unwrap();
         let mut len = 0;
         for (i, b) in msg.into_bytes().iter().enumerate() {
             tmp[i] = *b;
-            len = i;
+            len += 1;
         }
         match tx.write(&tmp[0..len]).await {
             Ok(_) => (),
             Err(_) => error!("Cannot write to UART"),
         };
+
+        Timer::after(dt).await;
     }
 }
 
@@ -194,7 +202,8 @@ async fn command_dispatcher_task() {
                 | GCommand::M22
                 | GCommand::M23 { .. }
                 | GCommand::M24 { .. }
-                | GCommand::M25 => {
+                | GCommand::M25 
+                | GCommand::M31 => {
                     SD_CARD_CHANNEL.send(cmd).await;
                 }
                 _ => error!("[COMMAND DISPATCHER] command not handler"),
@@ -403,6 +412,7 @@ async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
     let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
     let mut clock = Clock::new();
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
 
     let dt = Duration::from_millis(500);
     loop {
@@ -476,6 +486,11 @@ async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12
                         clock.stop();
                         running = false;
                     }
+                }
+                GCommand::M31 => {
+                    report.clear();
+                    core::write!(&mut report, "Time elapsed: {}", clock.measure()).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                 }
                 _ => todo!(),
             }
