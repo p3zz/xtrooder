@@ -305,7 +305,11 @@ async fn hotend_handler(
                 _ => (),
             }
         }
-        hotend.update(dt).await;
+
+        if let Ok(duty_cycle) = hotend.update(dt).await{
+            info!("[HEATBED] duty cycle: {}", duty_cycle);
+        };
+
         Timer::after(dt).await;
 
         if counter.checked_add(dt).is_none() {
@@ -384,9 +388,11 @@ async fn heatbed_handler(
             }
         };
 
-        heatbed.update(dt).await;
-        Timer::after(dt).await;
+        if let Ok(duty_cycle) = heatbed.update(dt).await{
+            info!("[HEATBED] duty cycle: {}", duty_cycle);
+        };
 
+        Timer::after(dt).await;
         if counter.checked_add(dt).is_none() {
             counter = Duration::from_secs(0);
         }

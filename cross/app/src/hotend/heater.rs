@@ -15,16 +15,15 @@ pub struct Heater<'s, T: GeneralInstance4Channel> {
 }
 
 impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
-    pub fn new(mut out: SimplePwm<'s, T>, ch: Channel) -> Heater<'s, T> {
+    pub fn new(out: SimplePwm<'s, T>, ch: Channel) -> Heater<'s, T> {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).to_celsius(),
             20.0,
             0.02,
             0.0,
         );
+        let mut out = out;
         out.set_frequency(Hertz::hz(100));
-        out.set_duty(ch, 0);
-        out.enable(ch);
         Heater {
             out,
             ch,
@@ -33,40 +32,42 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
         }
     }
 
-    pub fn set_target_temperature(&mut self, temperature: Temperature) {
-        self.target_temperature = Some(temperature);
-        self.pid
-            .set_target(self.target_temperature.unwrap().to_celsius());
+    pub fn enable(&mut self){
+        self.out.enable(self.ch);
+    }
+
+    pub fn disable(&mut self){
+        self.out.disable(self.ch);
     }
 
     pub fn reset_target_temperature(&mut self) {
         self.target_temperature = None;
     }
 
-    pub fn update(&mut self, tmp: Temperature, dt: Duration) {
+    pub fn set_target_temperature(&mut self, temperature: Temperature) {
+        self.target_temperature = Some(temperature);
+        self.pid
+            .set_target(self.target_temperature.unwrap().to_celsius());
+    }
+
+    pub fn update(&mut self, tmp: Temperature, dt: Duration) -> Result<u32, ()> {
         if self.target_temperature.is_none() {
-            return;
+            return Err(());
         }
-        let mut duty_cycle = self.pid.update_elapsed(
+        
+        let duty_cycle = self.pid.update_elapsed(
             tmp.to_celsius(),
             core::time::Duration::from_millis(dt.as_millis()),
         );
 
         // info!("duty cycle real value {}", duty_cycle);
-
-        let min = 0f64;
-        let max = f64::from(self.out.get_max_duty());
-
-        if duty_cycle > max {
-            duty_cycle = max;
-        }
-        if duty_cycle < min {
-            duty_cycle = min;
-        }
+        let duty_cycle = duty_cycle.max(0f64).min(f64::from(self.out.get_max_duty()));
 
         let duty_cycle = (duty_cycle as f32).trunc() as u32;
 
         // info!("duty cycle set to {}", duty_cycle);
         self.out.set_duty(self.ch, duty_cycle);
+
+        Ok(duty_cycle)
     }
 }
