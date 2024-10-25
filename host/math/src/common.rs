@@ -80,9 +80,10 @@ pub fn compute_step_duration(
     revolutions_per_second: f64,
     steps_per_revolution: u64,
 ) -> Result<Duration, ()> {
-    if revolutions_per_second.is_sign_negative() || steps_per_revolution == 0 {
+    if steps_per_revolution == 0 {
         return Err(());
     }
+    let revolutions_per_second = revolutions_per_second.max(0f64);
     if revolutions_per_second == 0.0 {
         return Ok(Duration::ZERO);
     }

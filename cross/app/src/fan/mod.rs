@@ -11,15 +11,23 @@ pub struct FanController<'s, T: GeneralInstance4Channel> {
 }
 
 impl<'s, T: GeneralInstance4Channel> FanController<'s, T> {
-    pub fn new(mut out: SimplePwm<'s, T>, ch: Channel, max_speed: f64) -> Self {
+    pub fn new(out: SimplePwm<'s, T>, ch: Channel, max_speed: f64) -> Self {
+        let mut out = out;
         out.set_frequency(Hertz::hz(100));
-        out.set_duty(ch, 0);
-        out.enable(ch);
+        out.disable(ch);
         Self { out, ch, max_speed }
     }
 
+    pub fn enable(&mut self){
+        self.out.enable(self.ch);
+    }
+
+    pub fn disable(&mut self){
+        self.out.disable(self.ch);
+    }
+
     pub fn set_speed(&mut self, revolutions_per_second: f64) {
-        let revolutions_per_second = revolutions_per_second.max(self.max_speed);
+        let revolutions_per_second = revolutions_per_second.max(0f64).min(self.max_speed);
 
         let multiplier = self.max_speed / revolutions_per_second;
         let duty_cycle = ((f64::from(self.out.get_max_duty()) * multiplier) as f32).trunc() as u32;
