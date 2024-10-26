@@ -1,34 +1,10 @@
+use measurements::Measurement;
+use core::ops::{Add, Sub, Mul, Div};
+
 use super::{
     angle::{acos, atan2, Angle},
     common::sqrt,
-    computable::Computable,
 };
-
-impl Computable for f64 {
-    fn add(&self, other: &Self) -> Self {
-        self + other
-    }
-
-    fn sub(&self, other: &Self) -> Self {
-        self - other
-    }
-
-    fn mul(&self, other: &Self) -> Self {
-        self * other
-    }
-
-    fn div(&self, other: &Self) -> Result<f64, ()> {
-        Ok(self / other)
-    }
-
-    fn to_raw(&self) -> Self {
-        *self
-    }
-
-    fn from_raw(value: f64) -> Self {
-        value
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct Vector2D<M> {
@@ -36,50 +12,10 @@ pub struct Vector2D<M> {
     y: M,
 }
 
-impl<M> Vector2D<M>
-where
-    M: Computable + Clone + Copy,
-{
-    pub fn new(x: M, y: M) -> Vector2D<M> {
+impl <M> Vector2D<M>
+where M: Clone + Copy {
+    pub fn new(x: M, y: M) -> Self {
         Vector2D { x, y }
-    }
-
-    pub fn add(&self, other: &Vector2D<M>) -> Vector2D<M> {
-        Vector2D::new(self.x.add(&other.x), self.y.add(&other.y))
-    }
-
-    pub fn sub(&self, other: &Vector2D<M>) -> Vector2D<M> {
-        Vector2D::new(self.x.sub(&other.x), self.y.sub(&other.y))
-    }
-
-    pub fn get_magnitude(&self) -> M {
-        let x = self.x.mul(&self.x);
-        let y = self.y.mul(&self.y);
-        let v = sqrt(x.add(&y).to_raw());
-        M::from_raw(v)
-    }
-
-    pub fn get_angle(&self) -> Angle {
-        atan2(self.y.to_raw(), self.x.to_raw())
-    }
-
-    pub fn angle(&self, other: &Vector2D<M>) -> Result<Angle, ()> {
-        let n = self.dot(other);
-        let mag = self.get_magnitude();
-        let d = mag.mul(&mag);
-        let res = n.div(&d)?;
-        Ok(acos(res))
-    }
-
-    pub fn dot(&self, other: &Vector2D<M>) -> M {
-        self.x.mul(&other.x).add(&self.y.mul(&other.y))
-    }
-
-    pub fn normalize(&self) -> Result<Vector2D<f64>, ()> {
-        let mag = self.get_magnitude();
-        let x = self.x.div(&mag)?;
-        let y = self.y.div(&mag)?;
-        Ok(Vector2D::new(x, y))
     }
 
     pub fn get_x(&self) -> M {
@@ -91,6 +27,67 @@ where
     }
 }
 
+impl <M> Vector2D<M>
+where M: Clone + Copy + Measurement{
+    pub fn get_angle(&self) -> Angle {
+        atan2(self.y.as_base_units(), self.x.as_base_units())
+    }
+}
+
+impl<M> Vector2D<M>
+where
+    M: Clone + Copy + Measurement + Add<Output = M> + Sub<Output = M> + Mul<Output = M> + Div<Output = M>,
+{
+    pub fn get_magnitude(&self) -> M {
+        let x = self.x * self.x;
+        let y = self.y * self.y;
+        let v = sqrt((x + y).as_base_units());
+        M::from_base_units(v)
+    }
+
+    pub fn angle(&self, other: &Self) -> Result<Angle, ()> {
+        let n = self.dot(other);
+        let mag = self.get_magnitude();
+        let d = mag * mag;
+        let res = n / d;
+        Ok(acos(res.as_base_units()))
+    }
+
+    pub fn dot(&self, other: &Self) -> M {
+        self.x * other.x + self.y * other.y
+    }
+
+    pub fn normalize(&self) -> Vector2D<f64> {
+        let mag = self.get_magnitude();
+        let x = self.x / mag;
+        let y = self.y / mag;
+        Vector2D::new(x.as_base_units(), y.as_base_units())
+    }
+
+}
+
+impl<M> Add for Vector2D<M>
+where M: Add<Output = M> + Clone + Copy{
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let x = self.x + rhs.x;
+        let y = self.y + rhs.y;
+        Self::new(x, y)
+    }
+}
+
+impl<M> Sub for Vector2D<M>
+where M: Sub<Output = M> + Clone + Copy{
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let x = self.x - rhs.x;
+        let y = self.y - rhs.y;
+        Self::new(x, y)
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Vector3D<M> {
     x: M,
@@ -98,44 +95,10 @@ pub struct Vector3D<M> {
     z: M,
 }
 
-impl<M> Vector3D<M>
-where
-    M: Computable + Clone + Copy,
-{
+impl <M> Vector3D<M>
+where M: Clone + Copy {
     pub fn new(x: M, y: M, z: M) -> Vector3D<M> {
         Vector3D { x, y, z }
-    }
-
-    pub fn add(&self, other: &Vector3D<M>) -> Vector3D<M> {
-        Vector3D::new(
-            self.x.add(&other.x),
-            self.y.add(&other.y),
-            self.z.add(&other.z),
-        )
-    }
-
-    pub fn sub(&self, other: &Vector3D<M>) -> Vector3D<M> {
-        Vector3D::new(
-            self.x.sub(&other.x),
-            self.y.sub(&other.y),
-            self.z.sub(&other.z),
-        )
-    }
-
-    pub fn get_magnitude(&self) -> M {
-        let x = self.x.mul(&self.x);
-        let y = self.y.mul(&self.y);
-        let z = self.z.mul(&self.z);
-        let value = sqrt(x.add(&y).add(&z).to_raw());
-        M::from_raw(value)
-    }
-
-    pub fn normalize(&self) -> Result<Vector3D<f64>, ()> {
-        let mag = self.get_magnitude();
-        let x = self.x.div(&mag)?;
-        let y = self.y.div(&mag)?;
-        let z = self.z.div(&mag)?;
-        Ok(Vector3D::new(x, y, z))
     }
 
     pub fn get_x(&self) -> M {
@@ -148,5 +111,50 @@ where
 
     pub fn get_z(&self) -> M {
         self.z
+    }   
+}
+
+impl<M> Vector3D<M>
+where
+    M: Measurement + Add<Output = M> + Sub<Output = M> + Mul<Output = M> + Div<Output = M> + Clone + Copy,
+{
+    pub fn get_magnitude(&self) -> M {
+        let x = self.x * self.x;
+        let y = self.y * self.y;
+        let z = self.z * self.z;
+        let v = sqrt((x + y + z).as_base_units());
+        M::from_base_units(v)
+    }
+
+    pub fn normalize(&self) -> Self {
+        let mag = self.get_magnitude();
+        let x = self.x / mag;
+        let y = self.y / mag;
+        let z = self.z / mag;
+        Self::new(x, y, z)
+    }
+}
+
+impl<M> Add for Vector3D<M>
+where M: Add<Output = M> + Clone + Copy{
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let x = self.x + rhs.x;
+        let y = self.y + rhs.y;
+        let z = self.z + rhs.z;
+        Self::new(x, y, z)
+    }
+}
+
+impl<M> Sub for Vector3D<M>
+where M: Sub<Output = M> + Clone + Copy{
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let x = self.x - rhs.x;
+        let y = self.y - rhs.y;
+        let z = self.z - rhs.z;
+        Self::new(x, y, z)
     }
 }
