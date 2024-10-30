@@ -1,6 +1,5 @@
 use kiss3d::light::Light;
-use kiss3d::nalgebra::{Point3, UnitQuaternion, Vector3};
-use kiss3d::scene::SceneNode;
+use kiss3d::nalgebra::Point3;
 use kiss3d::window::Window;
 use std::env;
 use std::fs;
@@ -12,6 +11,12 @@ pub struct AxisColor {
     red: Point3<f32>,
     green: Point3<f32>,
     blue: Point3<f32>,
+}
+
+impl Default for AxisColor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AxisColor {
@@ -72,7 +77,7 @@ impl GraphicEnvironment {
         }
     }
 
-    pub fn init(&mut self) -> () {
+    pub fn init(&mut self) {
         self.window.set_light(Light::StickToCamera);
     }
 

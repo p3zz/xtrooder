@@ -4,7 +4,7 @@ use core::time::Duration;
 use futures::join;
 use math::angle::{cos, sin};
 use math::common::{
-    abs, compute_arc_destination, compute_arc_length, floor, max, RotationDirection,
+    abs, compute_arc_destination, compute_arc_length, floor, RotationDirection,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};

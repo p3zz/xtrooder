@@ -128,7 +128,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
     pwm frequency: count of PWM interval periods per second
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
-    pub fn set_speed(&mut self, angular_velocity: AngularVelocity) -> () {
+    pub fn set_speed(&mut self, angular_velocity: AngularVelocity) {
         let step_duration = compute_step_duration(
             angular_velocity,
             self.options.steps_per_revolution,
@@ -266,7 +266,7 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
         Self::new_inner(step, dir, Some(attachment), options)
     }
 
-    pub fn set_speed_from_attachment(&mut self, speed: Speed) -> () {
+    pub fn set_speed_from_attachment(&mut self, speed: Speed) {
         let attachment = self.attachment.unwrap();
         let angular_velocity = angular_velocity_from_speed(speed, self.options.steps_per_revolution, attachment.distance_per_step);
         self.set_speed(angular_velocity);
@@ -309,8 +309,8 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
         destination: Distance,
     ) -> Distance {
         let p = self.get_position();
-        let distance = destination - p;
-        distance
+        
+        destination - p
     }
 
     pub async fn move_to_destination<T: TimerTrait>(
