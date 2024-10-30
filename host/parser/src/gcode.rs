@@ -2,10 +2,10 @@ use core::{fmt::Display, str::FromStr, time::Duration};
 
 use heapless::{LinearMap, String, Vec};
 use math::{
-    distance::{Distance, DistanceUnit},
-    duration::DurationUnit,
-    speed::Speed,
-    temperature::{Temperature, TemperatureUnit},
+    measurements::{Distance, Speed, Temperature},
+    DurationUnit,
+    TemperatureUnit,
+    DistanceUnit
 };
 
 pub enum GCommandType {
@@ -188,95 +188,95 @@ pub enum GCommand {
     D115,
 }
 
-#[cfg(feature = "defmt-log")]
-impl defmt::Format for GCommand {
-    fn format(&self, fmt: defmt::Formatter) {
-        match self {
-            GCommand::G0 { x, y, z, f } => {
-                defmt::write!(fmt, "G0 [x: {}] [y: {}] [z: {}] [f: {}]", x, y, z, f)
-            }
-            GCommand::G1 { x, y, z, e, f } => defmt::write!(
-                fmt,
-                "G1 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}]",
-                x,
-                y,
-                z,
-                e,
-                f
-            ),
-            GCommand::G2 {
-                x,
-                y,
-                z,
-                e,
-                f,
-                i,
-                j,
-                r,
-            } => defmt::write!(
-                fmt,
-                "G2 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
-                x,
-                y,
-                z,
-                e,
-                f,
-                i,
-                j,
-                r
-            ),
-            GCommand::G3 {
-                x,
-                y,
-                z,
-                e,
-                f,
-                i,
-                j,
-                r,
-            } => defmt::write!(
-                fmt,
-                "G3 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
-                x,
-                y,
-                z,
-                e,
-                f,
-                i,
-                j,
-                r
-            ),
-            GCommand::G4 { p, s } => defmt::write!(fmt, "G4 [p: {}] [s: {}]", p, s),
-            GCommand::G20 => defmt::write!(fmt, "G20"),
-            GCommand::G21 => defmt::write!(fmt, "G21"),
-            GCommand::G90 => todo!(),
-            GCommand::G91 => todo!(),
-            GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s),
-            GCommand::M140 { s } => defmt::write!(fmt, "M140 [S: {}]", s),
-            GCommand::M149 { u } => defmt::write!(fmt, "M149 [U: {}]", u),
-            GCommand::M20 => defmt::write!(fmt, "M20"),
-            GCommand::M21 => defmt::write!(fmt, "M21"),
-            GCommand::M22 => defmt::write!(fmt, "M22"),
-            GCommand::M23 { filename } => defmt::write!(fmt, "M23 [{}]", filename.as_str()),
-            GCommand::M24 { s, t } => defmt::write!(fmt, "M24 [s: {}] [t: {}]", s, t.as_millis()),
-            GCommand::M25 => defmt::write!(fmt, "M25"),
-            GCommand::M27 => defmt::write!(fmt, "M27"),
-            GCommand::D0 { x, y, z, t } => {
-                defmt::write!(fmt, "D0 [x: {}] [y: {}] [z: {}] [t: {}]", x, y, z, t)
-            }
-            GCommand::D1 { x, y, z, e, t } => defmt::write!(
-                fmt,
-                "D1 [x: {}] [y: {}] [z: {}] [e: {}] [t: {}]",
-                x,
-                y,
-                z,
-                e,
-                t
-            ),
-            _ => panic!("Format not implemented"),
-        }
-    }
-}
+// #[cfg(feature = "defmt-log")]
+// impl defmt::Format for GCommand {
+//     fn format(&self, fmt: defmt::Formatter) {
+//         match self {
+//             GCommand::G0 { x, y, z, f } => {
+//                 defmt::write!(fmt, "G0 [x: {}] [y: {}] [z: {}] [f: {}]", x, y, z, f)
+//             }
+//             GCommand::G1 { x, y, z, e, f } => defmt::write!(
+//                 fmt,
+//                 "G1 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}]",
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 f
+//             ),
+//             GCommand::G2 {
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 f,
+//                 i,
+//                 j,
+//                 r,
+//             } => defmt::write!(
+//                 fmt,
+//                 "G2 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 f,
+//                 i,
+//                 j,
+//                 r
+//             ),
+//             GCommand::G3 {
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 f,
+//                 i,
+//                 j,
+//                 r,
+//             } => defmt::write!(
+//                 fmt,
+//                 "G3 [x: {}] [y: {}] [z: {}] [e: {}] [f: {}] [i: {}] [j: {}] [r: {}]",
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 f,
+//                 i,
+//                 j,
+//                 r
+//             ),
+//             GCommand::G4 { p, s } => defmt::write!(fmt, "G4 [p: {}] [s: {}]", p, s),
+//             GCommand::G20 => defmt::write!(fmt, "G20"),
+//             GCommand::G21 => defmt::write!(fmt, "G21"),
+//             GCommand::G90 => todo!(),
+//             GCommand::G91 => todo!(),
+//             GCommand::M104 { s } => defmt::write!(fmt, "M104 [S: {}]", s),
+//             GCommand::M140 { s } => defmt::write!(fmt, "M140 [S: {}]", s),
+//             GCommand::M149 { u } => defmt::write!(fmt, "M149 [U: {}]", u),
+//             GCommand::M20 => defmt::write!(fmt, "M20"),
+//             GCommand::M21 => defmt::write!(fmt, "M21"),
+//             GCommand::M22 => defmt::write!(fmt, "M22"),
+//             GCommand::M23 { filename } => defmt::write!(fmt, "M23 [{}]", filename.as_str()),
+//             GCommand::M24 { s, t } => defmt::write!(fmt, "M24 [s: {}] [t: {}]", s, t.as_millis()),
+//             GCommand::M25 => defmt::write!(fmt, "M25"),
+//             GCommand::M27 => defmt::write!(fmt, "M27"),
+//             GCommand::D0 { x, y, z, t } => {
+//                 defmt::write!(fmt, "D0 [x: {}] [y: {}] [z: {}] [t: {}]", x, y, z, t)
+//             }
+//             GCommand::D1 { x, y, z, e, t } => defmt::write!(
+//                 fmt,
+//                 "D1 [x: {}] [y: {}] [z: {}] [e: {}] [t: {}]",
+//                 x,
+//                 y,
+//                 z,
+//                 e,
+//                 t
+//             ),
+//             _ => panic!("Format not implemented"),
+//         }
+//     }
+// }
 
 impl Display for GCommand {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -284,18 +284,18 @@ impl Display for GCommand {
             GCommand::D0 { x, y, z, t } => core::write!(
                 f,
                 "D0 X{} Y{} Z{} T{}",
-                x.to_mm(),
-                y.to_mm(),
-                z.to_mm(),
+                x.as_millimeters(),
+                y.as_millimeters(),
+                z.as_millimeters(),
                 t.as_millis()
             ),
             GCommand::D1 { x, y, z, e, t } => core::write!(
                 f,
                 "D0 X{} Y{} Z{} E{} T{}",
-                x.to_mm(),
-                y.to_mm(),
-                z.to_mm(),
-                e.to_mm(),
+                x.as_millimeters(),
+                y.as_millimeters(),
+                z.as_millimeters(),
+                e.as_millimeters(),
                 t.as_millis()
             ),
             _ => panic!("Format not implemented"),
@@ -304,7 +304,8 @@ impl Display for GCommand {
 }
 
 fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
-    extract_token_as_number(cmd, key).map(|value| Speed::from_unit(value, unit))
+    let distance = extract_distance(cmd, key, unit)?;
+    Some(Speed::from_meters_per_second(distance.as_meters()))
 }
 
 fn extract_distance(
@@ -312,7 +313,11 @@ fn extract_distance(
     key: &str,
     unit: DistanceUnit,
 ) -> Option<Distance> {
-    extract_token_as_number(cmd, key).map(|value| Distance::from_unit(value, unit))
+    let val = extract_token_as_number(cmd, key)?;
+    match unit{
+        DistanceUnit::Millimeter => Some(Distance::from_millimeters(val)),
+        DistanceUnit::Inch => Some(Distance::from_inches(val))
+    }
 }
 
 fn extract_duration(
@@ -332,7 +337,12 @@ fn extract_temperature(
     key: &str,
     unit: TemperatureUnit,
 ) -> Option<Temperature> {
-    extract_token_as_number(cmd, key).map(|value| Temperature::from_unit(value, unit))
+    let value = extract_token_as_number(cmd, key)?;
+    match unit {
+        TemperatureUnit::Celsius => Some(Temperature::from_celsius(value)),
+        TemperatureUnit::Farhenheit => Some(Temperature::from_fahrenheit(value)),
+        TemperatureUnit::Kelvin => Some(Temperature::from_kelvin(value)),
+    }
 }
 
 fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option<f64> {
@@ -585,10 +595,10 @@ mod tests {
         assert!(
             command.unwrap()
                 == GCommand::G0 {
-                    x: Some(Distance::from_mm(10.1)),
-                    y: Some(Distance::from_mm(9.0)),
-                    z: Some(Distance::from_mm(1.0)),
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    x: Some(Distance::from_millimeters(10.1)),
+                    y: Some(Distance::from_millimeters(9.0)),
+                    z: Some(Distance::from_millimeters(1.0)),
+                    f: Some(Speed::from_meters_per_second(1.2))
                 }
         );
     }
@@ -602,10 +612,10 @@ mod tests {
         assert!(
             command.unwrap()
                 == GCommand::G0 {
-                    x: Some(Distance::from_mm(10.1)),
+                    x: Some(Distance::from_millimeters(10.1)),
                     y: None,
                     z: None,
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    f: Some(Speed::from_meters_per_second(1.20))
                 }
         );
     }
@@ -641,11 +651,11 @@ mod tests {
         assert!(
             command.unwrap()
                 == GCommand::G1 {
-                    x: Some(Distance::from_mm(10.1)),
-                    y: Some(Distance::from_mm(9.0)),
-                    z: Some(Distance::from_mm(1.0)),
-                    e: Some(Distance::from_mm(2.0)),
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    x: Some(Distance::from_millimeters(10.1)),
+                    y: Some(Distance::from_millimeters(9.0)),
+                    z: Some(Distance::from_millimeters(1.0)),
+                    e: Some(Distance::from_millimeters(2.0)),
+                    f: Some(Speed::from_meters_per_second(1.20))
                 }
         );
     }
@@ -659,11 +669,11 @@ mod tests {
         assert!(
             command.unwrap()
                 == GCommand::G1 {
-                    x: Some(Distance::from_mm(10.1)),
+                    x: Some(Distance::from_millimeters(10.1)),
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    f: Some(Speed::from_meters_per_second(1.20))
                 }
         );
     }
@@ -731,11 +741,11 @@ mod tests {
         assert!(
             res.unwrap()
                 == GCommand::G1 {
-                    x: Some(Distance::from_mm(10.1)),
+                    x: Some(Distance::from_millimeters(10.1)),
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    f: Some(Speed::from_meters_per_second(1.20))
                 }
         );
     }
@@ -749,11 +759,11 @@ mod tests {
         assert!(
             res.unwrap()
                 == GCommand::G1 {
-                    x: Some(Distance::from_mm(10.1)),
+                    x: Some(Distance::from_millimeters(10.1)),
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_mm_per_second(1200.0))
+                    f: Some(Speed::from_meters_per_second(1.20))
                 }
         );
     }
