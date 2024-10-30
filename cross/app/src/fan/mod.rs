@@ -4,7 +4,7 @@ use embassy_stm32::{
 };
 use micromath::F32Ext;
 
-trait FanOutputPin{
+trait FanOutputPin {
     fn set_frequency();
 }
 
@@ -22,11 +22,11 @@ impl<'s, T: GeneralInstance4Channel> FanController<'s, T> {
         Self { out, ch, max_speed }
     }
 
-    pub fn enable(&mut self){
+    pub fn enable(&mut self) {
         self.out.enable(self.ch);
     }
 
-    pub fn disable(&mut self){
+    pub fn disable(&mut self) {
         self.out.disable(self.ch);
     }
 

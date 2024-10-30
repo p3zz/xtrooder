@@ -1,7 +1,10 @@
 use core::marker::PhantomData;
 use core::time::Duration;
-use math::common::{angular_velocity_from_speed, angular_velocity_from_steps, compute_step_duration, speed_from_angular_velocity};
 use math::common::{abs, floor, RotationDirection};
+use math::common::{
+    angular_velocity_from_speed, angular_velocity_from_steps, compute_step_duration,
+    speed_from_angular_velocity,
+};
 use math::measurements::{AngularVelocity, Distance, Speed};
 
 pub trait TimerTrait {
@@ -129,11 +132,10 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
     PWM period: duration of one complete cycle or the total amount of active and inactive time combined
     */
     pub fn set_speed(&mut self, angular_velocity: AngularVelocity) {
-        let step_duration = compute_step_duration(
-            angular_velocity,
-            self.options.steps_per_revolution,
-        );
-        let micros = (step_duration.as_micros() as f64 / f64::from(u8::from(self.options.stepping_mode))) as u64;
+        let step_duration =
+            compute_step_duration(angular_velocity, self.options.steps_per_revolution);
+        let micros = (step_duration.as_micros() as f64
+            / f64::from(u8::from(self.options.stepping_mode))) as u64;
         self.step_duration = Duration::from_micros(micros);
     }
 
@@ -268,7 +270,11 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
 
     pub fn set_speed_from_attachment(&mut self, speed: Speed) {
         let attachment = self.attachment.unwrap();
-        let angular_velocity = angular_velocity_from_speed(speed, self.options.steps_per_revolution, attachment.distance_per_step);
+        let angular_velocity = angular_velocity_from_speed(
+            speed,
+            self.options.steps_per_revolution,
+            attachment.distance_per_step,
+        );
         self.set_speed(angular_velocity);
     }
 
@@ -304,12 +310,9 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
         self.move_for_steps::<T>(steps).await
     }
 
-    fn move_to_destination_inner(
-        &mut self,
-        destination: Distance,
-    ) -> Distance {
+    fn move_to_destination_inner(&mut self, destination: Distance) -> Distance {
         let p = self.get_position();
-        
+
         destination - p
     }
 
@@ -330,15 +333,22 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
     pub fn get_speed_from_attachment(&self) -> Speed {
         let attachment = self.attachment.unwrap();
         let rev_per_second = self.get_speed() / f64::from(u8::from(self.options.stepping_mode));
-        speed_from_angular_velocity(rev_per_second, self.options.steps_per_revolution, attachment.distance_per_step)
+        speed_from_angular_velocity(
+            rev_per_second,
+            self.options.steps_per_revolution,
+            attachment.distance_per_step,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use math::{common::RotationDirection, measurements::{Distance, Speed}};
-    use tokio::time::sleep;
     use approx::assert_abs_diff_eq;
+    use math::{
+        common::RotationDirection,
+        measurements::{Distance, Speed},
+    };
+    use tokio::time::sleep;
 
     use super::*;
 
@@ -505,7 +515,7 @@ mod tests {
         s.set_options(options);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -522,7 +532,7 @@ mod tests {
         s.set_options(options);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -539,7 +549,7 @@ mod tests {
         s.set_options(options);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -556,7 +566,7 @@ mod tests {
         s.set_options(options);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -569,8 +579,8 @@ mod tests {
         let distance = Distance::from_millimeters(10.0);
         let m = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(m.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
         assert_eq!(m.unwrap().as_micros(), Duration::from_secs(10).as_micros());
     }
 
@@ -584,8 +594,8 @@ mod tests {
         let distance = Distance::from_millimeters(10.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -598,8 +608,8 @@ mod tests {
         let distance = Distance::from_millimeters(0.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -612,8 +622,8 @@ mod tests {
         let distance = Distance::from_millimeters(-0.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -632,8 +642,8 @@ mod tests {
         let distance = Distance::from_millimeters(10.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 21.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.5, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 21.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.5, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -652,8 +662,8 @@ mod tests {
         let distance = Distance::from_millimeters(-10.5);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), -21.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.5, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -21.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.5, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -672,8 +682,8 @@ mod tests {
         let distance = Distance::from_millimeters(0.0);
         let res = s.move_for_distance::<StepperTimer>(distance).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -690,12 +700,12 @@ mod tests {
         s.set_options(options);
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
 
         let steps = 15;
         let res = s.move_for_steps::<StepperTimer>(steps).await;
         assert!(res.is_err());
-        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -714,7 +724,7 @@ mod tests {
 
         let res = s.home::<StepperTimer>().await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
     }
 
     #[tokio::test]
@@ -774,7 +784,11 @@ mod tests {
         let mut s =
             Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         s.set_speed_from_attachment(speed);
-        assert_abs_diff_eq!(s.get_speed_from_attachment().as_metres_per_second(), speed.as_meters_per_second(), epsilon=0.000001);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            speed.as_meters_per_second(),
+            epsilon = 0.000001
+        );
     }
 
     #[test]
@@ -786,7 +800,11 @@ mod tests {
         let mut s =
             Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         s.set_speed_from_attachment(speed);
-        assert_abs_diff_eq!(s.get_speed_from_attachment().as_metres_per_second(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            0.0,
+            epsilon = 0.000001
+        );
     }
 
     #[test]
@@ -798,6 +816,10 @@ mod tests {
         let mut s =
             Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
         s.set_speed_from_attachment(speed);
-        assert_abs_diff_eq!(s.get_speed_from_attachment().as_metres_per_second(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            0.0,
+            epsilon = 0.000001
+        );
     }
 }

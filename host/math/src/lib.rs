@@ -13,14 +13,14 @@ pub enum DurationUnit {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum TemperatureUnit{
+pub enum TemperatureUnit {
     Celsius,
     Farhenheit,
-    Kelvin
+    Kelvin,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum DistanceUnit{
+pub enum DistanceUnit {
     Millimeter,
     Inch,
 }

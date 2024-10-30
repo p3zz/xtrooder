@@ -1,5 +1,5 @@
-use measurements::Measurement;
 use core::ops::{Add, Sub};
+use measurements::Measurement;
 
 use super::{
     angle::{acos, atan2, Angle},
@@ -12,8 +12,10 @@ pub struct Vector2D<M> {
     y: M,
 }
 
-impl <M> Vector2D<M>
-where M: Clone + Copy {
+impl<M> Vector2D<M>
+where
+    M: Clone + Copy,
+{
     pub fn new(x: M, y: M) -> Self {
         Vector2D { x, y }
     }
@@ -27,8 +29,10 @@ where M: Clone + Copy {
     }
 }
 
-impl <M> Vector2D<M>
-where M: Clone + Copy + Measurement{
+impl<M> Vector2D<M>
+where
+    M: Clone + Copy + Measurement,
+{
     pub fn get_angle(&self) -> Angle {
         atan2(self.y.as_base_units(), self.x.as_base_units())
     }
@@ -54,7 +58,8 @@ where
     }
 
     pub fn dot(&self, other: &Self) -> f64 {
-        self.x.as_base_units() * other.x.as_base_units() + self.y.as_base_units() * other.y.as_base_units()
+        self.x.as_base_units() * other.x.as_base_units()
+            + self.y.as_base_units() * other.y.as_base_units()
     }
 
     pub fn normalize(&self) -> Vector2D<f64> {
@@ -63,11 +68,12 @@ where
         let y = self.y.as_base_units() / mag.as_base_units();
         Vector2D::new(x, y)
     }
-
 }
 
 impl<M> Add for Vector2D<M>
-where M: Add<Output = M> + Clone + Copy{
+where
+    M: Add<Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -78,7 +84,9 @@ where M: Add<Output = M> + Clone + Copy{
 }
 
 impl<M> Sub for Vector2D<M>
-where M: Sub<Output = M> + Clone + Copy{
+where
+    M: Sub<Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -95,8 +103,10 @@ pub struct Vector3D<M> {
     z: M,
 }
 
-impl <M> Vector3D<M>
-where M: Clone + Copy {
+impl<M> Vector3D<M>
+where
+    M: Clone + Copy,
+{
     pub fn new(x: M, y: M, z: M) -> Vector3D<M> {
         Vector3D { x, y, z }
     }
@@ -111,7 +121,7 @@ where M: Clone + Copy {
 
     pub fn get_z(&self) -> M {
         self.z
-    }   
+    }
 }
 
 impl<M> Vector3D<M>
@@ -136,7 +146,9 @@ where
 }
 
 impl<M> Add for Vector3D<M>
-where M: Add<Output = M> + Clone + Copy{
+where
+    M: Add<Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -148,7 +160,9 @@ where M: Add<Output = M> + Clone + Copy{
 }
 
 impl<M> Sub for Vector3D<M>
-where M: Sub<Output = M> + Clone + Copy{
+where
+    M: Sub<Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {

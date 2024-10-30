@@ -38,7 +38,10 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
-use math::{DistanceUnit, measurements::{Resistance, Temperature}};
+use math::{
+    measurements::{Resistance, Temperature},
+    DistanceUnit,
+};
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
@@ -304,7 +307,7 @@ async fn hotend_handler(
             }
         }
 
-        if let Ok(duty_cycle) = hotend.update(dt).await{
+        if let Ok(duty_cycle) = hotend.update(dt).await {
             info!("[HEATBED] duty cycle: {}", duty_cycle);
         };
 
@@ -386,7 +389,7 @@ async fn heatbed_handler(
             }
         };
 
-        if let Ok(duty_cycle) = heatbed.update(dt).await{
+        if let Ok(duty_cycle) = heatbed.update(dt).await {
             info!("[HEATBED] duty cycle: {}", duty_cycle);
         };
 

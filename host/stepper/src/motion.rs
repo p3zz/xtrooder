@@ -3,9 +3,7 @@ use core::time::Duration;
 
 use futures::join;
 use math::angle::{cos, sin};
-use math::common::{
-    abs, compute_arc_destination, compute_arc_length, floor, RotationDirection,
-};
+use math::common::{abs, compute_arc_destination, compute_arc_length, floor, RotationDirection};
 use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
@@ -452,8 +450,8 @@ mod tests {
     };
 
     use crate::stepper::{NotAttached, StepperAttachment, StepperOptions, SteppingMode};
-    use tokio::time::sleep;
     use approx::assert_abs_diff_eq;
+    use tokio::time::sleep;
 
     use super::*;
 
@@ -525,8 +523,8 @@ mod tests {
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
         assert_eq!(s.get_direction(), RotationDirection::Clockwise);
     }
 
@@ -543,10 +541,14 @@ mod tests {
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
         assert_eq!(s.get_direction(), RotationDirection::Clockwise);
-        assert_abs_diff_eq!(s.get_speed_from_attachment().as_meters_per_second(), 0.01, epsilon=0.000001);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_meters_per_second(),
+            0.01,
+            epsilon = 0.000001
+        );
     }
 
     #[tokio::test]
@@ -562,8 +564,8 @@ mod tests {
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.0, epsilon = 0.000001);
         assert_eq!(s.get_direction(), RotationDirection::CounterClockwise);
     }
 
@@ -581,7 +583,10 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_millimeters(-10.0), Distance::from_millimeters(-10.0));
+        let destination = Vector2D::new(
+            Distance::from_millimeters(-10.0),
+            Distance::from_millimeters(-10.0),
+        );
         let speed = Speed::from_meters_per_second(-0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
@@ -591,21 +596,29 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), -10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), -10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -10.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), -10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), -10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            s_x.get_position().as_millimeters(),
+            -10.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            s_y.get_position().as_millimeters(),
+            -10.0,
+            epsilon = 0.000001
+        );
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::CounterClockwise);
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814269,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814269,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
     }
 
@@ -623,7 +636,10 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
+        let destination = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
         let speed = Speed::from_meters_per_second(-0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
@@ -633,14 +649,22 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
-        assert_abs_diff_eq!(s_x.get_speed_from_attachment().as_meters_per_second(), 0.01, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_speed_from_attachment().as_meters_per_second(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.01,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.0,
+            epsilon = 0.000001
+        );
     }
 
     #[tokio::test]
@@ -657,7 +681,10 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_millimeters(-5.0), Distance::from_millimeters(5.0));
+        let destination = Vector2D::new(
+            Distance::from_millimeters(-5.0),
+            Distance::from_millimeters(5.0),
+        );
         let speed = Speed::from_meters_per_second(0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
@@ -667,21 +694,25 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            s_x.get_position().as_millimeters(),
+            -5.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon = 0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.0070781426,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.0070781426,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
     }
 
@@ -699,7 +730,10 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_millimeters(-5.0), Distance::from_millimeters(5.0));
+        let destination = Vector2D::new(
+            Distance::from_millimeters(-5.0),
+            Distance::from_millimeters(5.0),
+        );
         let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::HalfStep);
         s_y.set_stepping_mode(SteppingMode::QuarterStep);
@@ -711,21 +745,25 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            s_x.get_position().as_millimeters(),
+            -5.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon = 0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
     }
 
@@ -779,17 +817,17 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_z.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
     }
 
@@ -847,17 +885,17 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00928212,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00372533,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
         assert_abs_diff_eq!(
             s_z.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon=0.000001
+            epsilon = 0.000001
         );
     }
 
@@ -899,12 +937,12 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_z.get_steps(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_z.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
@@ -925,7 +963,10 @@ mod tests {
             StepperAttachment::default(),
         );
         let arc_length = Distance::from_millimeters(20.0);
-        let center = Vector2D::new(Distance::from_millimeters(10.0), Distance::from_millimeters(10.0));
+        let center = Vector2D::new(
+            Distance::from_millimeters(10.0),
+            Distance::from_millimeters(10.0),
+        );
         let speed = Speed::from_meters_per_second(0.01);
         let direction = RotationDirection::Clockwise;
         let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(
@@ -933,10 +974,18 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_abs_diff_eq!(s_x.get_steps(), -2.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_steps(), 18.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -2.0, epsilon=0.000001);
-        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 18.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_steps(), -2.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 18.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            s_x.get_position().as_millimeters(),
+            -2.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            s_y.get_position().as_millimeters(),
+            18.0,
+            epsilon = 0.000001
+        );
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
     }

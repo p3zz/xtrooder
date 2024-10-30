@@ -1,10 +1,11 @@
 use core::{f64::consts::PI, time::Duration};
 use heapless::Vec;
-use micromath::F32Ext;
 use measurements::{AngularVelocity, Distance, Speed};
+use micromath::F32Ext;
 
 use crate::{
-    angle::{asin, cos, sin, Angle}, vector::Vector2D,
+    angle::{asin, cos, sin, Angle},
+    vector::Vector2D,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -55,7 +56,9 @@ pub fn dps_from_radius(r: Distance, steps_per_revolution: u64) -> Option<Distanc
         return None;
     }
     let p = 2.0 * r.as_millimeters() * PI;
-    Some(Distance::from_millimeters(p / (steps_per_revolution as f64)))
+    Some(Distance::from_millimeters(
+        p / (steps_per_revolution as f64),
+    ))
 }
 
 // get distance per step from bar's pitch
@@ -74,10 +77,7 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 // spr -> step per revolution
 // dps -> distance per step
 // speed -> mm/s
-pub fn compute_step_duration(
-    rpm: AngularVelocity,
-    steps_per_revolution: u64,
-) -> Duration {
+pub fn compute_step_duration(rpm: AngularVelocity, steps_per_revolution: u64) -> Duration {
     if steps_per_revolution == 0 {
         return Duration::ZERO;
     }
@@ -99,10 +99,15 @@ pub fn angular_velocity_from_speed(
     if distance_per_revolution.as_millimeters() == 0f64 {
         return AngularVelocity::from_rpm(0.0);
     }
-    AngularVelocity::from_rpm(speed.as_meters_per_second() / distance_per_revolution.as_meters() * 60.0)
+    AngularVelocity::from_rpm(
+        speed.as_meters_per_second() / distance_per_revolution.as_meters() * 60.0,
+    )
 }
 
-pub fn angular_velocity_from_steps(step_duration: Duration, steps_per_revolution: u64) -> AngularVelocity {
+pub fn angular_velocity_from_steps(
+    step_duration: Duration,
+    steps_per_revolution: u64,
+) -> AngularVelocity {
     let second_per_step = step_duration.as_secs_f64();
     let second_per_revolution = second_per_step * steps_per_revolution as f64;
     if second_per_revolution == 0.0 {
@@ -117,7 +122,9 @@ pub fn speed_from_angular_velocity(
     distance_per_step: Distance,
 ) -> Speed {
     let distance_per_revolution = steps_per_revolution as f64 * distance_per_step;
-    Speed::from_meters_per_second(distance_per_revolution.as_meters() * angular_velocity.as_rpm() / 60.0)
+    Speed::from_meters_per_second(
+        distance_per_revolution.as_meters() * angular_velocity.as_rpm() / 60.0,
+    )
 }
 
 pub fn compute_arc_length(
@@ -135,7 +142,8 @@ pub fn compute_arc_length(
     }
 
     let chord_length = (end - start).get_magnitude();
-    let mut th: f64 = 2.0 * asin(chord_length.as_millimeters() / (2.0 * radius.as_millimeters())).as_radians();
+    let mut th: f64 =
+        2.0 * asin(chord_length.as_millimeters() / (2.0 * radius.as_millimeters())).as_radians();
 
     if start_angle.as_radians() < end_angle.as_radians()
         && direction == RotationDirection::Clockwise
@@ -190,7 +198,7 @@ pub fn approximate_arc(
     unit_length: Distance,
 ) -> Vec<Vector2D<Distance>, 1024> {
     let mut points: Vec<Vector2D<Distance>, 1024> = Vec::new();
-    let arcs_n = ((arc_length/ unit_length) as f32).floor() as u64;
+    let arcs_n = ((arc_length / unit_length) as f32).floor() as u64;
     for i in 0..(arcs_n + 1) {
         let arc_length_curr = Distance::from_millimeters(unit_length.as_millimeters() * i as f64);
         let arc_dst = compute_arc_destination(source, center, arc_length_curr, direction);
@@ -207,7 +215,8 @@ mod tests {
 
     use crate::{
         common::{
-            angular_velocity_from_steps, compute_arc_length, compute_step_duration, speed_from_angular_velocity, RotationDirection
+            angular_velocity_from_steps, compute_arc_length, compute_step_duration,
+            speed_from_angular_velocity, RotationDirection,
         },
         vector::Vector2D,
     };
@@ -220,7 +229,8 @@ mod tests {
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
         let angular_velocity = AngularVelocity::from_rpm(60.0);
-        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        let speed =
+            speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
         assert_abs_diff_eq!(speed.as_meters_per_second(), 0.1, epsilon = 0.000001);
     }
 
@@ -229,7 +239,8 @@ mod tests {
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
         let angular_velocity = AngularVelocity::from_rpm(60.0);
-        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        let speed =
+            speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
         assert_abs_diff_eq!(speed.as_meters_per_second(), 0.2, epsilon = 0.000001);
     }
 
@@ -238,7 +249,8 @@ mod tests {
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_millimeters(0.1);
         let angular_velocity = AngularVelocity::from_rpm(6000.0);
-        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        let speed =
+            speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
         assert_abs_diff_eq!(speed.as_meters_per_second(), 2.0, epsilon = 0.000001);
     }
 
@@ -247,7 +259,8 @@ mod tests {
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
         let speed = Speed::from_meters_per_second(0.1);
-        let angular_velocity = angular_velocity_from_speed(speed, steps_per_revolution, distance_per_step);
+        let angular_velocity =
+            angular_velocity_from_speed(speed, steps_per_revolution, distance_per_step);
         assert_abs_diff_eq!(angular_velocity.as_rpm(), 60.0, epsilon = 0.000001);
     }
 
@@ -256,7 +269,8 @@ mod tests {
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
         let speed = Speed::from_meters_per_second(0.2);
-        let angular_velocity = angular_velocity_from_speed(speed, steps_per_revolution, distance_per_step);
+        let angular_velocity =
+            angular_velocity_from_speed(speed, steps_per_revolution, distance_per_step);
         assert_abs_diff_eq!(angular_velocity.as_rpm(), 60.0, epsilon = 0.000001);
     }
 
@@ -297,15 +311,20 @@ mod tests {
     fn test_angular_velocity_from_steps() {
         let steps_per_revolution = 200_u64;
         let step_duration = Duration::from_micros(5000);
-        let angular_velocity =
-            angular_velocity_from_steps(step_duration, steps_per_revolution);
+        let angular_velocity = angular_velocity_from_steps(step_duration, steps_per_revolution);
         assert_abs_diff_eq!(angular_velocity.as_rpm(), 60.0, epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_destination_clockwise_1() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(1.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(1.0),
+            Distance::from_millimeters(0.0),
+        );
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let direction = RotationDirection::Clockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
@@ -315,8 +334,14 @@ mod tests {
 
     #[test]
     fn test_compute_arc_destination_clockwise_2() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
         let direction = RotationDirection::Clockwise;
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let dest = compute_arc_destination(start, center, arc_length, direction);
@@ -326,53 +351,98 @@ mod tests {
 
     #[test]
     fn test_compute_arc_destination_clockwise_3() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(2.0), Distance::from_millimeters(2.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(2.0),
+            Distance::from_millimeters(2.0),
+        );
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let direction = RotationDirection::Clockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
-        assert_abs_diff_eq!(dest.get_x().as_millimeters(), -0.7539200, epsilon = 0.000001);
-        assert_abs_diff_eq!(dest.get_y().as_millimeters(), 1.35507822, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            dest.get_x().as_millimeters(),
+            -0.7539200,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            dest.get_y().as_millimeters(),
+            1.35507822,
+            epsilon = 0.000001
+        );
     }
 
     #[test]
     fn test_compute_arc_destination_counterclockwise_4() {
-        let start = Vector2D::new(Distance::from_millimeters(2.0), Distance::from_millimeters(-6.0));
-        let center = Vector2D::new(Distance::from_millimeters(3.0), Distance::from_millimeters(-2.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(2.0),
+            Distance::from_millimeters(-6.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(3.0),
+            Distance::from_millimeters(-2.0),
+        );
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let direction = RotationDirection::CounterClockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
         assert_abs_diff_eq!(dest.get_x().as_millimeters(), 3.5589966, epsilon = 0.000001);
-        assert_abs_diff_eq!(dest.get_y().as_millimeters(), -6.0850364, epsilon = 0.000001);
+        assert_abs_diff_eq!(
+            dest.get_y().as_millimeters(),
+            -6.0850364,
+            epsilon = 0.000001
+        );
     }
 
     #[test]
     fn test_compute_arc_destination_counterclockwise_1() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(1.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(1.0),
+            Distance::from_millimeters(0.0),
+        );
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let direction = RotationDirection::CounterClockwise;
         let dest = compute_arc_destination(start, center, arc_length, direction);
-        assert_abs_diff_eq!(dest.get_x().as_millimeters(), 1.0, epsilon=0.000001);
-        assert_abs_diff_eq!(dest.get_y().as_millimeters(), -1.0, epsilon=0.000001);
+        assert_abs_diff_eq!(dest.get_x().as_millimeters(), 1.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(dest.get_y().as_millimeters(), -1.0, epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_destination_counterclockwise_2() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
         let direction = RotationDirection::CounterClockwise;
         let arc_length = Distance::from_millimeters(PI / 2.0);
         let dest = compute_arc_destination(start, center, arc_length, direction);
-        assert_abs_diff_eq!(dest.get_x().as_millimeters(), -1.0, epsilon=0.000001);
-        assert_abs_diff_eq!(dest.get_y().as_millimeters(), 1.0, epsilon=0.000001);
+        assert_abs_diff_eq!(dest.get_x().as_millimeters(), -1.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(dest.get_y().as_millimeters(), 1.0, epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_counterclockwise_1() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
         let l = compute_arc_length(
             start,
             center,
@@ -380,23 +450,41 @@ mod tests {
             RotationDirection::CounterClockwise,
             false,
         );
-        assert_abs_diff_eq!(l.as_millimeters(), PI * (3.0 / 2.0), epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), PI * (3.0 / 2.0), epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_clockwise_1() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, false);
-        assert_abs_diff_eq!(l.as_millimeters(), PI * (1.0 / 2.0), epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), PI * (1.0 / 2.0), epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_counterclockwise_2() {
-        let start = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
         let l = compute_arc_length(
             start,
             center,
@@ -404,70 +492,160 @@ mod tests {
             RotationDirection::CounterClockwise,
             false,
         );
-        assert_abs_diff_eq!(l.as_millimeters(), PI * (1.0 / 2.0), epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), PI * (1.0 / 2.0), epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_clockwise_2() {
-        let start = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, false);
-        assert_abs_diff_eq!(l.as_millimeters(), PI * (3.0 / 2.0), epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), PI * (3.0 / 2.0), epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_full_circle_off() {
-        let start = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, false);
-        assert_abs_diff_eq!(l.as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), 0.0, epsilon = 0.000001);
     }
 
     #[test]
     fn test_compute_arc_length_full_circle_on() {
-        let start = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
-        let center = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(-1.0), Distance::from_millimeters(-1.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(-1.0),
+            Distance::from_millimeters(-1.0),
+        );
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, true);
-        assert_abs_diff_eq!(l.as_millimeters(), 2.0 * PI, epsilon=0.000001);
+        assert_abs_diff_eq!(l.as_millimeters(), 2.0 * PI, epsilon = 0.000001);
     }
 
     #[test]
     fn test_approximate_arc() {
         let arc_length = Distance::from_millimeters(20.0);
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let center = Vector2D::new(Distance::from_millimeters(10.0), Distance::from_millimeters(10.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(10.0),
+            Distance::from_millimeters(10.0),
+        );
         let direction = RotationDirection::Clockwise;
         let unit_length = Distance::from_millimeters(1.0);
         let points = approximate_arc(start, center, arc_length, direction, unit_length);
         assert_eq!(points.len(), 21);
-        assert_abs_diff_eq!(points.first().unwrap().get_x().as_millimeters(), 0.0, epsilon=0.00001);
-        assert_abs_diff_eq!(points.first().unwrap().get_y().as_millimeters(), 0.0, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(1).unwrap().get_x().as_millimeters(), -0.681527, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(1).unwrap().get_y().as_millimeters(), 0.731507, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(10).unwrap().get_x().as_millimeters(), -4.098815, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(10).unwrap().get_y().as_millimeters(), 8.893923, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(20).unwrap().get_x().as_millimeters(), -1.437096, epsilon=0.00001);
-        assert_abs_diff_eq!(points.get(20).unwrap().get_y().as_millimeters(), 18.318222, epsilon=0.00001);
+        assert_abs_diff_eq!(
+            points.first().unwrap().get_x().as_millimeters(),
+            0.0,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.first().unwrap().get_y().as_millimeters(),
+            0.0,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(1).unwrap().get_x().as_millimeters(),
+            -0.681527,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(1).unwrap().get_y().as_millimeters(),
+            0.731507,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(10).unwrap().get_x().as_millimeters(),
+            -4.098815,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(10).unwrap().get_y().as_millimeters(),
+            8.893923,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(20).unwrap().get_x().as_millimeters(),
+            -1.437096,
+            epsilon = 0.00001
+        );
+        assert_abs_diff_eq!(
+            points.get(20).unwrap().get_y().as_millimeters(),
+            18.318222,
+            epsilon = 0.00001
+        );
     }
 
     #[test]
     fn test_approximate_arc_2() {
-        let start = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
-        let end = Vector2D::new(Distance::from_millimeters(20.0), Distance::from_millimeters(20.0));
-        let center = Vector2D::new(Distance::from_millimeters(10.0), Distance::from_millimeters(10.0));
+        let start = Vector2D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let end = Vector2D::new(
+            Distance::from_millimeters(20.0),
+            Distance::from_millimeters(20.0),
+        );
+        let center = Vector2D::new(
+            Distance::from_millimeters(10.0),
+            Distance::from_millimeters(10.0),
+        );
         let direction = RotationDirection::Clockwise;
         let arc_length = compute_arc_length(start, center, end, direction, false);
-        assert_abs_diff_eq!(arc_length.as_millimeters(), 44.428828, epsilon=0.00001);
+        assert_abs_diff_eq!(arc_length.as_millimeters(), 44.428828, epsilon = 0.00001);
         let unit_length = Distance::from_millimeters(1.0);
         let points = approximate_arc(start, center, arc_length, direction, unit_length);
         assert_eq!(points.len(), 45);
-        assert_abs_diff_eq!(points.first().unwrap().get_x().as_millimeters(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(points.first().unwrap().get_y().as_millimeters(), 0.0, epsilon=0.000001);
-        assert_abs_diff_eq!(points.get(44).unwrap().get_x().as_millimeters(), 19.692222, epsilon=0.000001);
-        assert_abs_diff_eq!(points.get(44).unwrap().get_y().as_millimeters(), 20.298583, epsilon=0.000001);
+        assert_abs_diff_eq!(
+            points.first().unwrap().get_x().as_millimeters(),
+            0.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            points.first().unwrap().get_y().as_millimeters(),
+            0.0,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            points.get(44).unwrap().get_x().as_millimeters(),
+            19.692222,
+            epsilon = 0.000001
+        );
+        assert_abs_diff_eq!(
+            points.get(44).unwrap().get_y().as_millimeters(),
+            20.298583,
+            epsilon = 0.000001
+        );
     }
 }
 

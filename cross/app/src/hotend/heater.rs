@@ -32,11 +32,11 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
         }
     }
 
-    pub fn enable(&mut self){
+    pub fn enable(&mut self) {
         self.out.enable(self.ch);
     }
 
-    pub fn disable(&mut self){
+    pub fn disable(&mut self) {
         self.out.disable(self.ch);
     }
 
@@ -54,7 +54,7 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
         if self.target_temperature.is_none() {
             return Err(());
         }
-        
+
         let duty_cycle = self.pid.update_elapsed(
             tmp.as_celsius(),
             core::time::Duration::from_millis(dt.as_millis()),

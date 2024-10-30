@@ -3,9 +3,7 @@ use core::{fmt::Display, str::FromStr, time::Duration};
 use heapless::{LinearMap, String, Vec};
 use math::{
     measurements::{Distance, Speed, Temperature},
-    DurationUnit,
-    TemperatureUnit,
-    DistanceUnit
+    DistanceUnit, DurationUnit, TemperatureUnit,
 };
 
 pub enum GCommandType {
@@ -314,9 +312,9 @@ fn extract_distance(
     unit: DistanceUnit,
 ) -> Option<Distance> {
     let val = extract_token_as_number(cmd, key)?;
-    match unit{
+    match unit {
         DistanceUnit::Millimeter => Some(Distance::from_millimeters(val)),
-        DistanceUnit::Inch => Some(Distance::from_inches(val))
+        DistanceUnit::Inch => Some(Distance::from_inches(val)),
     }
 }
 

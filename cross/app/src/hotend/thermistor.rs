@@ -100,7 +100,7 @@ fn compute_temperature(
 ) -> Temperature {
     let max_sample = get_steps(resolution) - 1;
     let r_ntc = r_series * (max_sample / sample - 1) as f64;
-    let val_inv = (1.0 / t0.as_kelvin())
-        + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
+    let val_inv =
+        (1.0 / t0.as_kelvin()) + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }
