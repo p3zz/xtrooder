@@ -961,6 +961,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
+
+[[package]]
 name = "libudev"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1027,6 +1033,7 @@ dependencies = [
  "assert_float_eq",
  "defmt",
  "heapless",
+ "measurements",
  "micromath",
 ]
 
@@ -1045,6 +1052,15 @@ name = "maybe-uninit"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+
+[[package]]
+name = "measurements"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5b734b4e8187ea5777bc29c086f0970a27d8de42061b48f5af32cafc0ca904b"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "memchr"

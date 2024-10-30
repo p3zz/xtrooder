@@ -36,32 +36,32 @@ where M: Clone + Copy + Measurement{
 
 impl<M> Vector2D<M>
 where
-    M: Clone + Copy + Measurement + Add<Output = M> + Sub<Output = M> + Mul<Output = M> + Div<Output = M>,
+    M: Clone + Copy + Measurement,
 {
     pub fn get_magnitude(&self) -> M {
-        let x = self.x * self.x;
-        let y = self.y * self.y;
-        let v = sqrt((x + y).as_base_units());
+        let x = self.x.as_base_units() * self.x.as_base_units();
+        let y = self.y.as_base_units() * self.y.as_base_units();
+        let v = sqrt(x + y);
         M::from_base_units(v)
     }
 
-    pub fn angle(&self, other: &Self) -> Result<Angle, ()> {
+    pub fn angle(&self, other: &Self) -> Angle {
         let n = self.dot(other);
         let mag = self.get_magnitude();
-        let d = mag * mag;
+        let d = mag.as_base_units() * mag.as_base_units();
         let res = n / d;
-        Ok(acos(res.as_base_units()))
+        acos(res)
     }
 
-    pub fn dot(&self, other: &Self) -> M {
-        self.x * other.x + self.y * other.y
+    pub fn dot(&self, other: &Self) -> f64 {
+        self.x.as_base_units() * other.x.as_base_units() + self.y.as_base_units() * other.y.as_base_units()
     }
 
     pub fn normalize(&self) -> Vector2D<f64> {
         let mag = self.get_magnitude();
-        let x = self.x / mag;
-        let y = self.y / mag;
-        Vector2D::new(x.as_base_units(), y.as_base_units())
+        let x = self.x.as_base_units() / mag.as_base_units();
+        let y = self.y.as_base_units() / mag.as_base_units();
+        Vector2D::new(x, y)
     }
 
 }
@@ -116,22 +116,22 @@ where M: Clone + Copy {
 
 impl<M> Vector3D<M>
 where
-    M: Measurement + Add<Output = M> + Sub<Output = M> + Mul<Output = M> + Div<Output = M> + Clone + Copy,
+    M: Clone + Copy + Measurement,
 {
     pub fn get_magnitude(&self) -> M {
-        let x = self.x * self.x;
-        let y = self.y * self.y;
-        let z = self.z * self.z;
-        let v = sqrt((x + y + z).as_base_units());
+        let x = self.x.as_base_units() * self.x.as_base_units();
+        let y = self.y.as_base_units() * self.y.as_base_units();
+        let z = self.z.as_base_units() * self.z.as_base_units();
+        let v = sqrt(x + y + z);
         M::from_base_units(v)
     }
 
-    pub fn normalize(&self) -> Self {
+    pub fn normalize(&self) -> Vector3D<f64> {
         let mag = self.get_magnitude();
-        let x = self.x / mag;
-        let y = self.y / mag;
-        let z = self.z / mag;
-        Self::new(x, y, z)
+        let x = self.x.as_base_units() / mag.as_base_units();
+        let y = self.y.as_base_units() / mag.as_base_units();
+        let z = self.z.as_base_units() / mag.as_base_units();
+        Vector3D::new(x, y, z)
     }
 }
 

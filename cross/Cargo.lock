@@ -638,6 +638,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
+
+[[package]]
 name = "litrs"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -649,7 +655,17 @@ version = "0.1.0"
 dependencies = [
  "defmt",
  "heapless",
+ "measurements",
  "micromath",
+]
+
+[[package]]
+name = "measurements"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5b734b4e8187ea5777bc29c086f0970a27d8de42061b48f5af32cafc0ca904b"
+dependencies = [
+ "libm",
 ]
 
 [[package]]

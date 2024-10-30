@@ -1,68 +1,26 @@
-use super::computable::Computable;
-use core::f64::consts::PI;
+pub use measurements::Angle;
 use micromath::F32Ext;
 
-#[derive(Clone, Copy)]
-pub struct Angle {
-    // radians
-    value: f64,
-}
-
-impl Angle {
-    pub fn from_radians(value: f64) -> Self {
-        Self { value }
-    }
-
-    pub fn from_degrees(angle: f64) -> Self {
-        let value = angle * PI / 180.0;
-        Self { value }
-    }
-
-    pub fn to_radians(&self) -> f64 {
-        self.value
-    }
-
-    pub fn to_degrees(&self) -> f64 {
-        self.value * 180.0 / PI
-    }
-}
-
-impl Computable for Angle {
-    fn add(&self, other: &Self) -> Self {
-        Self::from_radians(self.to_radians() + other.to_radians())
-    }
-
-    fn sub(&self, other: &Self) -> Self {
-        Self::from_radians(self.to_radians() - other.to_radians())
-    }
-
-    fn mul(&self, other: &Self) -> Self {
-        Self::from_radians(self.to_radians() * other.to_radians())
-    }
-
-    fn div(&self, other: &Self) -> Result<f64, ()> {
-        if other.to_radians() == 0f64 {
-            Err(())
-        } else {
-            Ok(self.to_radians() / other.to_radians())
-        }
-    }
-
-    fn to_raw(&self) -> f64 {
-        self.to_radians()
-    }
-
-    fn from_raw(value: f64) -> Self {
-        Self::from_radians(value)
-    }
-}
-
+/*
+contains some wrapping functions that enables the use of micromath
+with f64.
+As explained in the rust book:
+- Casting from an f32 to an f64 is perfect and lossless
+- Casting from an f64 to an f32 will produce the closest possible f32 **
+if necessary, rounding is according to roundTiesToEven mode ***
+on overflow, infinity (of the same sign as the input) is produced
+** if f64-to-f32 casts with this rounding mode and overflow behavior are
+not supported natively by the hardware, these casts will likely be slower than expected.
+*** as defined in IEEE 754-2008 §4.3.1: pick the nearest floating point
+number, preferring the one with an even least significant digit if exactly
+halfway between two floating point numbers.
+*/
 pub fn cos(angle: Angle) -> f64 {
-    (angle.to_radians() as f32).cos() as f64
+    (angle.as_radians() as f32).cos() as f64
 }
 
 pub fn sin(angle: Angle) -> f64 {
-    (angle.to_radians() as f32).sin() as f64
+    (angle.as_radians() as f32).sin() as f64
 }
 
 pub fn atan2(y: f64, x: f64) -> Angle {
@@ -83,37 +41,4 @@ pub fn acos(value: f64) -> Angle {
 pub fn asin(value: f64) -> Angle {
     let th = (value as f32).asin() as f64;
     Angle::from_radians(th)
-}
-
-pub fn sinc(angle: Angle) -> f64 {
-    if angle.to_radians() == 0f64 {
-        1f64
-    } else {
-        sin(angle) / angle.to_radians()
-    }
-}
-
-#[cfg(feature = "defmt-log")]
-impl defmt::Format for Angle {
-    fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "{} rad", self.to_radians())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use core::f64::consts::PI;
-
-    use crate::angle::{cos, Angle};
-
-    #[test]
-    fn test_cos() {
-        let v = cos(Angle::from_radians(PI));
-        assert_eq!(v, -1.0);
-    }
-
-    #[test]
-    fn test_angle_2() {
-        assert!(true);
-    }
 }
