@@ -1,7 +1,7 @@
 use core::{f64::consts::PI, time::Duration};
 use heapless::Vec;
 use micromath::F32Ext;
-use measurements::{Distance, AngularVelocity};
+use measurements::{AngularVelocity, Distance, Speed};
 
 use crate::{
     angle::{asin, cos, sin, Angle}, vector::Vector2D,
@@ -77,20 +77,32 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
 pub fn compute_step_duration(
     rpm: AngularVelocity,
     steps_per_revolution: u64,
-) -> Result<Duration, ()> {
+) -> Duration {
     if steps_per_revolution == 0 {
-        return Err(());
+        return Duration::ZERO;
     }
     let rpm = rpm.as_rpm().max(0f64);
     if rpm == 0.0 {
-        return Ok(Duration::ZERO);
+        return Duration::ZERO;
     }
     let second_per_revolution = 1.0 / (rpm / 60.0);
     let second_per_step = second_per_revolution / (steps_per_revolution as f64);
-    Ok(Duration::from_secs_f64(second_per_step))
+    Duration::from_secs_f64(second_per_step)
 }
 
-pub fn compute_rpm(step_duration: Duration, steps_per_revolution: u64) -> AngularVelocity {
+pub fn angular_velocity_from_speed(
+    speed: Speed,
+    steps_per_revolution: u64,
+    distance_per_step: Distance,
+) -> AngularVelocity {
+    let distance_per_revolution = steps_per_revolution as f64 * distance_per_step;
+    if distance_per_revolution.as_millimeters() == 0f64 {
+        return AngularVelocity::from_rpm(0.0);
+    }
+    AngularVelocity::from_rpm(speed.as_meters_per_second() / distance_per_revolution.as_meters())
+}
+
+pub fn angular_velocity_from_steps(step_duration: Duration, steps_per_revolution: u64) -> AngularVelocity {
     let second_per_step = step_duration.as_secs_f64();
     let second_per_revolution = second_per_step * steps_per_revolution as f64;
     if second_per_revolution == 0.0 {
@@ -99,16 +111,13 @@ pub fn compute_rpm(step_duration: Duration, steps_per_revolution: u64) -> Angula
     AngularVelocity::from_rpm((1.0 / second_per_revolution) * 60.0)
 }
 
-pub fn from_revolutions_per_second(
-    value: f64,
+pub fn speed_from_angular_velocity(
+    angular_velocity: AngularVelocity,
     steps_per_revolution: u64,
     distance_per_step: Distance,
-) -> Self {
-    let distance_per_revolution =
-        Distance::from_mm(steps_per_revolution as f64 * distance_per_step.to_mm());
-    Self {
-        value: distance_per_revolution.to_mm() * value,
-    }
+) -> Speed {
+    let distance_per_revolution = steps_per_revolution as f64 * distance_per_step;
+    Speed::from_meters_per_second(distance_per_revolution.as_meters() * angular_velocity.as_rpm() / 60.0)
 }
 
 pub fn compute_arc_length(
@@ -198,75 +207,72 @@ mod tests {
 
     use crate::{
         common::{
-            compute_arc_length, compute_rpm, compute_step_duration,
-            RotationDirection,
+            angular_velocity_from_steps, compute_arc_length, compute_step_duration, speed_from_angular_velocity, RotationDirection
         },
         vector::Vector2D,
     };
-    use measurements::{Distance, AngularVelocity};
+    use measurements::{test_utils::assert_almost_eq, AngularVelocity, Distance};
 
     use super::{approximate_arc, compute_arc_destination};
 
     #[test]
-    fn test_rps_from_millimetersps_1() {
+    fn test_angular_velocity_from_speed() {
         let steps_per_revolution = 100_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
-        let speed =
-            AngularVelocity::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
-        assert_eq!(speed.as_millimeters_per_second(), 100.0);
+        let angular_velocity = AngularVelocity::from_rpm(60.0);
+        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        assert_almost_eq(speed.as_meters_per_second(), 0.1);
     }
 
     #[test]
-    fn test_rps_from_millimetersps_2() {
+    fn test_angular_velocity_from_speed_2() {
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_millimeters(1.0);
-        let speed =
-            AngularVelocity::from_revolutions_per_second(1.0, steps_per_revolution, distance_per_step);
-        assert_eq!(speed.as_millimeters_per_second(), 200.0);
+        let angular_velocity = AngularVelocity::from_rpm(60.0);
+        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        assert_almost_eq(speed.as_meters_per_second(), 0.2);
     }
 
     #[test]
-    fn test_rps_from_millimetersps_3() {
+    fn test_angular_velocity_from_speed_3() {
         let steps_per_revolution = 200_u64;
         let distance_per_step = Distance::from_millimeters(0.1);
-        let speed =
-            AngularVelocity::from_revolutions_per_second(100.0, steps_per_revolution, distance_per_step);
-        assert_eq!(speed.as_millimeters_per_second(), 2000.0);
+        let angular_velocity = AngularVelocity::from_rpm(6000.0);
+        let speed = speed_from_angular_velocity(angular_velocity, steps_per_revolution, distance_per_step);
+        assert_almost_eq(speed.as_meters_per_second(), 2.0);
     }
 
     #[test]
     fn test_compute_step_duration_valid() {
         let steps_per_revolution = 200_u64;
-        let revolutions_per_second = 1.0;
+        let revolutions_per_second = AngularVelocity::from_rpm(60.0);
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_ok());
-        assert_eq!(duration.unwrap().as_micros(), 5000);
+        assert_eq!(duration.as_micros(), 5000);
     }
 
     #[test]
     fn test_compute_step_duration_zero() {
         let steps_per_revolution = 200_u64;
-        let revolutions_per_second = 0.0;
+        let revolutions_per_second = AngularVelocity::from_rpm(0.0);
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_ok());
-        assert!(duration.unwrap().is_zero());
+        assert!(duration.is_zero());
     }
 
     #[test]
     fn test_compute_step_duration_negative() {
         let steps_per_revolution = 200_u64;
-        let revolutions_per_second = -2.0;
+        let revolutions_per_second = AngularVelocity::from_rpm(-120.0);
         let duration = compute_step_duration(revolutions_per_second, steps_per_revolution);
-        assert!(duration.is_err());
+        assert!(duration.is_zero());
     }
 
     #[test]
-    fn test_compute_revolutions_per_second() {
+    fn test_angular_velocity_from_steps() {
         let steps_per_revolution = 200_u64;
         let step_duration = Duration::from_micros(5000);
-        let revolutions_per_second =
-            compute_revolutions_per_second(step_duration, steps_per_revolution);
-        assert_eq!(revolutions_per_second, 1.0);
+        let angular_velocity =
+            angular_velocity_from_steps(step_duration, steps_per_revolution);
+        assert_almost_eq(angular_velocity.as_rpm(), 60.0);
     }
 
     #[test]
