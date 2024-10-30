@@ -38,9 +38,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
-use math::distance::DistanceUnit;
-use math::resistance::Resistance;
-use math::temperature::Temperature;
+use math::{DistanceUnit, measurements::{Resistance, Temperature}};
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
@@ -162,7 +160,7 @@ async fn command_dispatcher_task() {
         FEEDBACK_CHANNEL.send(response.clone()).await;
         response.clear();
         if let Some(cmd) = parser.parse(msg.as_str()) {
-            info!("[COMMAND DISPATCHER] {}", cmd);
+            // info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
                 // every movement command is redirected to the planner channel
                 GCommand::G0 { .. }
@@ -235,8 +233,8 @@ async fn hotend_handler(
         dma_peri,
         read_pin.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohm(100_000),
-        Resistance::from_ohm(10_000),
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
         Temperature::from_kelvin(3950.0),
         readings,
     );
@@ -283,7 +281,7 @@ async fn hotend_handler(
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
             match cmd {
                 GCommand::M104 { s } => {
-                    info!("[HOTEND HANDLER] Target temperature: {}", s.to_celsius());
+                    info!("[HOTEND HANDLER] Target temperature: {}", s.as_celsius());
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
@@ -337,8 +335,8 @@ async fn heatbed_handler(
         dma_peri,
         read_pin.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohm(100_000),
-        Resistance::from_ohm(10_000),
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
         Temperature::from_kelvin(3950.0),
         readings,
     );
@@ -425,7 +423,7 @@ async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12
     let dt = Duration::from_millis(500);
     loop {
         if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
-            info!("[SDCARD] command received: {}", cmd);
+            // info!("[SDCARD] command received: {}", cmd);
             match cmd {
                 GCommand::M20 => {
                     let dir = working_dir.expect("Working directory not set");
@@ -613,7 +611,7 @@ async fn planner_handler(
 
     loop {
         let cmd = PLANNER_CHANNEL.receive().await;
-        info!("[PLANNER HANDLER] {}", cmd);
+        // info!("[PLANNER HANDLER] {}", cmd);
         match cmd {
             GCommand::G0 { .. }
             | GCommand::G1 { .. }

@@ -1,9 +1,7 @@
 use embassy_stm32::adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime};
 use embassy_stm32::Peripheral;
-use math::resistance::Resistance;
+use math::measurements::{Resistance, Temperature};
 use micromath::F32Ext;
-
-use math::temperature::Temperature;
 
 pub type DmaBufType = [u16; 1];
 
@@ -101,8 +99,8 @@ fn compute_temperature(
     r_series: Resistance,
 ) -> Temperature {
     let max_sample = get_steps(resolution) - 1;
-    let r_ntc = Resistance::from_ohm(r_series.as_ohm() * (max_sample / sample - 1));
-    let val_inv = (1.0 / t0.to_kelvin())
-        + (1.0 / b.to_kelvin()) * (((r_ntc.as_ohm() / r0.as_ohm()) as f32).ln() as f64);
+    let r_ntc = r_series * (max_sample / sample - 1) as f64;
+    let val_inv = (1.0 / t0.as_kelvin())
+        + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
 }

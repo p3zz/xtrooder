@@ -10,7 +10,7 @@ use stepper::stepper::{
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
-use math::common::RotationDirection;
+use math::{common::RotationDirection, measurements::AngularVelocity};
 
 struct StepperTimer {}
 
@@ -70,7 +70,7 @@ async fn main(_spawner: Spawner) {
 
     stepper.set_stepping_mode(SteppingMode::HalfStep);
 
-    stepper.set_speed(3.0).unwrap();
+    stepper.set_speed(AngularVelocity::from_rpm(90.0));
 
     // let mut d = Distance::from_mm(80.0);
 
@@ -79,7 +79,7 @@ async fn main(_spawner: Spawner) {
         if let Err(_) = stepper.move_for_steps::<StepperTimer>(400).await {
             info!("Cannot move");
         };
-        info!("Position: {}", stepper.get_position().to_mm());
+        info!("Position: {}", stepper.get_position().as_millimeters());
 
         // Timer::after(Duration::from_millis(100)).await;
 
@@ -89,7 +89,7 @@ async fn main(_spawner: Spawner) {
             info!("Cannot move");
         };
 
-        info!("Position: {}", stepper.get_position().to_mm());
+        info!("Position: {}", stepper.get_position().as_millimeters());
 
         // info!("Moving to {}mm", d.to_mm());
         // if let Err(e) = stepper.move_to_destination(d).await {

@@ -6,7 +6,7 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};
 use embassy_time::{Duration, Timer};
-use math::{resistance::Resistance, temperature::Temperature};
+use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -57,8 +57,8 @@ async fn main(_spawner: Spawner) {
         p.DMA1_CH0,
         p.PA0.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohm(100_000),
-        Resistance::from_ohm(10_000),
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
         Temperature::from_kelvin(3950.0),
         readings,
     );
@@ -66,7 +66,7 @@ async fn main(_spawner: Spawner) {
     info!("Thermistor example");
     loop {
         let t = thermistor.read_temperature().await;
-        info!("Temperature: {}°C", t.to_celsius());
+        info!("Temperature: {}°C", t.as_celsius());
         Timer::after(Duration::from_millis(200)).await;
     }
 }

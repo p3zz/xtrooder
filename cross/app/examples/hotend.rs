@@ -12,7 +12,7 @@ use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::{low_level::CountingMode, Channel};
 use embassy_time::{Duration, Timer};
-use math::{resistance::Resistance, temperature::Temperature};
+use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -63,8 +63,8 @@ async fn main(_spawner: Spawner) {
         p.DMA1_CH0,
         p.PA0.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohm(100_000),
-        Resistance::from_ohm(10_000),
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
         Temperature::from_kelvin(3950.0),
         readings,
     );

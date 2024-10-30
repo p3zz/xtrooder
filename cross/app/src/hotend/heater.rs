@@ -3,7 +3,7 @@ use embassy_stm32::{
     timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
 };
 use embassy_time::Duration;
-use math::temperature::Temperature;
+use math::measurements::Temperature;
 use micromath::F32Ext;
 use pid_lite::Controller;
 
@@ -17,7 +17,7 @@ pub struct Heater<'s, T: GeneralInstance4Channel> {
 impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
     pub fn new(out: SimplePwm<'s, T>, ch: Channel) -> Heater<'s, T> {
         let pid = Controller::new(
-            Temperature::from_celsius(30.0).to_celsius(),
+            Temperature::from_celsius(30.0).as_celsius(),
             20.0,
             0.02,
             0.0,
@@ -47,7 +47,7 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
     pub fn set_target_temperature(&mut self, temperature: Temperature) {
         self.target_temperature = Some(temperature);
         self.pid
-            .set_target(self.target_temperature.unwrap().to_celsius());
+            .set_target(self.target_temperature.unwrap().as_celsius());
     }
 
     pub fn update(&mut self, tmp: Temperature, dt: Duration) -> Result<u32, ()> {
@@ -56,7 +56,7 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
         }
         
         let duty_cycle = self.pid.update_elapsed(
-            tmp.to_celsius(),
+            tmp.as_celsius(),
             core::time::Duration::from_millis(dt.as_millis()),
         );
 

@@ -3,7 +3,7 @@ use embassy_stm32::{
     timer::GeneralInstance4Channel,
 };
 use embassy_time::Duration;
-use math::temperature::Temperature;
+use math::measurements::Temperature;
 
 use super::{heater::Heater, thermistor::Thermistor};
 

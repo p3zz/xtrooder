@@ -1,9 +1,7 @@
 use embassy_time::{Duration, Timer};
 use math::common::RotationDirection;
 
-use math::computable::Computable;
-use math::distance::Distance;
-use math::speed::Speed;
+use math::measurements::{Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 use stepper::motion::{
@@ -48,7 +46,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             y_stepper,
             z_stepper,
             e_stepper,
-            feedrate: Speed::from_mm_per_second(0.0),
+            feedrate: Speed::from_meters_per_second(0.0),
             positioning: Positioning::Absolute,
             recover_feedrate: None,
             retraction_length: None,
@@ -163,7 +161,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         }
         self.retraction_feedrate.replace(f);
         self.retraction_length
-            .replace(s.add(&self.recover_length.unwrap()));
+            .replace(s + self.recover_length.unwrap());
     }
 
     async fn g0(
@@ -312,12 +310,12 @@ impl<P: StatefulOutputPin> Planner<P> {
 
             let i = match i {
                 Some(v) => v,
-                None => Distance::from_mm(0f64),
+                None => Distance::from_millimeters(0f64),
             };
 
             let j = match j {
                 Some(v) => v,
-                None => Distance::from_mm(0f64),
+                None => Distance::from_millimeters(0f64),
             };
 
             let offset_from_center = Vector2D::new(i, j);
@@ -420,7 +418,7 @@ impl<P: StatefulOutputPin> Planner<P> {
     async fn g11(&mut self) -> Result<core::time::Duration, StepperError> {
         let recover_length = self.recover_length.ok_or(StepperError::MoveNotValid)?;
         let recover_speed = self.recover_feedrate.ok_or(StepperError::MoveNotValid)?;
-        let e_destination = self.e_stepper.get_position().add(&recover_length);
+        let e_destination = self.e_stepper.get_position() + recover_length;
         linear_move_to::<P, StepperTimer>(&mut self.e_stepper, e_destination, recover_speed).await
     }
 
