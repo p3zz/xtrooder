@@ -6,9 +6,7 @@ use math::angle::{cos, sin};
 use math::common::{
     abs, compute_arc_destination, compute_arc_length, floor, max, RotationDirection,
 };
-use math::computable::Computable;
-use math::distance::Distance;
-use math::speed::Speed;
+use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
 use crate::stepper::{
@@ -26,7 +24,7 @@ pub fn no_move<P: StatefulOutputPin>(
     positioning: Positioning,
 ) -> Distance {
     match positioning {
-        Positioning::Relative => Distance::from_mm(0.0),
+        Positioning::Relative => Distance::from_millimeters(0.0),
         Positioning::Absolute => stepper.get_position(),
     }
 }
@@ -38,8 +36,8 @@ pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait>(
     dest: Distance,
     speed: Speed,
 ) -> Result<Duration, StepperError> {
-    let s = Speed::from_mm_per_second(abs(speed.to_mm_per_second()));
-    stepper.set_speed_from_attachment(s)?;
+    let s = Speed::from_meters_per_second(abs(speed.as_meters_per_second()));
+    stepper.set_speed_from_attachment(s);
     stepper.move_to_destination::<T>(dest).await
 }
 
@@ -56,8 +54,8 @@ async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait>(
         linear_move_to::<P, T>(stepper_b, dest.get_y(), speed.get_y()),
     ) {
         (Ok(da), Ok(db)) => {
-            let max = *max(&[da.as_micros(), db.as_micros()]).unwrap();
-            Ok(Duration::from_micros(max as u64))
+            let max = da.max(db);
+            Ok(max)
         }
         _ => Err(StepperError::MoveNotValid),
     }
@@ -70,9 +68,9 @@ fn linear_move_to_2d_inner<P: StatefulOutputPin>(
     speed: Speed,
 ) -> Result<Vector2D<Speed>, StepperError> {
     let src = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let angle = dest.sub(&src).get_angle();
-    let speed_x = Speed::from_mm_per_second(cos(angle) * speed.to_mm_per_second());
-    let speed_y = Speed::from_mm_per_second(sin(angle) * speed.to_mm_per_second());
+    let angle = (dest - src).get_angle();
+    let speed_x = cos(angle) * speed;
+    let speed_y = sin(angle) * speed;
 
     Ok(Vector2D::new(speed_x, speed_y))
 }
@@ -120,8 +118,8 @@ async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait>(
         linear_move_to::<P, T>(stepper_c, dest.get_z(), speed.get_z()),
     ) {
         (Ok(da), Ok(db), Ok(dc)) => {
-            let max = *max(&[da.as_micros(), db.as_micros(), dc.as_micros()]).unwrap();
-            Ok(Duration::from_micros(max as u64))
+            let max = da.max(db).max(dc);
+            Ok(max)
         }
         _ => Err(StepperError::MoveNotValid),
     }
@@ -139,12 +137,12 @@ pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
         stepper_b.get_position(),
         stepper_c.get_position(),
     );
-    let delta = dest.sub(&src);
+    let delta = dest - src;
     let xy_angle = Vector2D::new(delta.get_x(), delta.get_y()).get_angle();
     let xz_angle = Vector2D::new(delta.get_x(), delta.get_z()).get_angle();
-    let speed_x = Speed::from_mm_per_second(cos(xy_angle) * speed.to_mm_per_second());
-    let speed_y = Speed::from_mm_per_second(sin(xy_angle) * speed.to_mm_per_second());
-    let speed_z = Speed::from_mm_per_second(sin(xz_angle) * speed.to_mm_per_second());
+    let speed_x = cos(xy_angle) * speed;
+    let speed_y = sin(xy_angle) * speed;
+    let speed_z = sin(xz_angle) * speed;
 
     Ok(Vector3D::new(speed_x, speed_y, speed_z))
 }
@@ -172,7 +170,7 @@ pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait>(
         stepper_b.get_position(),
         stepper_c.get_position(),
     );
-    let dest = source.add(&distance);
+    let dest = source + distance;
     linear_move_to_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed).await
 }
 
@@ -216,19 +214,19 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
         stepper_b.get_position(),
         stepper_c.get_position(),
     );
-    let distance = dest.sub(&src);
-    let time = distance.get_magnitude().to_mm() / speed.to_mm_per_second();
+    let distance = dest - src;
+    let time = distance.get_magnitude() / speed;
 
-    let e_delta = e_dest.sub(&stepper_e.get_position());
-    let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / time);
+    let e_delta = e_dest - stepper_e.get_position();
+    let e_speed = e_delta / time;
 
     match join!(
         linear_move_to_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed),
         linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
     ) {
         (Ok(dabc), Ok(de)) => {
-            let max = *max(&[dabc.as_micros(), de.as_micros()]).unwrap();
-            Ok(Duration::from_micros(max as u64))
+            let max = dabc.max(de);
+            Ok(max)
         }
         _ => Err(StepperError::MoveNotValid),
     }
@@ -248,8 +246,8 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait>(
         stepper_b.get_position(),
         stepper_c.get_position(),
     );
-    let abc_destination = src.add(&distance);
-    let e_destination = stepper_e.get_position().add(&e_distance);
+    let abc_destination = src + distance;
+    let e_destination = stepper_e.get_position() + e_distance;
 
     linear_move_to_3d_e::<P, T>(
         stepper_a,
@@ -273,15 +271,15 @@ pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait>(
     speed: Speed,
     direction: RotationDirection,
 ) -> Result<Duration, StepperError> {
-    let arc_unit_length = Distance::from_mm(1.0);
-    if arc_length.to_mm() < arc_unit_length.to_mm() {
+    let arc_unit_length = Distance::from_millimeters(1.0);
+    if arc_length < arc_unit_length {
         return Err(StepperError::MoveTooShort);
     }
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let arcs_n = floor(arc_length.div(&arc_unit_length).unwrap()) as u64;
+    let arcs_n = floor(arc_length / arc_unit_length) as u64;
     let mut total_duration = Duration::ZERO;
     for n in 0..(arcs_n + 1) {
-        let arc_length = Distance::from_mm(arc_unit_length.to_mm() * n as f64);
+        let arc_length = arc_unit_length * n as f64;
         let arc_dst = compute_arc_destination(source, center, arc_length, direction);
         total_duration += linear_move_to_2d::<P, T>(stepper_a, stepper_b, arc_dst, speed).await?;
     }
@@ -307,13 +305,13 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
 
     let arc_length = compute_arc_length(xy_src, xy_center, xy_dest, direction, full_circle_enabled);
 
-    let time = arc_length.to_mm() / speed.to_mm_per_second();
+    let time = arc_length / speed;
 
-    let z_delta = dest.get_z().sub(&stepper_c.get_position());
-    let z_speed = Speed::from_mm_per_second(z_delta.to_mm() / time);
+    let z_delta = dest.get_z() - stepper_c.get_position();
+    let z_speed = z_delta / time;
 
-    let e_delta = e_dest.sub(&stepper_e.get_position());
-    let e_speed = Speed::from_mm_per_second(e_delta.to_mm() / time);
+    let e_delta = e_dest - stepper_e.get_position();
+    let e_speed = e_delta / time;
 
     match join!(
         arc_move_2d_arc_length::<P, T>(
@@ -323,8 +321,8 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
         linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
     ) {
         (Ok(dab), Ok(dc), Ok(de)) => {
-            let max = *max(&[dab.as_micros(), dc.as_micros(), de.as_micros()]).unwrap();
-            Ok(Duration::from_micros(max as u64))
+            let max = dab.max(dc).max(de);
+            Ok(max)
         }
         _ => Err(StepperError::MoveNotValid),
     }
@@ -343,9 +341,9 @@ pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait>(
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let angle = source.get_angle();
-    let center_offset_x = Distance::from_mm(radius.to_mm() * cos(angle));
-    let center_offset_y = Distance::from_mm(radius.to_mm() * sin(angle));
-    let center = source.add(&Vector2D::new(center_offset_x, center_offset_y));
+    let center_offset_x = radius * cos(angle);
+    let center_offset_y = radius * sin(angle);
+    let center = source + Vector2D::new(center_offset_x, center_offset_y);
     arc_move_3d_e_center::<P, T>(
         stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,
     )
@@ -364,7 +362,7 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     e_dest: Distance,
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
-    let center = source.add(&offset);
+    let center = source + offset;
     arc_move_3d_e_center::<P, T>(
         stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true,
     )
@@ -383,7 +381,7 @@ pub async fn auto_home<
     // set the rotation direction to positive
     let direction = stepper.get_options().positive_direction;
     stepper.set_direction(direction);
-    stepper.set_speed(1.0).unwrap();
+    stepper.set_speed(AngularVelocity::from_rpm(60.0));
 
     // calibrate x
     while !trigger.is_high() {
@@ -427,18 +425,17 @@ pub async fn retract<O: StatefulOutputPin, T: TimerTrait>(
     e_distance: Distance,
     z_distance: Distance,
 ) -> Result<Duration, StepperError> {
-    let e_destination = e_stepper.get_position().sub(&e_distance);
-    let z_destination = z_stepper.get_position().add(&z_distance);
-    let e_time =
-        Duration::from_millis((e_distance.to_mm() / e_speed.to_mm_per_second() * 1000f64) as u64);
-    let z_speed = Speed::from_mm_per_second(z_distance.to_mm() / e_time.as_millis() as f64);
+    let e_destination = e_stepper.get_position() - e_distance;
+    let z_destination = z_stepper.get_position() + z_distance;
+    let e_time = e_distance / e_speed;
+    let z_speed = z_distance / e_time;
 
     match join!(
         linear_move_to::<O, T>(e_stepper, e_destination, e_speed),
         linear_move_to::<O, T>(z_stepper, z_destination, z_speed)
     ) {
         (Ok(da), Ok(db)) => {
-            let duration = Duration::from_millis(da.as_millis().max(db.as_millis()) as u64);
+            let duration = da.max(db);
             Ok(duration)
         }
         _ => Err(StepperError::MoveNotValid),
@@ -450,13 +447,13 @@ mod tests {
 
     use math::{
         common::RotationDirection,
-        distance::Distance,
-        speed::Speed,
+        measurements::{Distance, Speed},
         vector::{Vector2D, Vector3D},
     };
 
     use crate::stepper::{NotAttached, StepperAttachment, StepperOptions, SteppingMode};
     use tokio::time::sleep;
+    use approx::assert_abs_diff_eq;
 
     use super::*;
 
@@ -523,13 +520,13 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Distance::from_mm(0.0);
-        let speed = Speed::from_mm_per_second(10.0);
+        let destination = Distance::from_millimeters(0.0);
+        let speed = Speed::from_meters_per_second(0.01);
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_eq!(s.get_steps(), 0.0);
-        assert_eq!(s.get_position().to_mm(), 0.0);
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon=0.000001);
         assert_eq!(s.get_direction(), RotationDirection::Clockwise);
     }
 
@@ -541,15 +538,15 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Distance::from_mm(10.0);
-        let speed = Speed::from_mm_per_second(10.0);
+        let destination = Distance::from_millimeters(10.0);
+        let speed = Speed::from_meters_per_second(0.01);
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_eq!(s.get_steps(), 10.0);
-        assert_eq!(s.get_position().to_mm(), 10.0);
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon=0.000001);
         assert_eq!(s.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(s.get_speed_from_attachment().to_mm_per_second(), 10.0);
+        assert_abs_diff_eq!(s.get_speed_from_attachment().as_meters_per_second(), 0.01, epsilon=0.000001);
     }
 
     #[tokio::test]
@@ -560,13 +557,13 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Distance::from_mm(-10.0);
-        let speed = Speed::from_mm_per_second(-10.0);
+        let destination = Distance::from_millimeters(-10.0);
+        let speed = Speed::from_meters_per_second(0.01);
         let res =
             linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
         assert!(res.is_ok());
-        assert_eq!(s.get_steps(), -10.0);
-        assert_eq!(s.get_position().to_mm(), -10.0);
+        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.0, epsilon=0.000001);
         assert_eq!(s.get_direction(), RotationDirection::CounterClockwise);
     }
 
@@ -584,8 +581,8 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_mm(-10.0), Distance::from_mm(-10.0));
-        let speed = Speed::from_mm_per_second(-10.0);
+        let destination = Vector2D::new(Distance::from_millimeters(-10.0), Distance::from_millimeters(-10.0));
+        let speed = Speed::from_meters_per_second(-0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
             &mut s_y,
@@ -594,19 +591,21 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -10.0);
-        assert_eq!(s_y.get_steps(), -10.0);
-        assert_eq!(s_x.get_position().to_mm(), -10.0);
-        assert_eq!(s_y.get_position().to_mm(), -10.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -10.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), -10.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::CounterClockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814269,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814269,
+            epsilon=0.000001
         );
     }
 
@@ -624,8 +623,8 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_mm(0.0), Distance::from_mm(0.0));
-        let speed = Speed::from_mm_per_second(-10.0);
+        let destination = Vector2D::new(Distance::from_millimeters(0.0), Distance::from_millimeters(0.0));
+        let speed = Speed::from_meters_per_second(-0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
             &mut s_y,
@@ -634,14 +633,14 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), 0.0);
-        assert_eq!(s_y.get_steps(), 0.0);
-        assert_eq!(s_x.get_position().to_mm(), 0.0);
-        assert_eq!(s_y.get_position().to_mm(), 0.0);
+        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(s_x.get_speed_from_attachment().to_mm_per_second(), 10.0);
-        assert_eq!(s_y.get_speed_from_attachment().to_mm_per_second(), 0.0);
+        assert_abs_diff_eq!(s_x.get_speed_from_attachment().as_meters_per_second(), 0.01, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_speed_from_attachment().as_meters_per_second(), 0.0, epsilon=0.000001);
     }
 
     #[tokio::test]
@@ -658,8 +657,8 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
-        let speed = Speed::from_mm_per_second(10.0);
+        let destination = Vector2D::new(Distance::from_millimeters(-5.0), Distance::from_millimeters(5.0));
+        let speed = Speed::from_meters_per_second(0.01);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x,
             &mut s_y,
@@ -668,19 +667,21 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -5.0);
-        assert_eq!(s_y.get_steps(), 5.0);
-        assert_eq!(s_x.get_position().to_mm(), -5.0);
-        assert_eq!(s_y.get_position().to_mm(), 5.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.0070781426,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.0070781426,
+            epsilon=0.000001
         );
     }
 
@@ -698,8 +699,8 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let destination = Vector2D::new(Distance::from_mm(-5.0), Distance::from_mm(5.0));
-        let speed = Speed::from_mm_per_second(10.0);
+        let destination = Vector2D::new(Distance::from_millimeters(-5.0), Distance::from_millimeters(5.0));
+        let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::HalfStep);
         s_y.set_stepping_mode(SteppingMode::QuarterStep);
         let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
@@ -710,19 +711,21 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -5.0);
-        assert_eq!(s_y.get_steps(), 5.0);
-        assert_eq!(s_x.get_position().to_mm(), -5.0);
-        assert_eq!(s_y.get_position().to_mm(), 5.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
     }
 
@@ -747,11 +750,11 @@ mod tests {
             StepperAttachment::default(),
         );
         let destination = Vector3D::new(
-            Distance::from_mm(-5.0),
-            Distance::from_mm(5.0),
-            Distance::from_mm(5.0),
+            Distance::from_millimeters(-5.0),
+            Distance::from_millimeters(5.0),
+            Distance::from_millimeters(5.0),
         );
-        let speed = Speed::from_mm_per_second(10.0);
+        let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
@@ -764,33 +767,36 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -5.0);
-        assert_eq!(s_y.get_steps(), 5.0);
-        assert_eq!(s_z.get_steps(), 5.0);
-        assert_eq!(s_x.get_position().to_mm(), -5.0);
-        assert_eq!(s_y.get_position().to_mm(), 5.0);
-        assert_eq!(s_z.get_position().to_mm(), 5.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -5.0);
+        assert_abs_diff_eq!(s_y.get_steps(), 5.0);
+        assert_abs_diff_eq!(s_z.get_steps(), 5.0);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 5.0);
+        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 5.0);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_z.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_z.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
     }
 
     #[tokio::test]
     async fn test_linear_move_to_3d_lower_distance_per_step() {
         let attachment = StepperAttachment {
-            distance_per_step: Distance::from_mm(0.5),
+            distance_per_step: Distance::from_millimeters(0.5),
         };
 
         let mut s_x = Stepper::new_with_attachment(
@@ -812,11 +818,11 @@ mod tests {
             attachment,
         );
         let destination = Vector3D::new(
-            Distance::from_mm(-5.0),
-            Distance::from_mm(-2.0),
-            Distance::from_mm(5.0),
+            Distance::from_millimeters(-5.0),
+            Distance::from_millimeters(-2.0),
+            Distance::from_millimeters(5.0),
         );
-        let speed = Speed::from_mm_per_second(10.0);
+        let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
@@ -829,26 +835,29 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -10.0);
-        assert_eq!(s_y.get_steps(), -4.0);
-        assert_eq!(s_z.get_steps(), 10.0);
-        assert_eq!(s_x.get_position().to_mm(), -5.0);
-        assert_eq!(s_y.get_position().to_mm(), -2.0);
-        assert_eq!(s_z.get_position().to_mm(), 5.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -10.0);
+        assert_abs_diff_eq!(s_y.get_steps(), -4.0);
+        assert_abs_diff_eq!(s_z.get_steps(), 10.0);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -5.0);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), -2.0);
+        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 5.0);
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
-        assert_eq!(
-            s_x.get_speed_from_attachment().to_mm_per_second(),
-            9.282120778955576
+        assert_abs_diff_eq!(
+            s_x.get_speed_from_attachment().as_meters_per_second(),
+            0.00928212,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_y.get_speed_from_attachment().to_mm_per_second(),
-            3.725338260714073
+        assert_abs_diff_eq!(
+            s_y.get_speed_from_attachment().as_meters_per_second(),
+            0.00372533,
+            epsilon=0.000001
         );
-        assert_eq!(
-            s_z.get_speed_from_attachment().to_mm_per_second(),
-            7.078142695356739
+        assert_abs_diff_eq!(
+            s_z.get_speed_from_attachment().as_meters_per_second(),
+            0.00707814,
+            epsilon=0.000001
         );
     }
 
@@ -873,11 +882,11 @@ mod tests {
             StepperAttachment::default(),
         );
         let destination = Vector3D::new(
-            Distance::from_mm(0.0),
-            Distance::from_mm(0.0),
-            Distance::from_mm(0.0),
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
         );
-        let speed = Speed::from_mm_per_second(10.0);
+        let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
@@ -890,12 +899,12 @@ mod tests {
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), 0.0);
-        assert_eq!(s_y.get_steps(), 0.0);
-        assert_eq!(s_z.get_steps(), 0.0);
-        assert_eq!(s_x.get_position().to_mm(), 0.0);
-        assert_eq!(s_y.get_position().to_mm(), 0.0);
-        assert_eq!(s_z.get_position().to_mm(), 0.0);
+        assert_abs_diff_eq!(s_x.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_z.get_steps(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 0.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
@@ -915,19 +924,19 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
-        let arc_length = Distance::from_mm(20.0);
-        let center = Vector2D::new(Distance::from_mm(10.0), Distance::from_mm(10.0));
-        let speed = Speed::from_mm_per_second(10.0);
+        let arc_length = Distance::from_millimeters(20.0);
+        let center = Vector2D::new(Distance::from_millimeters(10.0), Distance::from_millimeters(10.0));
+        let speed = Speed::from_meters_per_second(0.01);
         let direction = RotationDirection::Clockwise;
         let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(
             &mut s_x, &mut s_y, arc_length, center, speed, direction,
         )
         .await;
         assert!(res.is_ok());
-        assert_eq!(s_x.get_steps(), -2.0);
-        assert_eq!(s_y.get_steps(), 18.0);
-        assert_eq!(s_x.get_position().to_mm(), -2.0);
-        assert_eq!(s_y.get_position().to_mm(), 18.0);
+        assert_abs_diff_eq!(s_x.get_steps(), -2.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_steps(), 18.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), -2.0, epsilon=0.000001);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 18.0, epsilon=0.000001);
         assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
     }
@@ -949,7 +958,6 @@ mod tests {
         .await;
         assert!(result.is_err());
         assert_eq!(StepperError::MoveOutOfBounds, result.err().unwrap());
-        // assert_eq!(3, result.unwrap().as_secs());
     }
 
     #[tokio::test]
