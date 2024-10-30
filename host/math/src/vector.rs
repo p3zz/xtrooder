@@ -1,5 +1,5 @@
 use measurements::Measurement;
-use core::ops::{Add, Sub, Mul, Div};
+use core::ops::{Add, Sub};
 
 use super::{
     angle::{acos, atan2, Angle},
