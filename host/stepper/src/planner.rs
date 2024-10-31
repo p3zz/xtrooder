@@ -1,27 +1,20 @@
-use embassy_time::{Duration, Timer};
+use core::marker::PhantomData;
+use core::time::Duration;
 use math::common::RotationDirection;
-
 use math::measurements::{Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
-use stepper::motion::{
+use super::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
     linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
-use stepper::stepper::{
-    Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin, TimerTrait,
+use super::stepper::{
+    Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin
 };
 
-struct StepperTimer {}
+use super::TimerTrait;
 
-impl TimerTrait for StepperTimer {
-    async fn after(duration: core::time::Duration) {
-        let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
-        Timer::after(duration).await
-    }
-}
-
-pub struct Planner<P: StatefulOutputPin> {
+pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
     retraction_feedrate: Option<Speed>,
     retraction_length: Option<Distance>,
     retraction_z_lift: Option<Distance>,
@@ -33,8 +26,10 @@ pub struct Planner<P: StatefulOutputPin> {
     y_stepper: Stepper<P, Attached>,
     z_stepper: Stepper<P, Attached>,
     e_stepper: Stepper<P, Attached>,
+    _timer: PhantomData<T>
 }
-impl<P: StatefulOutputPin> Planner<P> {
+
+impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
     pub fn new(
         x_stepper: Stepper<P, Attached>,
         y_stepper: Stepper<P, Attached>,
@@ -53,6 +48,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             retraction_z_lift: None,
             recover_length: None,
             retraction_feedrate: None,
+            _timer: PhantomData
         }
     }
 
@@ -76,12 +72,10 @@ impl<P: StatefulOutputPin> Planner<P> {
         match command {
             GCommand::G0 { x, y, z, f } => {
                 let duration = self.g0(x, y, z, f).await?;
-                let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
             }
             GCommand::G1 { x, y, z, e, f } => {
                 let duration = self.g1(x, y, z, e, f).await?;
-                let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
             }
             GCommand::G2 {
@@ -124,6 +118,26 @@ impl<P: StatefulOutputPin> Planner<P> {
                 self.g4(p, s).await;
                 Ok(None)
             }
+            GCommand::G10 => {
+                self.g10().await?;
+                Ok(None)
+            }
+            GCommand::G11 => {
+                self.g11().await?;
+                Ok(None)
+            }
+            GCommand::G28 => {
+                todo!()
+                // self.g28(x_button, y_button, z_button)
+            }
+            GCommand::M207 { f, s, z } => {
+                self.m207(f, s, z);
+                Ok(None)
+            }
+            GCommand::M208 { f, s} => {
+                self.m208(f, s);
+                Ok(None)
+            }
             _ => Err(StepperError::NotSupported),
         }
     }
@@ -135,8 +149,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             (Some(_), None) => p,
         };
         if let Some(duration) = d {
-            let t = embassy_time::Duration::from_millis(duration.as_millis() as u64);
-            Timer::after(t).await
+            T::after(duration).await
         }
     }
 
@@ -191,7 +204,7 @@ impl<P: StatefulOutputPin> Planner<P> {
 
         let dst = Vector3D::new(x, y, z);
 
-        linear_move_3d::<P, StepperTimer>(
+        linear_move_3d::<P, T>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,
@@ -235,7 +248,7 @@ impl<P: StatefulOutputPin> Planner<P> {
 
         let dst = Vector3D::new(x, y, z);
 
-        linear_move_3d_e::<P, StepperTimer>(
+        linear_move_3d_e::<P, T>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,
@@ -319,7 +332,7 @@ impl<P: StatefulOutputPin> Planner<P> {
             };
 
             let offset_from_center = Vector2D::new(i, j);
-            return arc_move_3d_e_offset_from_center::<P, StepperTimer>(
+            return arc_move_3d_e_offset_from_center::<P, T>(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -352,7 +365,7 @@ impl<P: StatefulOutputPin> Planner<P> {
 
             let r = r.unwrap();
 
-            return arc_move_3d_e_radius::<P, StepperTimer>(
+            return arc_move_3d_e_radius::<P, T>(
                 &mut self.x_stepper,
                 &mut self.y_stepper,
                 &mut self.z_stepper,
@@ -404,7 +417,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         let retraction_length = self.retraction_length.ok_or(StepperError::MoveNotValid)?;
         let retraction_speed = self.retraction_feedrate.ok_or(StepperError::MoveNotValid)?;
         let retraction_z_lift = self.retraction_z_lift.ok_or(StepperError::MoveNotValid)?;
-        retract::<P, StepperTimer>(
+        retract::<P, T>(
             &mut self.e_stepper,
             &mut self.z_stepper,
             retraction_speed,
@@ -419,7 +432,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         let recover_length = self.recover_length.ok_or(StepperError::MoveNotValid)?;
         let recover_speed = self.recover_feedrate.ok_or(StepperError::MoveNotValid)?;
         let e_destination = self.e_stepper.get_position() + recover_length;
-        linear_move_to::<P, StepperTimer>(&mut self.e_stepper, e_destination, recover_speed).await
+        linear_move_to::<P, T>(&mut self.e_stepper, e_destination, recover_speed).await
     }
 
     // auto home
@@ -429,7 +442,7 @@ impl<P: StatefulOutputPin> Planner<P> {
         y_button: &I,
         z_button: &I,
     ) -> Result<core::time::Duration, StepperError> {
-        auto_home_3d::<I, P, StepperTimer, Attached>(
+        auto_home_3d::<I, P, T, Attached>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,

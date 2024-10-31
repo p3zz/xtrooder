@@ -6,10 +6,7 @@ use math::common::{
     speed_from_angular_velocity,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
-
-pub trait TimerTrait {
-    async fn after(duration: Duration);
-}
+use super::TimerTrait;
 
 pub trait StatefulOutputPin {
     fn set_high(&mut self);

@@ -7,7 +7,6 @@ use core::str::FromStr;
 
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::planner::planner::Planner;
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
@@ -45,6 +44,8 @@ use math::{
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
+use stepper::TimerTrait;
+use stepper::planner::Planner;
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
@@ -88,6 +89,15 @@ impl StatefulOutputPin for StepperPin<'_> {
 
     fn is_high(&self) -> bool {
         self.pin.is_set_high()
+    }
+}
+
+struct StepperTimer {}
+
+impl TimerTrait for StepperTimer {
+    async fn after(duration: core::time::Duration) {
+        let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
+        Timer::after(duration).await
     }
 }
 
@@ -608,7 +618,7 @@ async fn planner_handler(
         StepperAttachment::default(),
     );
 
-    let mut planner = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
+    let mut planner: Planner<StepperPin<'_>, StepperTimer> = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
     let dt = Duration::from_millis(500);
 
@@ -621,8 +631,13 @@ async fn planner_handler(
             | GCommand::G2 { .. }
             | GCommand::G3 { .. }
             | GCommand::G4 { .. }
+            | GCommand::G10
+            | GCommand::G11
+            | GCommand::G28
             | GCommand::G90
-            | GCommand::G91 => {
+            | GCommand::G91
+            | GCommand::M207 { .. }  
+            | GCommand::M208 { .. }  => {
                 let duration = planner.execute(cmd.clone()).await.expect("Planner error");
                 if debug {
                     match cmd {
@@ -630,8 +645,7 @@ async fn planner_handler(
                             let x = planner.get_x_position();
                             let y = planner.get_x_position();
                             let z = planner.get_x_position();
-                            let t =
-                                core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let t = duration.unwrap();
                             let res = GCommand::D0 { x, y, z, t };
                             report.clear();
                             write!(&mut report, "{}", &res).unwrap();
@@ -642,8 +656,7 @@ async fn planner_handler(
                             let y = planner.get_x_position();
                             let z = planner.get_x_position();
                             let e = planner.get_e_position();
-                            let t =
-                                core::time::Duration::from_millis(duration.unwrap().as_millis());
+                            let t = duration.unwrap();
                             let res = GCommand::D1 { x, y, z, e, t };
                             report.clear();
                             write!(&mut report, "{}", &res).unwrap();
@@ -665,7 +678,7 @@ async fn planner_handler(
                 )
                 .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-            }
+            },
             GCommand::D114 => {
                 debug = true;
             }

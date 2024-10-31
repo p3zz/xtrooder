@@ -4,10 +4,6 @@ use embassy_stm32::{
 };
 use micromath::F32Ext;
 
-trait FanOutputPin {
-    fn set_frequency();
-}
-
 pub struct FanController<'s, T: GeneralInstance4Channel> {
     out: SimplePwm<'s, T>,
     ch: Channel,

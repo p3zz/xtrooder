@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 math = { path = "../math" }
+parser = { path = "../parser" }
 futures = { version = "0.3.17", default-features = false, features = ["async-await"] }
 
 [dev-dependencies]
