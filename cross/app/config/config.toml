@@ -112,7 +112,7 @@ peripheral = ""
 pin = ""
 
 [heatbed.pwm.channel1]
-pin = ""
+pin = "PA5"
 
 [heatbed.pwm.channel2]
 pin = ""
