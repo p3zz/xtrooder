@@ -111,6 +111,7 @@ struct PidConfig{
 // r_series=0
 // r0=0
 // b = 0
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct HeaterConfig{
     r_series: u64,
     r0: u64,
@@ -118,16 +119,19 @@ struct HeaterConfig{
     pid: PidConfig
 }
 
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct ThermistorConfig{
     heater: HeaterConfig,
     adc: AdcConfig,
     pwm: PwmConfig
 }
 
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct FanConfig{
     pwm: PwmConfig
 }
 
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct SdCardConfig{
     spi: SpiConfig
 }
@@ -136,6 +140,11 @@ struct SdCardConfig{
 struct MyConfig {
     // version: u8,
     steppers: StepperConfigs,
+    uart: UartConfig,
+    hotend: ThermistorConfig,
+    heatbed: ThermistorConfig,
+    fan: FanConfig,
+    sdcard: SdCardConfig,
 }
 
 fn main() -> () {
