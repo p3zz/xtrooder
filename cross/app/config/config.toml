@@ -1,0 +1,15 @@
+[steppers.x]
+step = "PA0"
+dir = "PB0"
+
+[steppers.y]
+step = "PA6"
+dir = "PB1"
+
+[steppers.z]
+step = "PA5"
+dir = "PB2"
+
+[steppers.e]
+step = "PA1"
+dir = "PB4"

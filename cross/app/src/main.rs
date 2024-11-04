@@ -7,6 +7,7 @@ use core::str::FromStr;
 
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
+use app::config::{peripherals_init, PrinterConfig};
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
@@ -15,15 +16,15 @@ use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
     ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA5, PA6, PA7, PB0, PB1, PB2, PB3, PB4, PB5, PC12, PC8,
-    SPI1, TIM3, TIM8, UART4,
+    SPI1, TIM3, TIM8, UART4, ADC1, PA2, PA3, PB9, TIM4
 };
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
+use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    peripherals::{ADC1, PA2, PA3, PB9, TIM4},
     time::hz,
     timer::{
         low_level::CountingMode,
@@ -694,83 +695,85 @@ async fn planner_handler(
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    let mut config = embassy_stm32::Config::default();
-    // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
-    // program won't run
-    {
-        use embassy_stm32::rcc::*;
-        config.rcc.hsi = Some(HSIPrescaler::DIV1);
-        config.rcc.csi = true;
-        config.rcc.pll1 = Some(Pll {
-            source: PllSource::HSI,
-            prediv: PllPreDiv::DIV4,
-            mul: PllMul::MUL50,
-            divp: Some(PllDiv::DIV2),
-            divq: Some(PllDiv::DIV8), // SPI1 cksel defaults to pll1_q
-            divr: None,
-        });
-        config.rcc.pll2 = Some(Pll {
-            source: PllSource::HSI,
-            prediv: PllPreDiv::DIV4,
-            mul: PllMul::MUL50,
-            divp: Some(PllDiv::DIV8), // 100mhz
-            divq: None,
-            divr: None,
-        });
-        config.rcc.sys = Sysclk::PLL1_P; // 400 Mhz
-        config.rcc.ahb_pre = AHBPrescaler::DIV2; // 200 Mhz
-        config.rcc.apb1_pre = APBPrescaler::DIV2; // 100 Mhz
-        config.rcc.apb2_pre = APBPrescaler::DIV2; // 100 Mhz
-        config.rcc.apb3_pre = APBPrescaler::DIV2; // 100 Mhz
-        config.rcc.apb4_pre = APBPrescaler::DIV2; // 100 Mhz
-        config.rcc.voltage_scale = VoltageScale::Scale1;
-        config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
-    }
-    let p = embassy_stm32::init(config);
-    let mut config = embassy_stm32::usart::Config::default();
-    config.baudrate = 19200;
+    // let p = embassy_stm32::init(Config::default());
+    let config = peripherals_init();
+    let led = Output::new(config.step_pin, Level::Low, PinSpeed::Low);
+    // let mut config = embassy_stm32::Config::default();
+    // // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
+    // // program won't run
+    // {
+    //     use embassy_stm32::rcc::*;
+    //     config.rcc.hsi = Some(HSIPrescaler::DIV1);
+    //     config.rcc.csi = true;
+    //     config.rcc.pll1 = Some(Pll {
+    //         source: PllSource::HSI,
+    //         prediv: PllPreDiv::DIV4,
+    //         mul: PllMul::MUL50,
+    //         divp: Some(PllDiv::DIV2),
+    //         divq: Some(PllDiv::DIV8), // SPI1 cksel defaults to pll1_q
+    //         divr: None,
+    //     });
+    //     config.rcc.pll2 = Some(Pll {
+    //         source: PllSource::HSI,
+    //         prediv: PllPreDiv::DIV4,
+    //         mul: PllMul::MUL50,
+    //         divp: Some(PllDiv::DIV8), // 100mhz
+    //         divq: None,
+    //         divr: None,
+    //     });
+    //     config.rcc.sys = Sysclk::PLL1_P; // 400 Mhz
+    //     config.rcc.ahb_pre = AHBPrescaler::DIV2; // 200 Mhz
+    //     config.rcc.apb1_pre = APBPrescaler::DIV2; // 100 Mhz
+    //     config.rcc.apb2_pre = APBPrescaler::DIV2; // 100 Mhz
+    //     config.rcc.apb3_pre = APBPrescaler::DIV2; // 100 Mhz
+    //     config.rcc.apb4_pre = APBPrescaler::DIV2; // 100 Mhz
+    //     config.rcc.voltage_scale = VoltageScale::Scale1;
+    //     config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
+    // }
+    // let mut uart_config = embassy_stm32::usart::Config::default();
+    // uart_config.baudrate = 19200;
 
-    let uart = Uart::new(
-        p.UART4, p.PC11, p.PC10, Irqs, p.DMA1_CH1, p.DMA1_CH0, config,
-    )
-    .unwrap();
-    let (tx, rx) = uart.split();
+    // let uart = Uart::new(
+    //     config.peri, config.rx_pin, config.tx_pin, Irqs, config.tx_dma, config.rx_dma, uart_config,
+    // )
+    // .unwrap();
+    // let (tx, rx) = uart.split();
 
-    {
-        let mut uart_rx = UART_RX.lock().await;
-        uart_rx.replace(rx);
-    }
+    // {
+    //     let mut uart_rx = UART_RX.lock().await;
+    //     uart_rx.replace(rx);
+    // }
 
-    {
-        let mut uart_tx = UART_TX.lock().await;
-        uart_tx.replace(tx);
-    }
+    // {
+    //     let mut uart_tx = UART_TX.lock().await;
+    //     uart_tx.replace(tx);
+    // }
 
-    spawner.spawn(input_handler()).unwrap();
+    // spawner.spawn(input_handler()).unwrap();
 
-    spawner.spawn(output_handler()).unwrap();
+    // spawner.spawn(output_handler()).unwrap();
 
-    spawner.spawn(command_dispatcher_task()).unwrap();
-
-    spawner
-        .spawn(hotend_handler(
-            p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7,
-        ))
-        .unwrap();
-
-    spawner
-        .spawn(heatbed_handler(p.ADC2, p.DMA1_CH3, p.PA2, p.TIM8, p.PC8))
-        .unwrap();
+    // spawner.spawn(command_dispatcher_task()).unwrap();
 
     // spawner
-    //     .spawn(planner_handler(
-    //         p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
+    //     .spawn(hotend_handler(
+    //         p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7,
     //     ))
     //     .unwrap();
 
-    spawner
-        .spawn(sdcard_handler(p.SPI1, p.PB3, p.PB5, p.PB4, p.PC12))
-        .unwrap();
+    // spawner
+    //     .spawn(heatbed_handler(p.ADC2, p.DMA1_CH3, p.PA2, p.TIM8, p.PC8))
+    //     .unwrap();
+
+    // // spawner
+    // //     .spawn(planner_handler(
+    // //         p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
+    // //     ))
+    // //     .unwrap();
+
+    // spawner
+    //     .spawn(sdcard_handler(p.SPI1, p.PB3, p.PB5, p.PB4, p.PC12))
+    //     .unwrap();
 
     loop {
         info!("[MAIN LOOP] alive");

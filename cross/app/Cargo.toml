@@ -36,5 +36,13 @@ parser = {path="../../host/parser", features=["defmt-log"]}
 stepper = {path="../../host/stepper"}
 embedded-sdmmc = {version="0.8.0", default-features=false}
 
+[build-dependencies]
+serde = "1.0.214"
+confy = "0.6.1"
+serde_derive = "1.0.214"
+proc-macro2 = "1.0.89"
+quote = "1.0.37"
+syn = "2.0.87"
+
 [lib]
 harness = false
