@@ -1,15 +1,158 @@
-[steppers.x]
-step = "PA0"
-dir = "PB0"
+# ------------- steppers ---------------
 
-[steppers.y]
-step = "PA6"
-dir = "PB1"
+[steppers.x.step]
+pin = "PA0"
 
-[steppers.z]
-step = "PA5"
-dir = "PB2"
+[steppers.x.dir]
+pin = "PA0"
 
-[steppers.e]
-step = "PA1"
-dir = "PB4"
+[steppers.y.step]
+pin = "PA0"
+
+[steppers.y.dir]
+pin = "PA0"
+
+[steppers.z.step]
+pin = "PA0"
+
+[steppers.z.dir]
+pin = "PA0"
+
+[steppers.e.step]
+pin = "PA0"
+
+[steppers.e.dir]
+pin = "PA0"
+
+# ------------- uart ---------------
+
+[uart]
+peripheral=""
+baudrate=19800
+
+[uart.rx]
+pin=""
+
+[uart.rx.dma]
+peripheral=""
+
+[uart.tx]
+pin=""
+
+[uart.tx.dma]
+peripheral=""
+
+# ------------- hotend ---------------
+
+[hotend.heater]
+r_series=0
+r0=0
+b = 0
+
+[hotend.heater.pid]
+k_p = 0
+k_i = 0
+k_d = 0
+
+[hotend.adc]
+peripheral = "ADC1"
+
+[hotend.adc.input]
+pin = "PA1"
+
+[hotend.adc.dma]
+peripheral = ""
+
+[hotend.pwm]
+frequency=0
+
+[hotend.pwm.timer]
+peripheral = ""
+
+[hotend.pwm.channel0]
+pin = ""
+
+[hotend.pwm.channel1]
+pin = ""
+
+[hotend.pwm.channel2]
+pin = ""
+
+[hotend.pwm.channel3]
+pin = ""
+
+# ------------- heatbed ---------------
+
+[heabed.heater]
+r_series=0
+r0=0
+b = 0
+
+[heabed.heater.pid]
+k_p = 0
+k_i = 0
+k_d = 0
+
+[heabed.adc]
+peripheral = "ADC1"
+
+[heabed.adc.input]
+pin = "PA1"
+
+[heabed.adc.dma]
+peripheral = ""
+
+[heabed.pwm]
+frequency=0
+
+[heabed.pwm.timer]
+peripheral = ""
+
+[heabed.pwm.channel0]
+pin = ""
+
+[heabed.pwm.channel1]
+pin = ""
+
+[heabed.pwm.channel2]
+pin = ""
+
+[heabed.pwm.channel3]
+pin = ""
+
+# ------------- fan ---------------
+
+[fan.pwm]
+frequency = 0
+
+[fan.pwm.timer]
+peripheral = ""
+
+[fan.pwm.channel0]
+pin = ""
+
+[fan.pwm.channel1]
+pin = ""
+
+[fan.pwm.channel2]
+pin = ""
+
+[fan.pwm.channel3]
+pin = ""
+
+# ------------- sdcard ---------------
+
+[sdcard.spi]
+peripheral = ""
+
+[sdcard.spi.timer]
+peripheral = ""
+
+[sdcard.spi.mosi]
+pin = ""
+
+[sdcard.spi.miso]
+pin = ""
+
+[sdcard.spi.cs]
+pin = ""
