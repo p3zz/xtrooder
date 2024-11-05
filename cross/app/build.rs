@@ -439,33 +439,34 @@ fn main() -> () {
     string += format!("
 
 use embassy_stm32::Peripherals;
-use embassy_stm32::peripherals::{{{}}};
-use crate::config::{{PrinterConfig, StepperConfig}};
+use embassy_stm32::peripherals::*;
+use crate::config::*;
 
 pub fn peripherals_init(p: Peripherals) -> PrinterConfig<{}>{{
     PrinterConfig{{
-        x_stepper: StepperConfig{{
-            step_pin: p.{},
-            dir_pin: p.{},
-        }},
-        y_stepper: StepperConfig{{
-            step_pin: p.{},
-            dir_pin: p.{},
-        }},
-        z_stepper: StepperConfig{{
-            step_pin: p.{},
-            dir_pin: p.{},
-        }},
-        e_stepper: StepperConfig{{
-            step_pin: p.{},
-            dir_pin: p.{},
-        }},
+        steppers: SteppersConfig{{
+            x: StepperConfig{{
+                step_pin: p.{},
+                dir_pin: p.{},
+            }},
+            y: StepperConfig{{
+                step_pin: p.{},
+                dir_pin: p.{},
+            }},
+            z: StepperConfig{{
+                step_pin: p.{},
+                dir_pin: p.{},
+            }},
+            e: StepperConfig{{
+                step_pin: p.{},
+                dir_pin: p.{},
+            }}
+        }}
     }}
 }}
 
 ",
-    steppers_imports,
-    steppers_imports,
+    imports,
     conf.steppers.get_x().get_step().get_pin().unwrap(),
     conf.steppers.get_x().get_dir().get_pin().unwrap(),
     conf.steppers.get_y().get_step().get_pin().unwrap(),
