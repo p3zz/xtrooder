@@ -5,3 +5,4 @@ pub mod fan;
 pub mod hotend;
 pub mod utils;
 pub mod config;
+pub mod ext;

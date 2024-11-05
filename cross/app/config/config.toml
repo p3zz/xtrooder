@@ -4,43 +4,43 @@
 pin = "PA0"
 
 [steppers.x.dir]
-pin = "PA0"
+pin = "PA1"
 
 [steppers.y.step]
-pin = "PA0"
+pin = "PA2"
 
 [steppers.y.dir]
-pin = "PA0"
+pin = "PA3"
 
 [steppers.z.step]
-pin = "PA0"
+pin = "PA4"
 
 [steppers.z.dir]
-pin = "PA0"
+pin = "PA5"
 
 [steppers.e.step]
-pin = "PA0"
+pin = "PA6"
 
 [steppers.e.dir]
-pin = "PA0"
+pin = "PA7"
 
 # ------------- uart ---------------
 
 [uart]
-peripheral="UART1"
+peripheral="UART4"
 baudrate=19800
 
 [uart.rx]
-pin="PA0"
+pin="PA8"
 
 [uart.rx.dma]
-peripheral="DMA0_CH1"
+peripheral="DMA1_CH0"
 
 [uart.tx]
-pin="PA0"
+pin="PA9"
 
 [uart.tx.dma]
-peripheral="DMA0_CH2"
+peripheral="DMA1_CH1"
 
 # ------------- hotend ---------------
 
@@ -58,22 +58,22 @@ k_d = 0
 peripheral = "ADC1"
 
 [hotend.adc.input]
-pin = "PA1"
+pin = "PA10"
 
 [hotend.adc.dma]
-peripheral = ""
+peripheral = "DMA1_CH2"
 
 [hotend.pwm]
 frequency=0
 
 [hotend.pwm.timer]
-peripheral = ""
+peripheral = "TIM2"
 
 [hotend.pwm.channel0]
 pin = ""
 
 [hotend.pwm.channel1]
-pin = ""
+pin = "PA11"
 
 [hotend.pwm.channel2]
 pin = ""
@@ -94,25 +94,25 @@ k_i = 0
 k_d = 0
 
 [heatbed.adc]
-peripheral = "ADC1"
+peripheral = "ADC2"
 
 [heatbed.adc.input]
-pin = "PA1"
+pin = "PA12"
 
 [heatbed.adc.dma]
-peripheral = ""
+peripheral = "DMA1_CH3"
 
 [heatbed.pwm]
 frequency=0
 
 [heatbed.pwm.timer]
-peripheral = ""
+peripheral = "TIM3"
 
 [heatbed.pwm.channel0]
 pin = ""
 
 [heatbed.pwm.channel1]
-pin = "PA5"
+pin = "PA13"
 
 [heatbed.pwm.channel2]
 pin = ""
@@ -126,7 +126,7 @@ pin = ""
 frequency = 0
 
 [fan.pwm.timer]
-peripheral = ""
+peripheral = "TIM4"
 
 [fan.pwm.channel0]
 pin = ""
@@ -135,7 +135,7 @@ pin = ""
 pin = ""
 
 [fan.pwm.channel2]
-pin = ""
+pin = "PA14"
 
 [fan.pwm.channel3]
 pin = ""
@@ -143,16 +143,16 @@ pin = ""
 # ------------- sdcard ---------------
 
 [sdcard.spi]
-peripheral = ""
+peripheral = "SPI1"
 
 [sdcard.spi.timer]
-peripheral = ""
+peripheral = "TIM5"
 
 [sdcard.spi.mosi]
-pin = ""
+pin = "PB0"
 
 [sdcard.spi.miso]
-pin = ""
+pin = "PB1"
 
 [sdcard.spi.cs]
-pin = ""
+pin = "PB2"

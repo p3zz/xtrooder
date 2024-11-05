@@ -5,9 +5,10 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
+use app::ext::peripherals_init;
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::config::{peripherals_init, PrinterConfig};
+// use app::config::{peripherals_init, PrinterConfig};
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
@@ -70,6 +71,11 @@ static UART_TX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
+
+struct MyStruct<T, P>{
+    pin1: T,
+    pin2: P,
+}
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -695,9 +701,13 @@ async fn planner_handler(
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    // let p = embassy_stm32::init(Config::default());
-    let config = peripherals_init();
-    let led = Output::new(config.step_pin, Level::Low, PinSpeed::Low);
+    let p = embassy_stm32::init(Config::default());
+    let config = peripherals_init(p);
+    // let config = peripherals_init();
+    let mut led1 = Output::new(config.x_stepper.step_pin, Level::Low, PinSpeed::Low);
+    led1.set_high();
+    let mut led2 = Output::new(config.x_stepper.dir_pin, Level::Low, PinSpeed::Low);
+    led2.set_high();
     // let mut config = embassy_stm32::Config::default();
     // // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
     // // program won't run

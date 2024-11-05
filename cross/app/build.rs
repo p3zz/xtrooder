@@ -1,5 +1,5 @@
 use std::{env, fmt::Display, fs, path::{Path, PathBuf}, str::FromStr};
-use external::PinConfig;
+use external::{stringify_pin, PinConfig};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -10,6 +10,30 @@ mod external{
 
     fn get_string_value(s: String) -> Option<String> {
         s.is_empty().not().then(|| s)
+    }
+
+    pub fn stringify_pin(pin: Option<PinConfig>) -> String{
+        match pin{
+            Some(p) => {
+                match p.get_pin(){
+                    Some(s) => format!(", {}", s),
+                    None => String::new(),
+                }
+            },
+            None => String::new(),
+        }
+    }
+
+    pub fn stringify_peripheral(peripheral: Option<PeripheralConfig>) -> String{
+        match peripheral{
+            Some(p) => {
+                match p.get_peripheral(){
+                    Some(s) => format!(", {}", s),
+                    None => String::new(),
+                }
+            },
+            None => String::new(),
+        }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize ,Clone)]
@@ -317,7 +341,7 @@ mod external{
     }
 
     impl SdCardConfig{
-        pub fn get_pwm(&self) -> SpiConfig{
+        pub fn get_spi(&self) -> SpiConfig{
             self.spi.clone()
         }
     }
@@ -369,45 +393,10 @@ fn main() -> () {
         conf.heatbed.get_pwm().get_timer().get_peripheral().expect("Heatbed PWM timer is missing"),
     );
     
-    heatbed_imports += match conf.heatbed.get_pwm().get_channel0(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
-
-    heatbed_imports += match conf.heatbed.get_pwm().get_channel1(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
-
-    heatbed_imports += match conf.heatbed.get_pwm().get_channel2(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
-
-    heatbed_imports += match conf.heatbed.get_pwm().get_channel3(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
+    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel0()).as_str();
+    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel1()).as_str();
+    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel2()).as_str();
+    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel3()).as_str();
 
     if (conf.hotend.get_pwm().get_channel0().is_none() || conf.hotend.get_pwm().get_channel0().unwrap().get_pin().is_none()) &&
         (conf.hotend.get_pwm().get_channel1().is_none() || conf.hotend.get_pwm().get_channel1().unwrap().get_pin().is_none()) &&
@@ -415,104 +404,77 @@ fn main() -> () {
         (conf.hotend.get_pwm().get_channel3().is_none() || conf.hotend.get_pwm().get_channel3().unwrap().get_pin().is_none()) {
         panic!("Hotend is missing a valid PWM channel");
     }
+
     let mut hotend_imports = format!("{}, {}, {}, {}", 
         conf.hotend.get_adc().get_peripheral().expect("Hotend ADC peripheral is missing"),
         conf.hotend.get_adc().get_input().get_pin().expect("Hotend ADC input pin is missing"),
         conf.hotend.get_adc().get_dma().get_peripheral().expect("Hotend ADC DMA peripheral is missing"),
         conf.hotend.get_pwm().get_timer().get_peripheral().expect("Hotend PWM timer is missing"),
     );
+
+    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel0()).as_str();
+    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel1()).as_str();
+    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel2()).as_str();
+    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel3()).as_str();
     
-    hotend_imports += match conf.hotend.get_pwm().get_channel0(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
+    let mut fan_imports = format!("{}", 
+        conf.fan.get_pwm().get_timer().get_peripheral().expect("Fan PWM timer peripheral is missing"),
+    );
 
-    hotend_imports += match conf.hotend.get_pwm().get_channel1(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
+    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel0()).as_str();
+    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel1()).as_str();
+    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel2()).as_str();
+    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel3()).as_str();
 
-    hotend_imports += match conf.hotend.get_pwm().get_channel2(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
+    let sdcard_imports = format!("{}, {}, {}, {}, {}", 
+        conf.sdcard.get_spi().get_peripheral().expect("SD-Card peripheral is missing"),
+        conf.sdcard.get_spi().get_timer().get_peripheral().expect("SD-Card SPI timer is missing"),
+        conf.sdcard.get_spi().get_mosi().get_pin().expect("SD-Card SPI MOSI pin is missing"),
+        conf.sdcard.get_spi().get_miso().get_pin().expect("SD-Card SPI MISO pin is missing"),
+        conf.sdcard.get_spi().get_cs().get_pin().expect("SD-Card SPI CS pin is missing"),
+    );
 
-    hotend_imports += match conf.hotend.get_pwm().get_channel3(){
-        Some(p) => {
-            match p.get_pin(){
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            }
-        },
-        None => String::new(),
-    }.as_str();
-
-
-    // let fan_imports = format!("{}, {}, {}, {}, {}", 
-    //     conf.fan.pwm.timer.peripheral,
-    // );
-
-    // fan_imports += match conf.fan.pwm.channel0{
-    //     Some(p) => format!(", {}", p.pin).as_str(),
-    //     None => "",
-    // };
-    // fan_imports += match conf.fan.pwm.channel1{
-    //     Some(p) => format!(", {}", p.pin).as_str(),
-    //     None => "",
-    // };
-    // fan_imports += match conf.fan.pwm.channel2{
-    //     Some(p) => format!(", {}", p.pin).as_str(),
-    //     None => "",
-    // };
-    // fan_imports += match conf.fan.pwm.channel3{
-    //     Some(p) => format!(", {}", p.pin).as_str(),
-    //     None => "",
-    // };
-
-    // let sdcard_imports = format!("{}, {}, {}, {}, {}", 
-    //     conf.sdcard.spi.timer.peripheral,
-    //     conf.sdcard.spi.peripheral,
-    //     conf.sdcard.spi.miso.pin,
-    //     conf.sdcard.spi.mosi.pin,
-    //     conf.sdcard.spi.cs.pin
-    // );
-
-    let imports = format!("{}, {}, {}, {}", steppers_imports, uart_imports, hotend_imports, heatbed_imports);
+    let imports = format!("{}, {}, {}, {}, {}", steppers_imports, uart_imports, hotend_imports, heatbed_imports, sdcard_imports);
         
-    string += format!("use embassy_stm32::peripherals::{{{}}};\n", imports).as_str();
-    string += "use embassy_stm32::Config;\n";
-    string += "pub struct PrinterConfig{\n";
-    string += format!("\tpub step_pin: {},\n", conf.steppers.get_x().get_step().get_pin().unwrap()).as_str();
-    string += "}\n";
-    string += "\n";
-    string += "pub fn peripherals_init() -> PrinterConfig{\n";
-    string += "\tlet p = embassy_stm32::init(Config::default());\n";
-    string += "\tPrinterConfig {\n";
-    string += format!("\t\t step_pin: p.{},\n", conf.steppers.get_x().get_step().get_pin().unwrap()).as_str();
-    string += "\t}\n";
-    string += "}\n";
-    // format!(string, "{}");
-    // g.extend(quote!{
-    //     use embassy_stm32::peripherals::#step_pin;
-    // });
-    // let bytes = fs::read(path).expect("File not found");
-    // let str = String::from_utf8(bytes).expect("Invalid bytes");
-    // println!("{}", str);
+    string += format!("
+
+use embassy_stm32::Peripherals;
+use embassy_stm32::peripherals::{{{}}};
+use crate::config::{{PrinterConfig, StepperConfig}};
+
+pub fn peripherals_init(p: Peripherals) -> PrinterConfig<{}>{{
+    PrinterConfig{{
+        x_stepper: StepperConfig{{
+            step_pin: p.{},
+            dir_pin: p.{},
+        }},
+        y_stepper: StepperConfig{{
+            step_pin: p.{},
+            dir_pin: p.{},
+        }},
+        z_stepper: StepperConfig{{
+            step_pin: p.{},
+            dir_pin: p.{},
+        }},
+        e_stepper: StepperConfig{{
+            step_pin: p.{},
+            dir_pin: p.{},
+        }},
+    }}
+}}
+
+",
+    steppers_imports,
+    steppers_imports,
+    conf.steppers.get_x().get_step().get_pin().unwrap(),
+    conf.steppers.get_x().get_dir().get_pin().unwrap(),
+    conf.steppers.get_y().get_step().get_pin().unwrap(),
+    conf.steppers.get_y().get_dir().get_pin().unwrap(),
+    conf.steppers.get_z().get_step().get_pin().unwrap(),
+    conf.steppers.get_z().get_dir().get_pin().unwrap(),
+    conf.steppers.get_e().get_step().get_pin().unwrap(),
+    conf.steppers.get_e().get_dir().get_pin().unwrap()
+).as_str();
     let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let out_file = out_dir.join("_abcd.rs").to_string_lossy().to_string();
     fs::write(&out_file, string.as_str()).unwrap();
