@@ -22,13 +22,15 @@ pub struct SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>{
     pub e: StepperConfig<EP, ED>,
 }
 
-pub struct PrinterConfig<A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,AB,AC,AD,AE,AF,AG,AH,AI,AJ,AK,AL,AM>{
+pub struct PrinterConfig<A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,V,W,X,Y,Z,AA,AB,AC,AD,AE
+>{
     pub steppers: SteppersConfig<A,B,C,D,E,F,G,H>,
-    pub uart: UartConfig<I,J,K,L,M>,
-    pub hotend: ThermistorConfig<N,O,P,Q,R,S,T,U>,
-    pub heatbed: ThermistorConfig<V,W,X,Y,Z,AA,AB,AC>,
-    pub fan: FanConfig<AD,AE,AF,AG,AH>,
-    pub sdcard: SdCardConfig<AI,AJ,AK,AL,AM>
+    pub pwm: PwmConfig<I>,
+    pub uart: UartConfig<J,K,L,M,N>,
+    pub hotend: ThermistorConfig<O,P,Q,R>,
+    pub heatbed: ThermistorConfig<V,W,X,Y>,
+    pub fan: FanConfig<Z>,
+    pub sdcard: SdCardConfig<AA,AB,AC,AD,AE>
 }
 
 pub struct AdcConfig<P,I,D>{
@@ -37,13 +39,14 @@ pub struct AdcConfig<P,I,D>{
     pub dma: D,
 }
 
-pub struct PwmConfig<T,A,B,C,D>{
+pub struct PwmConfig<T>{
     pub frequency: u64,
     pub timer: T,
-    pub channel0: Option<A>,
-    pub channel1: Option<B>,
-    pub channel2: Option<C>,
-    pub channel3: Option<D>,
+}
+
+pub struct PwmOutputConfig<O>{
+    pub output: O,
+    pub channel: u8,
 }
 
 pub struct SpiConfig<P,T,MO,MI,CS>{
@@ -66,14 +69,14 @@ pub struct HeaterConfig{
     pub pid: PidConfig
 }
 
-pub struct ThermistorConfig<ADCP,ADCI,ADCD,PWMT, PWMA, PWMB, PWMC, PWMD>{
+pub struct ThermistorConfig<ADCP,ADCI,ADCD,PWMO>{
     pub heater: HeaterConfig,
     pub adc: AdcConfig<ADCP,ADCI,ADCD>,
-    pub pwm: PwmConfig<PWMT, PWMA, PWMB, PWMC, PWMD>
+    pub pwm: PwmOutputConfig<PWMO>
 }
 
-pub struct FanConfig<PWMT, PWMA, PWMB, PWMC, PWMD>{
-    pub pwm: PwmConfig<PWMT, PWMA, PWMB, PWMC, PWMD>
+pub struct FanConfig<PWMO>{
+    pub pwm: PwmOutputConfig<PWMO>
 }
 
 pub struct SdCardConfig<SPIP,SPIT,SPIMO,SPIMI,SPICS>{

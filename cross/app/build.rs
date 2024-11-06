@@ -190,11 +190,7 @@ mod external{
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PwmConfig{
         frequency: u64,
-        timer: PeripheralConfig,
-        channel0: Option<PinConfig>,
-        channel1: Option<PinConfig>,
-        channel2: Option<PinConfig>,
-        channel3: Option<PinConfig>,
+        timer: String,
     }
 
     impl PwmConfig{
@@ -202,22 +198,27 @@ mod external{
             self.frequency
         }
     
-        pub fn get_timer(&self) -> PeripheralConfig {
-            self.timer.clone()
+        pub fn get_timer(&self) -> Option<String> {
+            get_string_value(self.timer.clone())
         }
     
-        pub fn get_channel0(&self) -> Option<PinConfig>{
-            self.channel0.clone()
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct PwmOutputConfig{
+        output: String,
+        channel: u8,
+    }
+
+    impl PwmOutputConfig{
+        pub fn get_output(&self) -> Option<String> {
+            get_string_value(self.output.clone())
         }
-        pub fn get_channel1(&self) -> Option<PinConfig>{
-            self.channel1.clone()
+    
+        pub fn get_channel(&self) -> u8 {
+            self.channel
         }
-        pub fn get_channel2(&self) -> Option<PinConfig>{
-            self.channel2.clone()
-        }
-        pub fn get_channel3(&self) -> Option<PinConfig>{
-            self.channel3.clone()
-        }
+    
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -307,7 +308,7 @@ mod external{
     pub struct ThermistorConfig{
         heater: HeaterConfig,
         adc: AdcConfig,
-        pwm: PwmConfig
+        pwm: PwmOutputConfig
     }
 
     impl ThermistorConfig{
@@ -319,18 +320,18 @@ mod external{
             self.adc.clone()
         }
 
-        pub fn get_pwm(&self) -> PwmConfig {
+        pub fn get_pwm(&self) -> PwmOutputConfig {
             self.pwm.clone()
         }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct FanConfig{
-        pub pwm: PwmConfig
+        pub pwm: PwmOutputConfig
     }
 
     impl FanConfig{
-        pub fn get_pwm(&self) -> PwmConfig{
+        pub fn get_pwm(&self) -> PwmOutputConfig{
             self.pwm.clone()
         }
     }
@@ -349,6 +350,7 @@ mod external{
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct MyConfig {
         pub steppers: StepperConfigs,
+        pub pwm: PwmConfig,
         pub uart: UartConfig,
         pub hotend: ThermistorConfig,
         pub heatbed: ThermistorConfig,
@@ -361,88 +363,119 @@ fn main() -> () {
     println!("cargo::rerun-if-changed=config/config.toml");
     let path = Path::new("config/config.toml");
     let conf = confy::load_path::<external::MyConfig>(path).expect("Error reading config file");
-    let mut string = String::new();
-    let steppers_imports = format!("{}, {}, {}, {}, {}, {}, {}, {}",
-        conf.steppers.get_x().get_step().get_pin().expect("Stepper X step pin is missing"),
-        conf.steppers.get_x().get_dir().get_pin().expect("Stepper X dir pin is missing"),
-        conf.steppers.get_y().get_step().get_pin().expect("Stepper Y step pin is missing"),
-        conf.steppers.get_y().get_dir().get_pin().expect("Stepper Y dir pin is missing"),
-        conf.steppers.get_z().get_step().get_pin().expect("Stepper Z step pin is missing"),
-        conf.steppers.get_z().get_dir().get_pin().expect("Stepper Z dir pin is missing"),
-        conf.steppers.get_e().get_step().get_pin().expect("Stepper E step pin is missing"),
-        conf.steppers.get_e().get_dir().get_pin().expect("Stepper E dir pin is missing"),
-    );
-    let uart_imports = format!("{}, {}, {}, {}, {}", 
-        conf.uart.get_peripheral().expect("UART peripheral is missing"),
-        conf.uart.get_rx().get_pin().expect("UART RX pin is missing"),
-        conf.uart.get_rx().get_dma().get_peripheral().expect("UART RX DMA peripheral is missing"),
-        conf.uart.get_tx().get_pin().expect("UART TX pin is missing"),
-        conf.uart.get_tx().get_dma().get_peripheral().expect("UART TX DMA peripheral is missing"),
-    );
+    let steppers_x_step_pin = conf.steppers.get_x().get_step().get_pin().expect("Stepper X step pin is missing");
+    let steppers_x_dir_pin = conf.steppers.get_x().get_dir().get_pin().expect("Stepper X dir pin is missing");
+    let steppers_y_step_pin = conf.steppers.get_y().get_step().get_pin().expect("Stepper Y step pin is missing");
+    let steppers_y_dir_pin = conf.steppers.get_y().get_dir().get_pin().expect("Stepper Y dir pin is missing");
+    let steppers_z_step_pin = conf.steppers.get_z().get_step().get_pin().expect("Stepper Z step pin is missing");
+    let steppers_z_dir_pin = conf.steppers.get_z().get_dir().get_pin().expect("Stepper Z dir pin is missing");
+    let steppers_e_step_pin = conf.steppers.get_e().get_step().get_pin().expect("Stepper E step pin is missing");
+    let steppers_e_dir_pin = conf.steppers.get_e().get_dir().get_pin().expect("Stepper E dir pin is missing");
+
+    let pwm_timer = conf.pwm.get_timer().expect("PWM timer peripheral is missing");
+    let pwm_frequency = conf.pwm.get_frequency();
+
+    let uart_peripheral = conf.uart.get_peripheral().expect("UART peripheral is missing");
+    let uart_baudrate = conf.uart.get_baudrate();
+    let uart_rx_pin = conf.uart.get_rx().get_pin().expect("UART RX pin is missing");
+    let uart_rx_dma = conf.uart.get_rx().get_dma().get_peripheral().expect("UART RX pin is missing");
+    let uart_tx_pin = conf.uart.get_tx().get_pin().expect("UART TX pin is missing");
+    let uart_tx_dma = conf.uart.get_tx().get_dma().get_peripheral().expect("UART TX pin is missing");
+
+    let hotend_adc_peripheral = conf.hotend.get_adc().get_peripheral().expect("Hotend ADC peripheral is missing");
+    let hotend_adc_input_pin = conf.hotend.get_adc().get_input().get_pin().expect("Hotend ADC input pin is missing");
+    let hotend_adc_dma = conf.hotend.get_adc().get_dma().get_peripheral().expect("Hotend ADC DMA peripheral is missing");
+    let hotend_pwm_output_pin = conf.hotend.get_pwm().get_output().expect("Hotend PWM output pin is missing");
+    let hotend_pwm_output_channel = conf.hotend.get_pwm().get_channel();
+    let hotend_heater_r0 = conf.hotend.get_heater().get_r0();
+    let hotend_heater_r_series = conf.hotend.get_heater().get_r0();
+    let hotend_heater_b = conf.hotend.get_heater().get_r_series();
+    let hotend_heater_pid = conf.hotend.get_heater().get_pid();
+
+    let heatbed_adc_peripheral = conf.heatbed.get_adc().get_peripheral().expect("Heatbed ADC peripheral is missing");
+    let heatbed_adc_input_pin = conf.heatbed.get_adc().get_input().get_pin().expect("Heatbed ADC input pin is missing");
+    let heatbed_adc_dma = conf.heatbed.get_adc().get_dma().get_peripheral().expect("Heatbed ADC DMA peripheral is missing");
+    let heatbed_pwm_output_pin = conf.heatbed.get_pwm().get_output().expect("Heatbed PWM output pin is missing");
+    let heatbed_pwm_output_channel = conf.heatbed.get_pwm().get_channel();
+    let heatbed_heater_r0 = conf.heatbed.get_heater().get_r0();
+    let heatbed_heater_r_series = conf.heatbed.get_heater().get_r0();
+    let heatbed_heater_b = conf.heatbed.get_heater().get_r_series();
+    let heatbed_heater_pid = conf.heatbed.get_heater().get_pid();
+
+    let fan_pwm_output_pin = conf.fan.get_pwm().get_output().expect("Fan PWM output pin is missing");
+    let fan_pwm_output_channel = conf.fan.get_pwm().get_channel();
     
-    if (conf.heatbed.get_pwm().get_channel0().is_none() || conf.heatbed.get_pwm().get_channel0().unwrap().get_pin().is_none()) &&
-        (conf.heatbed.get_pwm().get_channel1().is_none() || conf.heatbed.get_pwm().get_channel1().unwrap().get_pin().is_none()) &&
-        (conf.heatbed.get_pwm().get_channel2().is_none() || conf.heatbed.get_pwm().get_channel2().unwrap().get_pin().is_none()) &&
-        (conf.heatbed.get_pwm().get_channel3().is_none() || conf.heatbed.get_pwm().get_channel3().unwrap().get_pin().is_none()) {
-        panic!("Heatbed is missing a valid PWM channel");
-    }
-    let mut heatbed_imports = format!("{}, {}, {}, {}", 
-        conf.heatbed.get_adc().get_peripheral().expect("Heatbed ADC peripheral is missing"),
-        conf.heatbed.get_adc().get_input().get_pin().expect("Heatbed ADC input pin is missing"),
-        conf.heatbed.get_adc().get_dma().get_peripheral().expect("Heatbed ADC DMA peripheral is missing"),
-        conf.heatbed.get_pwm().get_timer().get_peripheral().expect("Heatbed PWM timer is missing"),
-    );
-    
-    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel0()).as_str();
-    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel1()).as_str();
-    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel2()).as_str();
-    heatbed_imports += stringify_pin(conf.heatbed.get_pwm().get_channel3()).as_str();
+    let sdcard_spi_peripheral = conf.sdcard.get_spi().get_peripheral().expect("SD-Card peripheral is missing");
+    let sdcard_spi_timer = conf.sdcard.get_spi().get_timer().get_peripheral().expect("SD-Card SPI timer is missing");
+    let sdcard_spi_mosi = conf.sdcard.get_spi().get_mosi().get_pin().expect("SD-Card SPI MOSI pin is missing");
+    let sdcard_spi_miso = conf.sdcard.get_spi().get_miso().get_pin().expect("SD-Card SPI MISO pin is missing");
+    let sdcard_spi_cs = conf.sdcard.get_spi().get_cs().get_pin().expect("SD-Card SPI CS pin is missing");
 
-    if (conf.hotend.get_pwm().get_channel0().is_none() || conf.hotend.get_pwm().get_channel0().unwrap().get_pin().is_none()) &&
-        (conf.hotend.get_pwm().get_channel1().is_none() || conf.hotend.get_pwm().get_channel1().unwrap().get_pin().is_none()) &&
-        (conf.hotend.get_pwm().get_channel2().is_none() || conf.hotend.get_pwm().get_channel2().unwrap().get_pin().is_none()) &&
-        (conf.hotend.get_pwm().get_channel3().is_none() || conf.hotend.get_pwm().get_channel3().unwrap().get_pin().is_none()) {
-        panic!("Hotend is missing a valid PWM channel");
-    }
-
-    let mut hotend_imports = format!("{}, {}, {}, {}", 
-        conf.hotend.get_adc().get_peripheral().expect("Hotend ADC peripheral is missing"),
-        conf.hotend.get_adc().get_input().get_pin().expect("Hotend ADC input pin is missing"),
-        conf.hotend.get_adc().get_dma().get_peripheral().expect("Hotend ADC DMA peripheral is missing"),
-        conf.hotend.get_pwm().get_timer().get_peripheral().expect("Hotend PWM timer is missing"),
-    );
-
-    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel0()).as_str();
-    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel1()).as_str();
-    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel2()).as_str();
-    hotend_imports += stringify_pin(conf.hotend.get_pwm().get_channel3()).as_str();
-    
-    let mut fan_imports = format!("{}", 
-        conf.fan.get_pwm().get_timer().get_peripheral().expect("Fan PWM timer peripheral is missing"),
-    );
-
-    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel0()).as_str();
-    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel1()).as_str();
-    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel2()).as_str();
-    fan_imports += stringify_pin(conf.fan.get_pwm().get_channel3()).as_str();
-
-    let sdcard_imports = format!("{}, {}, {}, {}, {}", 
-        conf.sdcard.get_spi().get_peripheral().expect("SD-Card peripheral is missing"),
-        conf.sdcard.get_spi().get_timer().get_peripheral().expect("SD-Card SPI timer is missing"),
-        conf.sdcard.get_spi().get_mosi().get_pin().expect("SD-Card SPI MOSI pin is missing"),
-        conf.sdcard.get_spi().get_miso().get_pin().expect("SD-Card SPI MISO pin is missing"),
-        conf.sdcard.get_spi().get_cs().get_pin().expect("SD-Card SPI CS pin is missing"),
-    );
-
-    let imports = format!("{}, {}, {}, {}, {}", steppers_imports, uart_imports, hotend_imports, heatbed_imports, sdcard_imports);
-        
-    string += format!("
+    let string = format!("
 
 use embassy_stm32::Peripherals;
 use embassy_stm32::peripherals::*;
 use crate::config::*;
 
-pub fn peripherals_init(p: Peripherals) -> PrinterConfig<{}>{{
+pub type XStepPin = {};
+pub type XDirPin = {};
+pub type YStepPin = {};
+pub type YDirPin = {};
+pub type ZStepPin = {};
+pub type ZDirPin = {};
+pub type EStepPin = {};
+pub type EDirPin = {};
+pub type PwmTimer = {};
+pub type UartPeripheral = {};
+pub type UartRxPin = {};
+pub type UartRxDma = {};
+pub type UartTxPin = {};
+pub type UartTxDma = {};
+pub type HotendAdcPeripheral = {};
+pub type HotendAdcInputPin = {};
+pub type HotendAdcDma = {};
+pub type HotendPwmPin = {};
+pub type HeatbedAdcPeripheral = {};
+pub type HeatbedAdcInputPin = {};
+pub type HeatbedAdcDma = {};
+pub type HeatbedPwmPin = {};
+pub type FanPwmPin = {};
+pub type SdCardSpiPeripheral = {};
+pub type SdCardSpiTimer = {};
+pub type SdCardSpiMosiPin = {};
+pub type SdCardSpiMisoPin = {};
+pub type SdCardSpiCsPin = {};
+
+pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
+    XStepPin,
+    XDirPin,
+    YStepPin,
+    YDirPin,
+    ZStepPin,
+    ZDirPin,
+    EStepPin,
+    EDirPin,
+    PwmTimer,
+    UartPeripheral,
+    UartRxPin,
+    UartRxDma,
+    UartTxPin,
+    UartTxDma,
+    HotendAdcPeripheral,
+    HotendAdcInputPin,
+    HotendAdcDma,
+    HotendPwmPin,
+    HeatbedAdcPeripheral,
+    HeatbedAdcInputPin,
+    HeatbedAdcDma,
+    HeatbedPwmPin,
+    FanPwmPin,
+    SdCardSpiPeripheral,
+    SdCardSpiTimer,
+    SdCardSpiMosiPin,
+    SdCardSpiMisoPin,
+    SdCardSpiCsPin,
+>{{
     PrinterConfig{{
         steppers: SteppersConfig{{
             x: StepperConfig{{
@@ -461,21 +494,159 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<{}>{{
                 step_pin: p.{},
                 dir_pin: p.{},
             }}
+        }},
+        pwm: PwmConfig{{
+            frequency: {},
+            timer: p.{}
+        }},
+        uart: UartConfig{{
+            peripheral: p.{},
+            baudrate: {},
+            rx: UartPartConfig{{
+                pin: p.{},
+                dma: p.{}
+            }},
+            tx: UartPartConfig{{
+                pin: p.{},
+                dma: p.{}
+            }}
+        }},
+        hotend: ThermistorConfig{{
+            adc: AdcConfig {{
+                peripheral: p.{},
+                input: p.{},
+                dma: p.{}
+            }},
+            pwm: PwmOutputConfig {{
+                output: p.{},
+                channel: {}
+            }},
+            heater: HeaterConfig {{
+                r_series: {:.2},
+                r0: {:.2},
+                b: {:.2},
+                pid: PidConfig{{
+                    k_p: {:.2},
+                    k_i: {:.2},
+                    k_d: {:.2},
+                }}
+            }},
+        }},
+        heatbed: ThermistorConfig{{
+            adc: AdcConfig {{
+                peripheral: p.{},
+                input: p.{},
+                dma: p.{}
+            }},
+            pwm: PwmOutputConfig {{
+                output: p.{},
+                channel: {}
+            }},
+            heater: HeaterConfig {{
+                r_series: {:.2},
+                r0: {:.2},
+                b: {:.2},
+                pid: PidConfig{{
+                    k_p: {:.2},
+                    k_i: {:.2},
+                    k_d: {:.2},
+                }}
+            }},
+        }},
+        fan: FanConfig{{
+            pwm: PwmOutputConfig {{
+                output: p.{},
+                channel: {}
+            }}
+        }},
+        sdcard: SdCardConfig {{
+            spi: SpiConfig {{
+                peripheral: p.{},
+                timer: p.{},
+                mosi: p.{},
+                miso: p.{},
+                cs: p.{},
+            }}
         }}
     }}
 }}
 
 ",
-    imports,
-    conf.steppers.get_x().get_step().get_pin().unwrap(),
-    conf.steppers.get_x().get_dir().get_pin().unwrap(),
-    conf.steppers.get_y().get_step().get_pin().unwrap(),
-    conf.steppers.get_y().get_dir().get_pin().unwrap(),
-    conf.steppers.get_z().get_step().get_pin().unwrap(),
-    conf.steppers.get_z().get_dir().get_pin().unwrap(),
-    conf.steppers.get_e().get_step().get_pin().unwrap(),
-    conf.steppers.get_e().get_dir().get_pin().unwrap()
-).as_str();
+    steppers_x_step_pin,
+    steppers_x_dir_pin,
+    steppers_y_step_pin,
+    steppers_y_dir_pin,
+    steppers_z_step_pin,
+    steppers_z_dir_pin,
+    steppers_e_step_pin,
+    steppers_e_dir_pin,
+    pwm_timer,
+    uart_peripheral,
+    uart_rx_pin,
+    uart_rx_dma,
+    uart_tx_pin,
+    uart_tx_dma,
+    hotend_adc_peripheral,
+    hotend_adc_input_pin,
+    hotend_adc_dma,
+    hotend_pwm_output_pin,
+    heatbed_adc_peripheral,
+    heatbed_adc_input_pin,
+    heatbed_adc_dma,
+    heatbed_pwm_output_pin,
+    fan_pwm_output_pin,
+    sdcard_spi_peripheral,
+    sdcard_spi_timer,
+    sdcard_spi_mosi,
+    sdcard_spi_miso,
+    sdcard_spi_cs,
+
+    steppers_x_step_pin,
+    steppers_x_dir_pin,
+    steppers_y_step_pin,
+    steppers_y_dir_pin,
+    steppers_z_step_pin,
+    steppers_z_dir_pin,
+    steppers_e_step_pin,
+    steppers_e_dir_pin,
+    pwm_frequency,
+    pwm_timer,
+    uart_peripheral,
+    uart_baudrate,
+    uart_rx_pin,
+    uart_rx_dma,
+    uart_tx_pin,
+    uart_tx_dma,
+    hotend_adc_peripheral,
+    hotend_adc_input_pin,
+    hotend_adc_dma,
+    hotend_pwm_output_pin,
+    hotend_pwm_output_channel,
+    hotend_heater_r0,
+    hotend_heater_r_series,
+    hotend_heater_b,
+    hotend_heater_pid.get_k_p(),
+    hotend_heater_pid.get_k_i(),
+    hotend_heater_pid.get_k_d(),
+    heatbed_adc_peripheral,
+    heatbed_adc_input_pin,
+    heatbed_adc_dma,
+    heatbed_pwm_output_pin,
+    heatbed_pwm_output_channel,
+    heatbed_heater_r0,
+    heatbed_heater_r_series,
+    heatbed_heater_b,
+    heatbed_heater_pid.get_k_p(),
+    heatbed_heater_pid.get_k_i(),
+    heatbed_heater_pid.get_k_d(),
+    fan_pwm_output_pin,
+    fan_pwm_output_channel,
+    sdcard_spi_peripheral,
+    sdcard_spi_timer,
+    sdcard_spi_mosi,
+    sdcard_spi_miso,
+    sdcard_spi_cs,
+);
     let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let out_file = out_dir.join("_abcd.rs").to_string_lossy().to_string();
     fs::write(&out_file, string.as_str()).unwrap();

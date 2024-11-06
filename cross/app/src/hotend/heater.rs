@@ -7,37 +7,37 @@ use math::measurements::Temperature;
 use micromath::F32Ext;
 use pid_lite::Controller;
 
-pub struct Heater<'s, T: GeneralInstance4Channel> {
-    out: SimplePwm<'s, T>,
+pub struct Heater {
     ch: Channel,
     pid: Controller,
     target_temperature: Option<Temperature>,
 }
 
-impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
-    pub fn new(out: SimplePwm<'s, T>, ch: Channel) -> Heater<'s, T> {
+impl Heater {
+    pub fn new(ch: Channel) -> Heater {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),
             20.0,
             0.02,
             0.0,
         );
-        let mut out = out;
-        out.set_frequency(Hertz::hz(100));
         Heater {
-            out,
             ch,
             pid,
             target_temperature: None,
         }
     }
 
-    pub fn enable(&mut self) {
-        self.out.enable(self.ch);
+    pub fn enable<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) {
+        pwm.enable(self.ch);
     }
 
-    pub fn disable(&mut self) {
-        self.out.disable(self.ch);
+    pub fn disable<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) {
+        pwm.disable(self.ch);
+    }
+
+    pub fn is_enabled<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) -> bool{
+        pwm.is_enabled(self.ch)
     }
 
     pub fn reset_target_temperature(&mut self) {
@@ -50,7 +50,7 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
             .set_target(self.target_temperature.unwrap().as_celsius());
     }
 
-    pub fn update(&mut self, tmp: Temperature, dt: Duration) -> Result<u32, ()> {
+    pub fn update<T: GeneralInstance4Channel>(&mut self, tmp: Temperature, dt: Duration, pwm: &mut SimplePwm<'_, T>) -> Result<u32, ()> {
         if self.target_temperature.is_none() {
             return Err(());
         }
@@ -61,12 +61,12 @@ impl<'s, T: GeneralInstance4Channel> Heater<'s, T> {
         );
 
         // info!("duty cycle real value {}", duty_cycle);
-        let duty_cycle = duty_cycle.max(0f64).min(f64::from(self.out.get_max_duty()));
+        let duty_cycle = duty_cycle.max(0f64).min(f64::from(pwm.get_max_duty()));
 
         let duty_cycle = (duty_cycle as f32).trunc() as u32;
 
         // info!("duty cycle set to {}", duty_cycle);
-        self.out.set_duty(self.ch, duty_cycle);
+        pwm.set_duty(self.ch, duty_cycle);
 
         Ok(duty_cycle)
     }

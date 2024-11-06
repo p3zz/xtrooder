@@ -1,29 +1,27 @@
 use embassy_stm32::{
     adc::{Instance, RxDma},
-    timer::GeneralInstance4Channel,
+    timer::{GeneralInstance4Channel, simple_pwm::SimplePwm},
 };
 use embassy_time::Duration;
 use math::measurements::Temperature;
 
 use super::{heater::Heater, thermistor::Thermistor};
 
-pub struct Hotend<'l, H, I, P>
+pub struct Hotend<'l, I, P>
 where
     I: Instance,
     P: RxDma<I>,
-    H: GeneralInstance4Channel,
 {
-    heater: Heater<'l, H>,
+    heater: Heater,
     thermistor: Thermistor<'l, I, P>,
 }
 
-impl<'l, H, I, P> Hotend<'l, H, I, P>
+impl<'l, I, P> Hotend<'l, I, P>
 where
     I: Instance,
     P: RxDma<I>,
-    H: GeneralInstance4Channel,
 {
-    pub fn new(heater: Heater<'l, H>, thermistor: Thermistor<'l, I, P>) -> Hotend<'l, H, I, P> {
+    pub fn new(heater: Heater, thermistor: Thermistor<'l, I, P>) -> Hotend<'l, I, P> {
         Hotend { heater, thermistor }
     }
 
@@ -31,10 +29,10 @@ where
         self.heater.set_target_temperature(temperature);
     }
 
-    pub async fn update(&mut self, dt: Duration) -> Result<u32, ()> {
+    pub async fn update<T: GeneralInstance4Channel>(&mut self, dt: Duration, pwm: &mut SimplePwm<'_, T>) -> Result<u32, ()> {
         let curr_tmp = self.read_temperature().await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
-        self.heater.update(curr_tmp, dt)
+        self.heater.update(curr_tmp, dt, pwm)
     }
 
     pub async fn read_temperature(&mut self) -> Temperature {

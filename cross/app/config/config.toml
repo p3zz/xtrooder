@@ -42,6 +42,11 @@ pin="PA9"
 [uart.tx.dma]
 peripheral="DMA1_CH1"
 
+# ------------- pwm --------------
+[pwm]
+frequency = 0
+timer = "TIM2"
+
 # ------------- hotend ---------------
 
 [hotend.heater]
@@ -64,22 +69,8 @@ pin = "PA10"
 peripheral = "DMA1_CH2"
 
 [hotend.pwm]
-frequency=0
-
-[hotend.pwm.timer]
-peripheral = "TIM2"
-
-[hotend.pwm.channel0]
-pin = ""
-
-[hotend.pwm.channel1]
-pin = "PA11"
-
-[hotend.pwm.channel2]
-pin = ""
-
-[hotend.pwm.channel3]
-pin = ""
+output = "PA11"
+channel = 1
 
 # ------------- heatbed ---------------
 
@@ -103,42 +94,14 @@ pin = "PA12"
 peripheral = "DMA1_CH3"
 
 [heatbed.pwm]
-frequency=0
-
-[heatbed.pwm.timer]
-peripheral = "TIM3"
-
-[heatbed.pwm.channel0]
-pin = ""
-
-[heatbed.pwm.channel1]
-pin = "PA13"
-
-[heatbed.pwm.channel2]
-pin = ""
-
-[heatbed.pwm.channel3]
-pin = ""
+output = "PA13"
+channel = 2
 
 # ------------- fan ---------------
 
 [fan.pwm]
-frequency = 0
-
-[fan.pwm.timer]
-peripheral = "TIM4"
-
-[fan.pwm.channel0]
-pin = ""
-
-[fan.pwm.channel1]
-pin = ""
-
-[fan.pwm.channel2]
-pin = "PA14"
-
-[fan.pwm.channel3]
-pin = ""
+output = "PA14"
+channel = 3
 
 # ------------- sdcard ---------------
 

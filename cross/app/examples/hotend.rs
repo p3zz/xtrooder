@@ -4,7 +4,7 @@
 use app::hotend::controller::Hotend;
 use app::hotend::heater::Heater;
 use app::hotend::thermistor::{DmaBufType, Thermistor};
-use defmt::info;
+use defmt::{error, info, println};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};
 use embassy_stm32::gpio::OutputType;
@@ -69,7 +69,7 @@ async fn main(_spawner: Spawner) {
         readings,
     );
 
-    let heater_out = SimplePwm::new(
+    let mut heater_out = SimplePwm::new(
         p.TIM4,
         None,
         None,
@@ -78,7 +78,7 @@ async fn main(_spawner: Spawner) {
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-    let heater = Heater::new(heater_out, Channel::Ch4);
+    let heater = Heater::new(Channel::Ch4);
     let mut hotend = Hotend::new(heater, thermistor);
 
     hotend.set_temperature(Temperature::from_celsius(100f64));
@@ -87,7 +87,10 @@ async fn main(_spawner: Spawner) {
     let dt = Duration::from_millis(100);
 
     loop {
-        hotend.update(dt).await;
+        match hotend.update(dt, &mut heater_out).await{
+            Ok(r) => println!("Duty cycle: {}", r),
+            Err(_) => error!("Target temperature not set"),
+        };
         Timer::after(dt).await;
     }
 }
