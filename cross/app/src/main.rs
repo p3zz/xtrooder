@@ -6,7 +6,7 @@ use core::fmt::Write;
 use core::str::FromStr;
 
 use app::config::{PrinterConfig, StepperConfig};
-use app::ext::{peripherals_init, PwmTimer, XStepPin};
+use app::ext::{peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, XDirPin, XStepPin, YDirPin, YStepPin, ZDirPin, ZStepPin};
 use app::{init_pin, init_stepper};
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
@@ -64,7 +64,6 @@ static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8>
 
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
-static PLANNER: Option<Planner<StepperPin, StepperTimer>> = None;
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwm<'_, PwmTimer>>> = Mutex::new(None);
 
 #[link_section = ".ram_d3"]
@@ -239,188 +238,164 @@ async fn command_dispatcher_task() {
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 // #[embassy_executor::task]
-// async fn hotend_handler(
-//     adc_peri: ADC1,
-//     dma_peri: DMA1_CH2,
-//     read_pin: PA3,
-//     heater_tim: TIM4,
-//     heater_out_pin: PB9,
-//     fan_time: TIM3,
-//     fan_out_pin: PA7,
-// ) {
-//     // TODO adjust the period using the dt of the loop
-//     let mut temperature_report_dt: Option<Duration> = None;
-//     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
+async fn hotend_handler(
+    adc_peri: HotendAdcPeripheral,
+    dma_peri: HotendAdcDma,
+    read_pin: HotendAdcInputPin,
+) {
+    // TODO adjust the period using the dt of the loop
+    let mut temperature_report_dt: Option<Duration> = None;
+    let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
-//     let thermistor = Thermistor::new(
-//         adc_peri,
-//         dma_peri,
-//         read_pin.degrade_adc(),
-//         Resolution::BITS12,
-//         Resistance::from_ohms(100_000.0),
-//         Resistance::from_ohms(10_000.0),
-//         Temperature::from_kelvin(3950.0),
+    let thermistor = Thermistor::new(
+        adc_peri,
+        dma_peri,
+        read_pin.degrade_adc(),
+        Resolution::BITS12,
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
+        Temperature::from_kelvin(3950.0),
 
-//         readings,
-//     );
+        readings,
+    );
 
-//     let heater_out = SimplePwm::new(
-//         heater_tim,
-//         None,
-//         None,
-//         None,
-//         Some(PwmPin::new_ch4(heater_out_pin, OutputType::PushPull)),
-//         hz(1),
-//         CountingMode::EdgeAlignedUp,
-//     );
+    let mut fan_controller = FanController::new(TimerChannel::Ch2, 10f64);
+    let heater = Heater::new(TimerChannel::Ch4);
+    let mut hotend = Hotend::new(heater, thermistor);
 
-//     let fan_out = SimplePwm::new(
-//         fan_time,
-//         None,
-//         Some(PwmPin::new_ch2(fan_out_pin, OutputType::PushPull)),
-//         None,
-//         None,
-//         hz(1),
-//         CountingMode::EdgeAlignedUp,
-//     );
+    let dt = Duration::from_millis(100);
+    let mut counter = Duration::from_secs(0);
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
 
-//     let mut fan_controller = FanController::new(fan_out, TimerChannel::Ch2, 10f64);
-//     let heater = Heater::new(heater_out, TimerChannel::Ch4);
-//     let mut hotend = Hotend::new(heater, thermistor);
+    loop {
+        // temperature report period must be a multiple of the loop delay
+        if temperature_report_dt.is_some()
+            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+        {
+            let temp = hotend.read_temperature().await;
+            report.clear();
+            core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            counter = Duration::from_secs(0);
+        }
+        if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
+            match cmd {
+                GCommand::M104 { s } => {
+                    info!("[HOTEND HANDLER] Target temperature: {}", s.as_celsius());
+                    hotend.set_temperature(s);
+                }
+                GCommand::M105 => {
+                    let temp = hotend.read_temperature().await;
+                    report.clear();
+                    core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                }
+                GCommand::M106 { s } => {
+                    let multiplier = f64::from(255) / f64::from(s);
+                    let speed = fan_controller.get_max_speed() * multiplier;
+                    {
+                        let mut pwm = PMW.lock().await;
+                        let pwm = pwm.as_mut().expect("PWM not initialized");
+                        fan_controller.set_speed(speed, pwm);
+                        info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
+                    }
+                }
+                GCommand::M155 { s } => {
+                    let duration = Duration::from_millis(s.as_millis() as u64);
+                    temperature_report_dt.replace(duration);
+                }
+                _ => (),
+            }
+        }
 
-//     let dt = Duration::from_millis(100);
-//     let mut counter = Duration::from_secs(0);
-//     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+        {
+            let mut pwm = PMW.lock().await;
+            let pwm = pwm.as_mut().expect("PWM not initialized");
+            if let Ok(duty_cycle) = hotend.update(dt, pwm).await {
+                info!("[HEATBED] duty cycle: {}", duty_cycle);
+            };
+        }
+        
+        Timer::after(dt).await;
 
-//     loop {
-//         // temperature report period must be a multiple of the loop delay
-//         if temperature_report_dt.is_some()
-//             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
-//         {
-//             let temp = hotend.read_temperature().await;
-//             report.clear();
-//             core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
-//             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-//             counter = Duration::from_secs(0);
-//         }
-//         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
-//             match cmd {
-//                 GCommand::M104 { s } => {
-//                     info!("[HOTEND HANDLER] Target temperature: {}", s.as_celsius());
-//                     hotend.set_temperature(s);
-//                 }
-//                 GCommand::M105 => {
-//                     let temp = hotend.read_temperature().await;
-//                     report.clear();
-//                     core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
-//                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
-//                 }
-//                 GCommand::M106 { s } => {
-//                     let multiplier = f64::from(255) / f64::from(s);
-//                     let speed = fan_controller.get_max_speed() * multiplier;
-//                     fan_controller.set_speed(speed);
-//                     info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
-//                 }
-//                 GCommand::M155 { s } => {
-//                     let duration = Duration::from_millis(s.as_millis() as u64);
-//                     temperature_report_dt.replace(duration);
-//                 }
-//                 _ => (),
-//             }
-//         }
-
-//         if let Ok(duty_cycle) = hotend.update(dt).await {
-//             info!("[HEATBED] duty cycle: {}", duty_cycle);
-//         };
-
-//         Timer::after(dt).await;
-
-//         if counter.checked_add(dt).is_none() {
-//             counter = Duration::from_secs(0);
-//         }
-//     }
-// }
+        if counter.checked_add(dt).is_none() {
+            counter = Duration::from_secs(0);
+        }
+    }
+}
 
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
-// // TODO test with HEATBED_TARGET_TEMPERATURE
-// #[embassy_executor::task]
-// async fn heatbed_handler(
-//     adc_peri: ADC2,
-//     dma_peri: DMA1_CH3,
-//     read_pin: PA2,
-//     heater_tim: TIM8,
-//     heater_out_pin: PC8,
-// ) {
-//     // TODO adjust the period using the dt of the loop
-//     let mut temperature_report_dt: Option<Duration> = None;
-//     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
+#[embassy_executor::task]
+async fn heatbed_handler(
+    adc_peri: HeatbedAdcPeripheral,
+    dma_peri: HeatbedAdcDma,
+    read_pin: HeatbedAdcInputPin,
+) {
+    // TODO adjust the period using the dt of the loop
+    let mut temperature_report_dt: Option<Duration> = None;
+    let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
-//     let thermistor = Thermistor::new(
-//         adc_peri,
-//         dma_peri,
-//         read_pin.degrade_adc(),
-//         Resolution::BITS12,
-//         Resistance::from_ohms(100_000.0),
-//         Resistance::from_ohms(10_000.0),
-//         Temperature::from_kelvin(3950.0),
-//         readings,
-//     );
+    let thermistor = Thermistor::new(
+        adc_peri,
+        dma_peri,
+        read_pin.degrade_adc(),
+        Resolution::BITS12,
+        Resistance::from_ohms(100_000.0),
+        Resistance::from_ohms(10_000.0),
+        Temperature::from_kelvin(3950.0),
+        readings,
+    );
 
-//     let heater_out = SimplePwm::new(
-//         heater_tim,
-//         None,
-//         None,
-//         Some(PwmPin::new_ch3(heater_out_pin, OutputType::PushPull)),
-//         None,
-//         hz(1),
-//         CountingMode::EdgeAlignedUp,
-//     );
-//     let heater = Heater::new(heater_out, TimerChannel::Ch4);
-//     let mut heatbed = Hotend::new(heater, thermistor);
+    let heater = Heater::new(TimerChannel::Ch4);
+    let mut heatbed = Hotend::new(heater, thermistor);
 
-//     let dt = Duration::from_millis(100);
-//     let mut counter = Duration::from_secs(0);
-//     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let dt = Duration::from_millis(100);
+    let mut counter = Duration::from_secs(0);
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
 
-//     loop {
-//         // temperature report period must be a multiple of the loop delay
-//         if temperature_report_dt.is_some()
-//             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
-//         {
-//             let temp = heatbed.read_temperature().await;
-//             report.clear();
-//             core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
-//             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-//             counter = Duration::from_secs(0);
-//         }
+    loop {
+        // temperature report period must be a multiple of the loop delay
+        if temperature_report_dt.is_some()
+            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+        {
+            let temp = heatbed.read_temperature().await;
+            report.clear();
+            core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            counter = Duration::from_secs(0);
+        }
 
-//         if let Ok(cmd) = HEATBED_CHANNEL.try_receive() {
-//             match cmd {
-//                 GCommand::M140 { s } => heatbed.set_temperature(s),
-//                 GCommand::M105 => {
-//                     let temp = heatbed.read_temperature().await;
-//                     report.clear();
-//                     core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
-//                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
-//                 }
-//                 GCommand::M155 { s } => {
-//                     let duration = Duration::from_millis(s.as_millis() as u64);
-//                     temperature_report_dt.replace(duration);
-//                 }
-//                 _ => (),
-//             }
-//         };
+        if let Ok(cmd) = HEATBED_CHANNEL.try_receive() {
+            match cmd {
+                GCommand::M140 { s } => heatbed.set_temperature(s),
+                GCommand::M105 => {
+                    let temp = heatbed.read_temperature().await;
+                    report.clear();
+                    core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                }
+                GCommand::M155 { s } => {
+                    let duration = Duration::from_millis(s.as_millis() as u64);
+                    temperature_report_dt.replace(duration);
+                }
+                _ => (),
+            }
+        };
 
-//         if let Ok(duty_cycle) = heatbed.update(dt).await {
-//             info!("[HEATBED] duty cycle: {}", duty_cycle);
-//         };
+        {
+            let mut pwm = PMW.lock().await;
+            let pwm = pwm.as_mut().expect("PWM not initialized");
+            if let Ok(duty_cycle) = heatbed.update(dt, pwm).await {
+                info!("[HEATBED] duty cycle: {}", duty_cycle);
+            };
+        }
 
-//         Timer::after(dt).await;
-//         if counter.checked_add(dt).is_none() {
-//             counter = Duration::from_secs(0);
-//         }
-//     }
-// }
+        Timer::after(dt).await;
+        if counter.checked_add(dt).is_none() {
+            counter = Duration::from_secs(0);
+        }
+    }
+}
 
 // #[embassy_executor::task]
 // async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12) {
@@ -549,120 +524,111 @@ async fn command_dispatcher_task() {
 // }
 
 #[embassy_executor::task]
-async fn planner_handler() {
+async fn planner_handler(
+    x_step_pin: XStepPin,
+    x_dir_pin: XDirPin,
+    y_step_pin: YStepPin,
+    y_dir_pin: YDirPin,
+    z_step_pin: ZStepPin,
+    z_dir_pin: ZDirPin,
+    e_step_pin: EStepPin,
+    e_dir_pin: EDirPin,
+) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
 
-    // let x_step_pin =  unsafe {
-    //     CONFIG.unwrap().steppers.x.step_pin
-    // };
+    let x_options = StepperOptions::default();
+    let x_attachment = StepperAttachment::default();
 
-    // let cfg = CONFIG.unwrap();
+    let x_stepper = init_stepper!(x_step_pin, x_dir_pin, x_options, x_attachment);
 
-    // let x_step_pin = cfg.steppers.x.step_pin;
-    // let x_dir_pin = cfg.steppers.x.dir_pin;
-    // let x_options = StepperOptions::default();
-    // let x_attachment = StepperAttachment::default();
+    let y_options = StepperOptions::default();
+    let y_attachment = StepperAttachment::default();
 
-    // let x_stepper = init_stepper!(x_step_pin, x_dir_pin, x_options, x_attachment);
+    let y_stepper = init_stepper!(y_step_pin, y_dir_pin, y_options, y_attachment);
 
-    // let y_step_pin = config.steppers.y.step_pin;
-    // let y_dir_pin = config.steppers.y.dir_pin;
-    // let y_options = StepperOptions::default();
-    // let y_attachment = StepperAttachment::default();
+    let z_options = StepperOptions::default();
+    let z_attachment = StepperAttachment::default();
 
-    // let y_stepper = init_stepper!(y_step_pin, y_dir_pin, y_options, y_attachment);
+    let z_stepper = init_stepper!(z_step_pin, z_dir_pin, z_options, z_attachment);
 
-    // let z_step_pin = config.steppers.z.step_pin;
-    // let z_dir_pin = config.steppers.z.dir_pin;
-    // let z_options = StepperOptions::default();
-    // let z_attachment = StepperAttachment::default();
+    let e_options = StepperOptions::default();
+    let e_attachment = StepperAttachment::default();
 
-    // let z_stepper = init_stepper!(z_step_pin, z_dir_pin, z_options, z_attachment);
+    let e_stepper = init_stepper!(e_step_pin, e_dir_pin, e_options, e_attachment);
 
-    // let e_step_pin = config.steppers.e.step_pin;
-    // let e_dir_pin = config.steppers.e.dir_pin;
-    // let e_options = StepperOptions::default();
-    // let e_attachment = StepperAttachment::default();
+    let mut planner: Planner<StepperPin<'_>, StepperTimer> = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
-    // let e_stepper = init_stepper!(e_step_pin, e_dir_pin, e_options, e_attachment);
+    let dt = Duration::from_millis(500);
 
-    // let planner: Planner<StepperPin<'_>, StepperTimer> = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
-
-
-    // let mut planner = PLANNER.lock().await;
-    // let planner = planner.as_mut().expect("Planner not initialized");
-
-    // let dt = Duration::from_millis(500);
-
-    // loop {
-    //     let cmd = PLANNER_CHANNEL.receive().await;
-    //     // info!("[PLANNER HANDLER] {}", cmd);
-    //     match cmd {
-    //         GCommand::G0 { .. }
-    //         | GCommand::G1 { .. }
-    //         | GCommand::G2 { .. }
-    //         | GCommand::G3 { .. }
-    //         | GCommand::G4 { .. }
-    //         | GCommand::G10
-    //         | GCommand::G11
-    //         | GCommand::G28
-    //         | GCommand::G90
-    //         | GCommand::G91
-    //         | GCommand::M207 { .. }  
-    //         | GCommand::M208 { .. }  => {
-    //             let duration = planner.execute(cmd.clone()).await.expect("Planner error");
-    //             if debug {
-    //                 match cmd {
-    //                     GCommand::G0 { .. } => {
-    //                         let x = planner.get_x_position();
-    //                         let y = planner.get_x_position();
-    //                         let z = planner.get_x_position();
-    //                         let t = duration.unwrap();
-    //                         let res = GCommand::D0 { x, y, z, t };
-    //                         report.clear();
-    //                         write!(&mut report, "{}", &res).unwrap();
-    //                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-    //                     }
-    //                     GCommand::G1 { .. } => {
-    //                         let x = planner.get_x_position();
-    //                         let y = planner.get_x_position();
-    //                         let z = planner.get_x_position();
-    //                         let e = planner.get_e_position();
-    //                         let t = duration.unwrap();
-    //                         let res = GCommand::D1 { x, y, z, e, t };
-    //                         report.clear();
-    //                         write!(&mut report, "{}", &res).unwrap();
-    //                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-    //                     }
-    //                     _ => todo!(),
-    //                 }
-    //             }
-    //         }
-    //         GCommand::M114 => {
-    //             report.clear();
-    //             write!(
-    //                 &mut report,
-    //                 "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
-    //                 planner.get_x_position(),
-    //                 planner.get_y_position(),
-    //                 planner.get_z_position(),
-    //                 planner.get_e_position(),
-    //             )
-    //             .unwrap();
-    //             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-    //         },
-    //         GCommand::D114 => {
-    //             debug = true;
-    //         }
-    //         GCommand::D115 => {
-    //             debug = false;
-    //         }
-    //         _ => error!("[PLANNER HANDLER] command not handled"),
-    //     }
-    //     info!("[PLANNER HANDLER] Move completed");
-    //     Timer::after(dt).await;
-    // }
+    loop {
+        let cmd = PLANNER_CHANNEL.receive().await;
+        // info!("[PLANNER HANDLER] {}", cmd);
+        match cmd {
+            GCommand::G0 { .. }
+            | GCommand::G1 { .. }
+            | GCommand::G2 { .. }
+            | GCommand::G3 { .. }
+            | GCommand::G4 { .. }
+            | GCommand::G10
+            | GCommand::G11
+            | GCommand::G28
+            | GCommand::G90
+            | GCommand::G91
+            | GCommand::M207 { .. }  
+            | GCommand::M208 { .. }  => {
+                let duration = planner.execute(cmd.clone()).await.expect("Planner error");
+                if debug {
+                    match cmd {
+                        GCommand::G0 { .. } => {
+                            let x = planner.get_x_position();
+                            let y = planner.get_x_position();
+                            let z = planner.get_x_position();
+                            let t = duration.unwrap();
+                            let res = GCommand::D0 { x, y, z, t };
+                            report.clear();
+                            write!(&mut report, "{}", &res).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        }
+                        GCommand::G1 { .. } => {
+                            let x = planner.get_x_position();
+                            let y = planner.get_x_position();
+                            let z = planner.get_x_position();
+                            let e = planner.get_e_position();
+                            let t = duration.unwrap();
+                            let res = GCommand::D1 { x, y, z, e, t };
+                            report.clear();
+                            write!(&mut report, "{}", &res).unwrap();
+                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        }
+                        _ => todo!(),
+                    }
+                }
+            }
+            GCommand::M114 => {
+                report.clear();
+                write!(
+                    &mut report,
+                    "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
+                    planner.get_x_position(),
+                    planner.get_y_position(),
+                    planner.get_z_position(),
+                    planner.get_e_position(),
+                )
+                .unwrap();
+                FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+            },
+            GCommand::D114 => {
+                debug = true;
+            }
+            GCommand::D115 => {
+                debug = false;
+            }
+            _ => error!("[PLANNER HANDLER] command not handled"),
+        }
+        info!("[PLANNER HANDLER] Move completed");
+        Timer::after(dt).await;
+    }
 }
 
 #[embassy_executor::main]

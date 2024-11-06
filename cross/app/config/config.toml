@@ -7,10 +7,10 @@ pin = "PA0"
 pin = "PA1"
 
 [steppers.y.step]
-pin = "PA2"
+pin = "PA12"
 
 [steppers.y.dir]
-pin = "PA3"
+pin = "PA10"
 
 [steppers.z.step]
 pin = "PA4"
@@ -63,7 +63,7 @@ k_d = 0
 peripheral = "ADC1"
 
 [hotend.adc.input]
-pin = "PA10"
+pin = "PA3"
 
 [hotend.adc.dma]
 peripheral = "DMA1_CH2"
@@ -88,7 +88,7 @@ k_d = 0
 peripheral = "ADC2"
 
 [heatbed.adc.input]
-pin = "PA12"
+pin = "PA2"
 
 [heatbed.adc.dma]
 peripheral = "DMA1_CH3"
