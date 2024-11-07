@@ -36,7 +36,7 @@ impl Heater {
         pwm.disable(self.ch);
     }
 
-    pub fn is_enabled<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) -> bool{
+    pub fn is_enabled<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) -> bool {
         pwm.is_enabled(self.ch)
     }
 
@@ -50,7 +50,12 @@ impl Heater {
             .set_target(self.target_temperature.unwrap().as_celsius());
     }
 
-    pub fn update<T: GeneralInstance4Channel>(&mut self, tmp: Temperature, dt: Duration, pwm: &mut SimplePwm<'_, T>) -> Result<u32, ()> {
+    pub fn update<T: GeneralInstance4Channel>(
+        &mut self,
+        tmp: Temperature,
+        dt: Duration,
+        pwm: &mut SimplePwm<'_, T>,
+    ) -> Result<u32, ()> {
         if self.target_temperature.is_none() {
             return Err(());
         }

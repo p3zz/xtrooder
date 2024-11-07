@@ -1,6 +1,6 @@
 use embassy_stm32::{
     adc::{Instance, RxDma},
-    timer::{GeneralInstance4Channel, simple_pwm::SimplePwm},
+    timer::{simple_pwm::SimplePwm, GeneralInstance4Channel},
 };
 use embassy_time::Duration;
 use math::measurements::Temperature;
@@ -29,7 +29,11 @@ where
         self.heater.set_target_temperature(temperature);
     }
 
-    pub async fn update<T: GeneralInstance4Channel>(&mut self, dt: Duration, pwm: &mut SimplePwm<'_, T>) -> Result<u32, ()> {
+    pub async fn update<T: GeneralInstance4Channel>(
+        &mut self,
+        dt: Duration,
+        pwm: &mut SimplePwm<'_, T>,
+    ) -> Result<u32, ()> {
         let curr_tmp = self.read_temperature().await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
         self.heater.update(curr_tmp, dt, pwm)

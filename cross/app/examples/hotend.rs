@@ -87,7 +87,7 @@ async fn main(_spawner: Spawner) {
     let dt = Duration::from_millis(100);
 
     loop {
-        match hotend.update(dt, &mut heater_out).await{
+        match hotend.update(dt, &mut heater_out).await {
             Ok(r) => println!("Duty cycle: {}", r),
             Err(_) => error!("Target temperature not set"),
         };

@@ -6,10 +6,15 @@ use core::fmt::Write;
 use core::str::FromStr;
 
 use app::config::{PrinterConfig, StepperConfig};
-use app::ext::{peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XStepPin, YDirPin, YStepPin, ZDirPin, ZStepPin};
-use app::{init_pin, init_stepper};
+use app::ext::{
+    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
+    HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
+    SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XStepPin,
+    YDirPin, YStepPin, ZDirPin, ZStepPin,
+};
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
+use app::{init_pin, init_stepper};
 // use app::config::{peripherals_init, PrinterConfig};
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
@@ -18,7 +23,8 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::{
-    ADC1, ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7, PB0, PB1, PB2, PB3, PB4, PB5, PB9, PC12, PC8, SPI1, TIM3, TIM4, TIM8, UART4
+    ADC1, ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7, PB0, PB1, PB2, PB3,
+    PB4, PB5, PB9, PC12, PC8, SPI1, TIM3, TIM4, TIM8, UART4,
 };
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::timer::GeneralInstance4Channel;
@@ -47,9 +53,9 @@ use math::{
 };
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
+use stepper::planner::Planner;
 use stepper::stepper::{Attached, StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
 use stepper::{planner, TimerTrait};
-use stepper::planner::Planner;
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
@@ -75,7 +81,7 @@ static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 
-struct MyStruct<T, P>{
+struct MyStruct<T, P> {
     pin1: T,
     pin2: P,
 }
@@ -255,7 +261,6 @@ async fn hotend_handler(
         Resistance::from_ohms(100_000.0),
         Resistance::from_ohms(10_000.0),
         Temperature::from_kelvin(3950.0),
-
         readings,
     );
 
@@ -315,7 +320,7 @@ async fn hotend_handler(
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
-        
+
         Timer::after(dt).await;
 
         if counter.checked_add(dt).is_none() {
@@ -403,7 +408,7 @@ async fn sdcard_handler(
     clk: SdCardSpiTimer,
     mosi: SdCardSpiMosiPin,
     miso: SdCardSpiMisoPin,
-    cs: SdCardSpiCsPin
+    cs: SdCardSpiCsPin,
 ) {
     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
     let spi = spi::Spi::new_blocking(spi_peri, clk, mosi, miso, Default::default());
@@ -563,7 +568,8 @@ async fn planner_handler(
 
     let e_stepper = init_stepper!(e_step_pin, e_dir_pin, e_options, e_attachment);
 
-    let mut planner: Planner<StepperPin<'_>, StepperTimer> = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
+    let mut planner: Planner<StepperPin<'_>, StepperTimer> =
+        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
 
     let dt = Duration::from_millis(500);
 
@@ -581,8 +587,8 @@ async fn planner_handler(
             | GCommand::G28
             | GCommand::G90
             | GCommand::G91
-            | GCommand::M207 { .. }  
-            | GCommand::M208 { .. }  => {
+            | GCommand::M207 { .. }
+            | GCommand::M208 { .. } => {
                 let duration = planner.execute(cmd.clone()).await.expect("Planner error");
                 if debug {
                     match cmd {
@@ -623,7 +629,7 @@ async fn planner_handler(
                 )
                 .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-            },
+            }
             GCommand::D114 => {
                 debug = true;
             }
@@ -640,7 +646,7 @@ async fn planner_handler(
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let mut config = Config::default();
-    
+
     // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
     // program won't run
     {
@@ -673,9 +679,9 @@ async fn main(spawner: Spawner) {
         config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
     }
     let p = embassy_stm32::init(config);
-    
+
     let printer_config = peripherals_init(p);
-    
+
     let mut uart_config = embassy_stm32::usart::Config::default();
     uart_config.baudrate = 19200;
 
@@ -702,7 +708,11 @@ async fn main(spawner: Spawner) {
     spawner.spawn(command_dispatcher_task()).unwrap();
 
     spawner
-        .spawn(heatbed_handler(printer_config.heatbed.adc.peripheral, printer_config.heatbed.adc.dma, printer_config.heatbed.adc.input))
+        .spawn(heatbed_handler(
+            printer_config.heatbed.adc.peripheral,
+            printer_config.heatbed.adc.dma,
+            printer_config.heatbed.adc.input,
+        ))
         .unwrap();
 
     // FIXME the error is weird, we probably need to check the pins compatibility
@@ -713,13 +723,13 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(planner_handler(
             printer_config.steppers.x.step_pin,
-            printer_config.steppers.x.dir_pin, 
-            printer_config.steppers.y.step_pin, 
+            printer_config.steppers.x.dir_pin,
+            printer_config.steppers.y.step_pin,
             printer_config.steppers.y.dir_pin,
             printer_config.steppers.z.step_pin,
-            printer_config.steppers.z.dir_pin, 
-            printer_config.steppers.e.step_pin, 
-            printer_config.steppers.e.dir_pin
+            printer_config.steppers.z.dir_pin,
+            printer_config.steppers.e.step_pin,
+            printer_config.steppers.e.dir_pin,
         ))
         .unwrap();
 
@@ -729,7 +739,8 @@ async fn main(spawner: Spawner) {
             printer_config.sdcard.spi.clk,
             printer_config.sdcard.spi.mosi,
             printer_config.sdcard.spi.miso,
-            printer_config.sdcard.spi.cs))
+            printer_config.sdcard.spi.cs,
+        ))
         .unwrap();
 
     loop {

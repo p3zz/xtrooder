@@ -22,7 +22,11 @@ impl FanController {
         pwm.disable(self.ch);
     }
 
-    pub fn set_speed<T: GeneralInstance4Channel>(&mut self, revolutions_per_second: f64, pwm: &mut SimplePwm<'_, T>) {
+    pub fn set_speed<T: GeneralInstance4Channel>(
+        &mut self,
+        revolutions_per_second: f64,
+        pwm: &mut SimplePwm<'_, T>,
+    ) {
         let revolutions_per_second = revolutions_per_second.max(0f64).min(self.max_speed);
 
         let multiplier = self.max_speed / revolutions_per_second;
