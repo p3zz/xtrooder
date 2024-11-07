@@ -1,7 +1,4 @@
-use embassy_stm32::{
-    time::Hertz,
-    timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
-};
+use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel};
 use embassy_time::Duration;
 use math::measurements::Temperature;
 use micromath::F32Ext;

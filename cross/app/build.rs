@@ -1,12 +1,7 @@
-use external::{stringify_pin, PinConfig};
-use proc_macro2::TokenStream;
-use quote::quote;
 use std::{
     env,
-    fmt::Display,
     fs,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 mod external {
@@ -15,7 +10,7 @@ mod external {
     use serde_derive::{Deserialize, Serialize};
 
     fn get_string_value(s: String) -> Option<String> {
-        s.is_empty().not().then(|| s)
+        s.is_empty().not().then_some(s)
     }
 
     pub fn stringify_pin(pin: Option<PinConfig>) -> String {
@@ -358,7 +353,7 @@ mod external {
     }
 }
 
-fn main() -> () {
+fn main() {
     println!("cargo::rerun-if-changed=config/config.toml");
     let path = Path::new("config/config.toml");
     let conf = confy::load_path::<external::MyConfig>(path).expect("Error reading config file");

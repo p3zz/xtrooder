@@ -5,7 +5,6 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
-use app::config::{PrinterConfig, StepperConfig};
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
     HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
@@ -22,22 +21,16 @@ use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
 use embassy_stm32::mode::{Async, Blocking};
-use embassy_stm32::peripherals::{
-    ADC1, ADC2, DMA1_CH2, DMA1_CH3, PA0, PA1, PA2, PA3, PA4, PA5, PA6, PA7, PB0, PB1, PB2, PB3,
-    PB4, PB5, PB9, PC12, PC8, SPI1, TIM3, TIM4, TIM8, UART4,
-};
+use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
-use embassy_stm32::timer::GeneralInstance4Channel;
-use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
+use embassy_stm32::usart::{self, UartRx, UartTx};
 use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
-    gpio::{Level, Output, OutputType, Speed as PinSpeed},
-    time::hz,
+    gpio::{Level, Output, Speed as PinSpeed},
     timer::{
-        low_level::CountingMode,
-        simple_pwm::{PwmPin, SimplePwm},
+        simple_pwm::SimplePwm,
         Channel as TimerChannel,
     },
 };
@@ -54,8 +47,8 @@ use math::{
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
-use stepper::stepper::{Attached, StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
-use stepper::{planner, TimerTrait};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
+use stepper::TimerTrait;
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
