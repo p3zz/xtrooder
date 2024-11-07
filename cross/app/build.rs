@@ -533,6 +533,28 @@ fn main() {
         .get_pin()
         .expect("SD-Card SPI CS pin is missing");
 
+    if hotend_pwm_output_channel < 1 || hotend_pwm_output_channel > 4{
+        panic!("Hotend PWM channel must be between 1 and 4");
+    }
+    if heatbed_pwm_output_channel < 1 || heatbed_pwm_output_channel > 4{
+        panic!("Heatbed PWM channel must be between 1 and 4");
+    }
+    if fan_pwm_output_channel < 1 || fan_pwm_output_channel > 4{
+        panic!("Fan PWM channel must be between 1 and 4");
+    }
+
+    if hotend_pwm_output_channel == heatbed_pwm_output_channel{
+        panic!("The same PWM channel has been defined for both hotend and heatbed");
+    }
+
+    if heatbed_pwm_output_channel == fan_pwm_output_channel{
+        panic!("The same PWM channel has been defined for both heatbed and fan");
+    }
+
+    if fan_pwm_output_channel == hotend_pwm_output_channel{
+        panic!("The same PWM channel has been defined for both fan and hotend");
+    }
+
     let string = format!(
         "
 
