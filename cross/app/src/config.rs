@@ -49,9 +49,9 @@ pub struct PwmOutputConfig<O>{
     pub channel: u8,
 }
 
-pub struct SpiConfig<P,T,MO,MI,CS>{
+pub struct SpiConfig<P,C,MO,MI,CS>{
     pub peripheral: P,
-    pub timer: T,
+    pub clk: C,
     pub mosi: MO,
     pub miso: MI,
     pub cs: CS,

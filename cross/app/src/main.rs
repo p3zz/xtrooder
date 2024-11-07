@@ -6,7 +6,7 @@ use core::fmt::Write;
 use core::str::FromStr;
 
 use app::config::{PrinterConfig, StepperConfig};
-use app::ext::{peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, XDirPin, XStepPin, YDirPin, YStepPin, ZDirPin, ZStepPin};
+use app::ext::{peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XStepPin, YDirPin, YStepPin, ZDirPin, ZStepPin};
 use app::{init_pin, init_stepper};
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
@@ -397,131 +397,137 @@ async fn heatbed_handler(
     }
 }
 
-// #[embassy_executor::task]
-// async fn sdcard_handler(spi_peri: SPI1, clk: PB3, mosi: PB5, miso: PB4, cs: PC12) {
-//     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
-//     let spi = spi::Spi::new_blocking(spi_peri, clk, mosi, miso, Default::default());
-//     let spi_bus = NoopMutex::new(RefCell::new(spi));
-//     let spi_bus = SPI_BUS.init(spi_bus);
+#[embassy_executor::task]
+async fn sdcard_handler(
+    spi_peri: SdCardSpiPeripheral,
+    clk: SdCardSpiTimer,
+    mosi: SdCardSpiMosiPin,
+    miso: SdCardSpiMisoPin,
+    cs: SdCardSpiCsPin
+) {
+    static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
+    let spi = spi::Spi::new_blocking(spi_peri, clk, mosi, miso, Default::default());
+    let spi_bus = NoopMutex::new(RefCell::new(spi));
+    let spi_bus = SPI_BUS.init(spi_bus);
 
-//     // Device 1, using embedded-hal compatible driver for ST7735 LCD display
-//     let cs_pin = Output::new(cs, Level::High, embassy_stm32::gpio::Speed::Low);
+    // Device 1, using embedded-hal compatible driver for ST7735 LCD display
+    let cs_pin = Output::new(cs, Level::High, embassy_stm32::gpio::Speed::Low);
 
-//     let spi = SpiDevice::new(spi_bus, cs_pin);
-//     let sdcard = SdCard::new(spi, Delay);
-//     let clock = Clock::new();
-//     let mut volume_manager = VolumeManager::new(sdcard, clock);
-//     let mut working_dir = None;
-//     let mut working_file = None;
-//     let mut working_volume = None;
-//     let mut running = false;
-//     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-//     let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
-//     let mut clock = Clock::new();
-//     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let spi = SpiDevice::new(spi_bus, cs_pin);
+    let sdcard = SdCard::new(spi, Delay);
+    let clock = Clock::new();
+    let mut volume_manager = VolumeManager::new(sdcard, clock);
+    let mut working_dir = None;
+    let mut working_file = None;
+    let mut working_volume = None;
+    let mut running = false;
+    let mut msg: String<MAX_MESSAGE_LEN> = String::new();
+    let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
+    let mut clock = Clock::new();
+    let mut report: String<MAX_MESSAGE_LEN> = String::new();
 
-//     let dt = Duration::from_millis(500);
-//     loop {
-//         if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
-//             // info!("[SDCARD] command received: {}", cmd);
-//             match cmd {
-//                 GCommand::M20 => {
-//                     let dir = working_dir.expect("Working directory not set");
-//                     let mut msg: String<MAX_MESSAGE_LEN> =
-//                         String::from_str("Begin file list").unwrap();
-//                     volume_manager
-//                         .iterate_dir(dir, |d| {
-//                             let name_vec: Vec<u8, 16> =
-//                                 Vec::from_slice(d.clone().name.base_name()).unwrap();
-//                             let name = String::from_utf8(name_vec).unwrap();
-//                             msg.push_str(name.as_str()).unwrap();
-//                             msg.push('\n').unwrap();
-//                         })
-//                         .expect("Error while listing files");
-//                     msg.push_str("End file list").unwrap();
-//                     // TODO send message to UART
-//                 }
-//                 GCommand::M21 => {
-//                     working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)) {
-//                         Ok(v) => Some(v),
-//                         Err(_) => defmt::panic!("Cannot find module"),
-//                     };
-//                     working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
-//                         Ok(d) => Some(d),
-//                         Err(_) => defmt::panic!("Cannot open root dir"),
-//                     };
-//                     info!("Directory open");
-//                 }
-//                 GCommand::M22 => {
-//                     if working_file.is_some() {
-//                         volume_manager.close_file(working_file.unwrap()).unwrap();
-//                         info!("File closed");
-//                     }
-//                     if working_dir.is_some() {
-//                         volume_manager.close_dir(working_dir.unwrap()).unwrap();
-//                         info!("Directory closed");
-//                     }
-//                     if working_volume.is_some() {
-//                         volume_manager
-//                             .close_volume(working_volume.unwrap())
-//                             .unwrap();
-//                         info!("Volume closed");
-//                     }
-//                 }
-//                 GCommand::M23 { filename } => {
-//                     let dir = working_dir.expect("Working directory not set");
-//                     working_file = match volume_manager.open_file_in_dir(
-//                         dir,
-//                         filename.as_str(),
-//                         embedded_sdmmc::Mode::ReadOnly,
-//                     ) {
-//                         Ok(f) => Some(f),
-//                         Err(_) => defmt::panic!("File not found"),
-//                     };
-//                     info!("Working file set");
-//                 }
-//                 // ignore the parameters of M24, just start/resume the print
-//                 GCommand::M24 { .. } => {
-//                     if !running {
-//                         clock.start();
-//                         running = true;
-//                     }
-//                 }
-//                 GCommand::M25 => {
-//                     if running {
-//                         clock.stop();
-//                         running = false;
-//                     }
-//                 }
-//                 GCommand::M31 => {
-//                     report.clear();
-//                     core::write!(&mut report, "Time elapsed: {}", clock.measure()).unwrap();
-//                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-//                 }
-//                 _ => todo!(),
-//             }
-//         }
+    let dt = Duration::from_millis(500);
+    loop {
+        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
+            // info!("[SDCARD] command received: {}", cmd);
+            match cmd {
+                GCommand::M20 => {
+                    let dir = working_dir.expect("Working directory not set");
+                    let mut msg: String<MAX_MESSAGE_LEN> =
+                        String::from_str("Begin file list").unwrap();
+                    volume_manager
+                        .iterate_dir(dir, |d| {
+                            let name_vec: Vec<u8, 16> =
+                                Vec::from_slice(d.clone().name.base_name()).unwrap();
+                            let name = String::from_utf8(name_vec).unwrap();
+                            msg.push_str(name.as_str()).unwrap();
+                            msg.push('\n').unwrap();
+                        })
+                        .expect("Error while listing files");
+                    msg.push_str("End file list").unwrap();
+                    // TODO send message to UART
+                }
+                GCommand::M21 => {
+                    working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)) {
+                        Ok(v) => Some(v),
+                        Err(_) => defmt::panic!("Cannot find module"),
+                    };
+                    working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
+                        Ok(d) => Some(d),
+                        Err(_) => defmt::panic!("Cannot open root dir"),
+                    };
+                    info!("Directory open");
+                }
+                GCommand::M22 => {
+                    if working_file.is_some() {
+                        volume_manager.close_file(working_file.unwrap()).unwrap();
+                        info!("File closed");
+                    }
+                    if working_dir.is_some() {
+                        volume_manager.close_dir(working_dir.unwrap()).unwrap();
+                        info!("Directory closed");
+                    }
+                    if working_volume.is_some() {
+                        volume_manager
+                            .close_volume(working_volume.unwrap())
+                            .unwrap();
+                        info!("Volume closed");
+                    }
+                }
+                GCommand::M23 { filename } => {
+                    let dir = working_dir.expect("Working directory not set");
+                    working_file = match volume_manager.open_file_in_dir(
+                        dir,
+                        filename.as_str(),
+                        embedded_sdmmc::Mode::ReadOnly,
+                    ) {
+                        Ok(f) => Some(f),
+                        Err(_) => defmt::panic!("File not found"),
+                    };
+                    info!("Working file set");
+                }
+                // ignore the parameters of M24, just start/resume the print
+                GCommand::M24 { .. } => {
+                    if !running {
+                        clock.start();
+                        running = true;
+                    }
+                }
+                GCommand::M25 => {
+                    if running {
+                        clock.stop();
+                        running = false;
+                    }
+                }
+                GCommand::M31 => {
+                    report.clear();
+                    core::write!(&mut report, "Time elapsed: {}", clock.measure()).unwrap();
+                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                }
+                _ => todo!(),
+            }
+        }
 
-//         if running && working_file.is_some() {
-//             if let Ok(n) = volume_manager.read(working_file.unwrap(), &mut tmp) {
-//                 for b in 0..n {
-//                     if tmp[b] == b'\n' {
-//                         COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-//                         info!("[INPUT_HANDLER] {}", msg.as_str());
-//                         msg.clear();
-//                     } else {
-//                         // TODO handle buffer overflow
-//                         msg.push(tmp[b].into()).unwrap();
-//                     }
-//                 }
-//                 tmp.fill(0u8);
-//             } else {
-//                 error!("Cannot read from SD-card");
-//             }
-//         }
-//         Timer::after(dt).await;
-//     }
-// }
+        if running && working_file.is_some() {
+            if let Ok(n) = volume_manager.read(working_file.unwrap(), &mut tmp) {
+                for b in 0..n {
+                    if tmp[b] == b'\n' {
+                        COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                        info!("[INPUT_HANDLER] {}", msg.as_str());
+                        msg.clear();
+                    } else {
+                        // TODO handle buffer overflow
+                        msg.push(tmp[b].into()).unwrap();
+                    }
+                }
+                tmp.fill(0u8);
+            } else {
+                error!("Cannot read from SD-card");
+            }
+        }
+        Timer::after(dt).await;
+    }
+}
 
 #[embassy_executor::task]
 async fn planner_handler(
@@ -633,91 +639,48 @@ async fn planner_handler(
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    let p = embassy_stm32::init(Config::default());
+    let mut config = Config::default();
     
-    let config = peripherals_init(p);
+    // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
+    // program won't run
+    {
+        use embassy_stm32::rcc::*;
+        config.rcc.hsi = Some(HSIPrescaler::DIV1);
+        config.rcc.csi = true;
+        config.rcc.pll1 = Some(Pll {
+            source: PllSource::HSI,
+            prediv: PllPreDiv::DIV4,
+            mul: PllMul::MUL50,
+            divp: Some(PllDiv::DIV2),
+            divq: Some(PllDiv::DIV8), // SPI1 cksel defaults to pll1_q
+            divr: None,
+        });
+        config.rcc.pll2 = Some(Pll {
+            source: PllSource::HSI,
+            prediv: PllPreDiv::DIV4,
+            mul: PllMul::MUL50,
+            divp: Some(PllDiv::DIV8), // 100mhz
+            divq: None,
+            divr: None,
+        });
+        config.rcc.sys = Sysclk::PLL1_P; // 400 Mhz
+        config.rcc.ahb_pre = AHBPrescaler::DIV2; // 200 Mhz
+        config.rcc.apb1_pre = APBPrescaler::DIV2; // 100 Mhz
+        config.rcc.apb2_pre = APBPrescaler::DIV2; // 100 Mhz
+        config.rcc.apb3_pre = APBPrescaler::DIV2; // 100 Mhz
+        config.rcc.apb4_pre = APBPrescaler::DIV2; // 100 Mhz
+        config.rcc.voltage_scale = VoltageScale::Scale1;
+        config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
+    }
+    let p = embassy_stm32::init(config);
     
-    // let x_step_pin = config.steppers.x.step_pin;
-    // let x_dir_pin = config.steppers.x.dir_pin;
-    // let x_options = StepperOptions::default();
-    // let x_attachment = StepperAttachment::default();
-
-    // let x_stepper = init_stepper!(x_step_pin, x_dir_pin, x_options, x_attachment);
-
-    // let y_step_pin = config.steppers.y.step_pin;
-    // let y_dir_pin = config.steppers.y.dir_pin;
-    // let y_options = StepperOptions::default();
-    // let y_attachment = StepperAttachment::default();
-
-    // let y_stepper = init_stepper!(y_step_pin, y_dir_pin, y_options, y_attachment);
-
-    // let z_step_pin = config.steppers.z.step_pin;
-    // let z_dir_pin = config.steppers.z.dir_pin;
-    // let z_options = StepperOptions::default();
-    // let z_attachment = StepperAttachment::default();
-
-    // let z_stepper = init_stepper!(z_step_pin, z_dir_pin, z_options, z_attachment);
-
-    // let e_step_pin = config.steppers.e.step_pin;
-    // let e_dir_pin = config.steppers.e.dir_pin;
-    // let e_options = StepperOptions::default();
-    // let e_attachment = StepperAttachment::default();
-
-    // let e_stepper = init_stepper!(e_step_pin, e_dir_pin, e_options, e_attachment);
-
-    // let planner: Planner<StepperPin<'_>, StepperTimer> = Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
-
-    // {
-    //     let mut p = PLANNER.lock().await;
-    //     p.replace(planner);
-    // }
-
-    // let heater_out = SimplePwm::new(
-    //     heater_tim,
-    //     None,
-    //     None,
-    //     Some(PwmPin::new_ch3(heater_out_pin, OutputType::PushPull)),
-    //     None,
-    //     hz(1),
-    //     CountingMode::EdgeAlignedUp,
-    // );
-
-    // // TODO check this configuration. It's in the embassy stm32 examples of ADC. Not so sure why it's needed but without this the
-    // // program won't run
-    // {
-    //     use embassy_stm32::rcc::*;
-    //     config.rcc.hsi = Some(HSIPrescaler::DIV1);
-    //     config.rcc.csi = true;
-    //     config.rcc.pll1 = Some(Pll {
-    //         source: PllSource::HSI,
-    //         prediv: PllPreDiv::DIV4,
-    //         mul: PllMul::MUL50,
-    //         divp: Some(PllDiv::DIV2),
-    //         divq: Some(PllDiv::DIV8), // SPI1 cksel defaults to pll1_q
-    //         divr: None,
-    //     });
-    //     config.rcc.pll2 = Some(Pll {
-    //         source: PllSource::HSI,
-    //         prediv: PllPreDiv::DIV4,
-    //         mul: PllMul::MUL50,
-    //         divp: Some(PllDiv::DIV8), // 100mhz
-    //         divq: None,
-    //         divr: None,
-    //     });
-    //     config.rcc.sys = Sysclk::PLL1_P; // 400 Mhz
-    //     config.rcc.ahb_pre = AHBPrescaler::DIV2; // 200 Mhz
-    //     config.rcc.apb1_pre = APBPrescaler::DIV2; // 100 Mhz
-    //     config.rcc.apb2_pre = APBPrescaler::DIV2; // 100 Mhz
-    //     config.rcc.apb3_pre = APBPrescaler::DIV2; // 100 Mhz
-    //     config.rcc.apb4_pre = APBPrescaler::DIV2; // 100 Mhz
-    //     config.rcc.voltage_scale = VoltageScale::Scale1;
-    //     config.rcc.mux.adcsel = mux::Adcsel::PLL2_P;
-    // }
-    // let mut uart_config = embassy_stm32::usart::Config::default();
-    // uart_config.baudrate = 19200;
+    let printer_config = peripherals_init(p);
+    
+    let mut uart_config = embassy_stm32::usart::Config::default();
+    uart_config.baudrate = 19200;
 
     // let uart = Uart::new(
-    //     config.peri, config.rx_pin, config.tx_pin, Irqs, config.tx_dma, config.rx_dma, uart_config,
+    //     printer_config.uart.peripheral, printer_config.uart.rx.pin, printer_config.uart.rx.dma, Irqs, printer_config.uart.tx.pin, printer_config.uart.tx.dma, uart_config,
     // )
     // .unwrap();
     // let (tx, rx) = uart.split();
@@ -732,31 +695,42 @@ async fn main(spawner: Spawner) {
     //     uart_tx.replace(tx);
     // }
 
-    // spawner.spawn(input_handler()).unwrap();
+    spawner.spawn(input_handler()).unwrap();
 
-    // spawner.spawn(output_handler()).unwrap();
+    spawner.spawn(output_handler()).unwrap();
 
-    // spawner.spawn(command_dispatcher_task()).unwrap();
+    spawner.spawn(command_dispatcher_task()).unwrap();
 
+    spawner
+        .spawn(heatbed_handler(printer_config.heatbed.adc.peripheral, printer_config.heatbed.adc.dma, printer_config.heatbed.adc.input))
+        .unwrap();
+
+    // FIXME the error is weird, we probably need to check the pins compatibility
     // spawner
-    //     .spawn(hotend_handler(
-    //         p.ADC1, p.DMA1_CH2, p.PA3, p.TIM4, p.PB9, p.TIM3, p.PA7,
-    //     ))
+    //     .spawn(hotend_handler(printer_config.hotend.adc.peripheral, printer_config.hotend.adc.dma, printer_config.hotend.adc.input))
     //     .unwrap();
 
-    // spawner
-    //     .spawn(heatbed_handler(p.ADC2, p.DMA1_CH3, p.PA2, p.TIM8, p.PC8))
-    //     .unwrap();
+    spawner
+        .spawn(planner_handler(
+            printer_config.steppers.x.step_pin,
+            printer_config.steppers.x.dir_pin, 
+            printer_config.steppers.y.step_pin, 
+            printer_config.steppers.y.dir_pin,
+            printer_config.steppers.z.step_pin,
+            printer_config.steppers.z.dir_pin, 
+            printer_config.steppers.e.step_pin, 
+            printer_config.steppers.e.dir_pin
+        ))
+        .unwrap();
 
-    // // spawner
-    // //     .spawn(planner_handler(
-    // //         p.PA0, p.PB0, p.PA6, p.PB1, p.PA5, p.PB2, p.PA1, p.PB4,
-    // //     ))
-    // //     .unwrap();
-
-    // spawner
-    //     .spawn(sdcard_handler(p.SPI1, p.PB3, p.PB5, p.PB4, p.PC12))
-    //     .unwrap();
+    spawner
+        .spawn(sdcard_handler(
+            printer_config.sdcard.spi.peripheral,
+            printer_config.sdcard.spi.clk,
+            printer_config.sdcard.spi.mosi,
+            printer_config.sdcard.spi.miso,
+            printer_config.sdcard.spi.cs))
+        .unwrap();
 
     loop {
         info!("[MAIN LOOP] alive");

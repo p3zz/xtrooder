@@ -108,14 +108,14 @@ channel = 3
 [sdcard.spi]
 peripheral = "SPI1"
 
-[sdcard.spi.timer]
-peripheral = "TIM5"
+[sdcard.spi.clk]
+peripheral = "PB3"
 
 [sdcard.spi.mosi]
-pin = "PB0"
+pin = "PB5"
 
 [sdcard.spi.miso]
-pin = "PB1"
+pin = "PB4"
 
 [sdcard.spi.cs]
-pin = "PB2"
+pin = "PC12"

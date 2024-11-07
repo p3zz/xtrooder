@@ -224,7 +224,7 @@ mod external{
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct SpiConfig{
         peripheral: String,
-        timer: PeripheralConfig,
+        clk: PeripheralConfig,
         mosi: PinConfig,
         miso: PinConfig,
         cs: PinConfig,
@@ -235,8 +235,8 @@ mod external{
             get_string_value(self.peripheral.clone())
         }
     
-        pub fn get_timer(&self) -> &PeripheralConfig {
-            &self.timer
+        pub fn get_clk(&self) -> &PeripheralConfig {
+            &self.clk
         }
     
         pub fn get_mosi(&self) -> &PinConfig{
@@ -406,7 +406,7 @@ fn main() -> () {
     let fan_pwm_output_channel = conf.fan.get_pwm().get_channel();
     
     let sdcard_spi_peripheral = conf.sdcard.get_spi().get_peripheral().expect("SD-Card peripheral is missing");
-    let sdcard_spi_timer = conf.sdcard.get_spi().get_timer().get_peripheral().expect("SD-Card SPI timer is missing");
+    let sdcard_spi_timer = conf.sdcard.get_spi().get_clk().get_peripheral().expect("SD-Card SPI timer is missing");
     let sdcard_spi_mosi = conf.sdcard.get_spi().get_mosi().get_pin().expect("SD-Card SPI MOSI pin is missing");
     let sdcard_spi_miso = conf.sdcard.get_spi().get_miso().get_pin().expect("SD-Card SPI MISO pin is missing");
     let sdcard_spi_cs = conf.sdcard.get_spi().get_cs().get_pin().expect("SD-Card SPI CS pin is missing");
@@ -562,7 +562,7 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         sdcard: SdCardConfig {{
             spi: SpiConfig {{
                 peripheral: p.{},
-                timer: p.{},
+                clk: p.{},
                 mosi: p.{},
                 miso: p.{},
                 cs: p.{},
