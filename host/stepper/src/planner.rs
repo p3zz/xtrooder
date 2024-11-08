@@ -14,18 +14,24 @@ use super::stepper::{
 
 use super::TimerTrait;
 
-pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
-    retraction_feedrate: Option<Speed>,
-    retraction_length: Option<Distance>,
-    retraction_z_lift: Option<Distance>,
-    recover_feedrate: Option<Speed>,
-    recover_length: Option<Distance>,
+#[derive(Clone, Copy)]
+pub struct Config{
+    retraction_feedrate: Speed,
+    retraction_length: Distance,
+    retraction_z_lift: Distance,
+    recover_feedrate: Speed,
+    recover_length: Distance,
+    arc_unit_length: Distance,
     feedrate: Speed,
     positioning: Positioning,
+}
+
+pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
     x_stepper: Stepper<P, Attached>,
     y_stepper: Stepper<P, Attached>,
     z_stepper: Stepper<P, Attached>,
     e_stepper: Stepper<P, Attached>,
+    config: Config,
     _timer: PhantomData<T>
 }
 
@@ -35,20 +41,15 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         y_stepper: Stepper<P, Attached>,
         z_stepper: Stepper<P, Attached>,
         e_stepper: Stepper<P, Attached>,
+        config: Config
     ) -> Self {
         Planner {
             x_stepper,
             y_stepper,
             z_stepper,
             e_stepper,
-            feedrate: Speed::from_meters_per_second(0.0),
-            positioning: Positioning::Absolute,
-            recover_feedrate: None,
-            retraction_length: None,
-            retraction_z_lift: None,
-            recover_length: None,
-            retraction_feedrate: None,
-            _timer: PhantomData
+            _timer: PhantomData,
+            config
         }
     }
 
@@ -154,27 +155,23 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
     }
 
     fn g90(&mut self) {
-        self.positioning = Positioning::Absolute;
+        self.config.positioning = Positioning::Absolute;
     }
 
     fn g91(&mut self) {
-        self.positioning = Positioning::Relative;
+        self.config.positioning = Positioning::Relative;
     }
 
     // firmware retraction settings
     fn m207(&mut self, f: Speed, s: Distance, z: Distance) {
-        self.retraction_feedrate.replace(f);
-        self.retraction_length.replace(s);
-        self.retraction_z_lift.replace(z);
+        self.config.retraction_feedrate = f;
+        self.config.retraction_length = s;
+        self.config.retraction_z_lift = z;
     }
 
     fn m208(&mut self, f: Speed, s: Distance) {
-        if self.retraction_length.is_none() {
-            return;
-        }
-        self.retraction_feedrate.replace(f);
-        self.retraction_length
-            .replace(s + self.recover_length.unwrap());
+        self.config.retraction_feedrate = f;
+        self.config.retraction_length = s + self.config.recover_length;
     }
 
     async fn g0(
@@ -185,21 +182,21 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         f: Option<Speed>,
     ) -> Result<core::time::Duration, StepperError> {
         if let Some(feedrate) = f {
-            self.feedrate = feedrate;
+            self.config.feedrate = feedrate;
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning),
+            None => no_move(&self.x_stepper, self.config.positioning),
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning),
+            None => no_move(&self.y_stepper, self.config.positioning),
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning),
+            None => no_move(&self.z_stepper, self.config.positioning),
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -209,8 +206,8 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
             &mut self.y_stepper,
             &mut self.z_stepper,
             dst,
-            self.feedrate,
-            self.positioning,
+            self.config.feedrate,
+            self.config.positioning,
         )
         .await
     }
@@ -224,26 +221,26 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         f: Option<Speed>,
     ) -> Result<core::time::Duration, StepperError> {
         if let Some(feedrate) = f {
-            self.feedrate = feedrate;
+            self.config.feedrate = feedrate;
         }
         let x = match x {
             Some(v) => v,
-            None => no_move(&self.x_stepper, self.positioning),
+            None => no_move(&self.x_stepper, self.config.positioning),
         };
 
         let y = match y {
             Some(v) => v,
-            None => no_move(&self.y_stepper, self.positioning),
+            None => no_move(&self.y_stepper, self.config.positioning),
         };
 
         let z = match z {
             Some(v) => v,
-            None => no_move(&self.z_stepper, self.positioning),
+            None => no_move(&self.z_stepper, self.config.positioning),
         };
 
         let e = match e {
             Some(v) => v,
-            None => no_move(&self.e_stepper, self.positioning),
+            None => no_move(&self.e_stepper, self.config.positioning),
         };
 
         let dst = Vector3D::new(x, y, z);
@@ -254,9 +251,9 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
             &mut self.z_stepper,
             &mut self.e_stepper,
             dst,
-            self.feedrate,
+            self.config.feedrate,
             e,
-            self.positioning,
+            self.config.positioning,
         )
         .await
     }
@@ -295,7 +292,7 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         }
 
         if let Some(feedrate) = f {
-            self.feedrate = feedrate;
+            self.config.feedrate = feedrate;
         }
 
         let z = match z {
@@ -339,9 +336,10 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
                 &mut self.e_stepper,
                 dst,
                 offset_from_center,
-                self.feedrate,
+                self.config.feedrate,
                 d,
                 e,
+                self.config.arc_unit_length
             )
             .await;
         }
@@ -372,9 +370,10 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
                 &mut self.e_stepper,
                 dst,
                 r,
-                self.feedrate,
+                self.config.feedrate,
                 d,
                 e,
+                self.config.arc_unit_length
             )
             .await;
         }
@@ -414,25 +413,20 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
 
     // retract
     async fn g10(&mut self) -> Result<core::time::Duration, StepperError> {
-        let retraction_length = self.retraction_length.ok_or(StepperError::MoveNotValid)?;
-        let retraction_speed = self.retraction_feedrate.ok_or(StepperError::MoveNotValid)?;
-        let retraction_z_lift = self.retraction_z_lift.ok_or(StepperError::MoveNotValid)?;
         retract::<P, T>(
             &mut self.e_stepper,
             &mut self.z_stepper,
-            retraction_speed,
-            retraction_length,
-            retraction_z_lift,
+            self.config.retraction_feedrate,
+            self.config.retraction_length,
+            self.config.retraction_z_lift,
         )
         .await
     }
 
     // recover
     async fn g11(&mut self) -> Result<core::time::Duration, StepperError> {
-        let recover_length = self.recover_length.ok_or(StepperError::MoveNotValid)?;
-        let recover_speed = self.recover_feedrate.ok_or(StepperError::MoveNotValid)?;
-        let e_destination = self.e_stepper.get_position() + recover_length;
-        linear_move_to::<P, T>(&mut self.e_stepper, e_destination, recover_speed).await
+        let e_destination = self.e_stepper.get_position() + self.config.recover_length;
+        linear_move_to::<P, T>(&mut self.e_stepper, e_destination, self.config.recover_feedrate).await
     }
 
     // auto home

@@ -1,3 +1,18 @@
+# ------------- motion ---------------
+[motion]
+arc_unit_length = 0.0,
+feedrate = 0.0,
+positioning = "absolute",
+
+[motion.retraction]
+feedrate = 0.0,
+length = 0.0,
+z_lift = 0.0,
+
+[motion.recover]
+feedrate = 0.0,
+length = 0.0,
+
 # ------------- steppers ---------------
 
 [steppers.x]
@@ -85,6 +100,8 @@ ch3 = "PA14"
 r_series=0
 r0=0
 b = 0
+max_temperature_limit=200
+min_temperature_limit=200
 
 [hotend.heater.pid]
 k_p = 0
@@ -109,6 +126,8 @@ channel = 1
 r_series=0
 r0=0
 b = 0
+max_temperature_limit=200
+min_temperature_limit=200
 
 [heatbed.heater.pid]
 k_p = 0

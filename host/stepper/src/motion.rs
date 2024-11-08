@@ -270,8 +270,8 @@ pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait>(
     center: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
+    arc_unit_length: Distance
 ) -> Result<Duration, StepperError> {
-    let arc_unit_length = Distance::from_millimeters(1.0);
     if arc_length < arc_unit_length {
         return Err(StepperError::MoveTooShort);
     }
@@ -297,6 +297,7 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
     direction: RotationDirection,
     e_dest: Distance,
     full_circle_enabled: bool,
+    arc_unit_length: Distance
 ) -> Result<Duration, StepperError> {
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let xy_dest = Vector2D::new(dest.get_x(), dest.get_y());
@@ -315,7 +316,7 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
 
     match join!(
         arc_move_2d_arc_length::<P, T>(
-            stepper_a, stepper_b, arc_length, xy_center, speed, direction
+            stepper_a, stepper_b, arc_length, xy_center, speed, direction, arc_unit_length
         ),
         linear_move_to::<P, T>(stepper_c, dest.get_z(), z_speed),
         linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
@@ -338,6 +339,7 @@ pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait>(
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
+    arc_unit_length: Distance
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let angle = source.get_angle();
@@ -345,7 +347,7 @@ pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait>(
     let center_offset_y = radius * sin(angle);
     let center = source + Vector2D::new(center_offset_x, center_offset_y);
     arc_move_3d_e_center::<P, T>(
-        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,arc_unit_length
     )
     .await
 }
@@ -360,11 +362,12 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
+    arc_unit_length: Distance
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let center = source + offset;
     arc_move_3d_e_center::<P, T>(
-        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true,
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true, arc_unit_length
     )
     .await
 }
@@ -972,7 +975,7 @@ mod tests {
         let speed = Speed::from_meters_per_second(0.01);
         let direction = RotationDirection::Clockwise;
         let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(
-            &mut s_x, &mut s_y, arc_length, center, speed, direction,
+            &mut s_x, &mut s_y, arc_length, center, speed, direction, Distance::from_millimeters(1.0)
         )
         .await;
         assert!(res.is_ok());

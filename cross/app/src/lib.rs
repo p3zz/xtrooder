@@ -9,8 +9,8 @@ pub mod utils;
 
 pub enum PrinterError{
     HotendOverheating,
+    HotendUnderheating,
     HeatbedOverheating,
-    ColdExtrusion,
     EndstopHit,
     MoveOutOfBounds
 }

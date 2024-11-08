@@ -11,7 +11,7 @@ mod external {
 
     fn get_string_value(s: String) -> Option<String> {
         s.is_empty().not().then_some(s)
-    }
+    }    
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PinConfig {
@@ -33,6 +33,22 @@ mod external {
         pub fn get_peripheral(&self) -> Option<String> {
             get_string_value(self.peripheral.clone())
         }
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
+    pub struct RecoverMotionConfig{
+
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
+    pub struct RetractionMotionConfig{
+
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
+    pub struct MotionConfig{
+        retraction: RetractionMotionConfig,
+        recover: RetractionMotionConfig,
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
