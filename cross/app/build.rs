@@ -13,26 +13,6 @@ mod external {
         s.is_empty().not().then_some(s)
     }
 
-    pub fn stringify_pin(pin: Option<PinConfig>) -> String {
-        match pin {
-            Some(p) => match p.get_pin() {
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            },
-            None => String::new(),
-        }
-    }
-
-    pub fn stringify_peripheral(peripheral: Option<PeripheralConfig>) -> String {
-        match peripheral {
-            Some(p) => match p.get_peripheral() {
-                Some(s) => format!(", {}", s),
-                None => String::new(),
-            },
-            None => String::new(),
-        }
-    }
-
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PinConfig {
         pin: String,
@@ -55,11 +35,21 @@ mod external {
         }
     }
 
+    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
+    pub struct StepperBounds{
+        pub min: f64,
+        pub max: f64,
+    }
     /* stepper */
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct StepperConfig {
         step: PinConfig,
         dir: PinConfig,
+        stepping_mode: String,
+        distance_per_step: f64,
+        steps_per_revolution: u64,
+        bounds: StepperBounds,
+        positive_direction: String
     }
 
     impl StepperConfig {
@@ -68,6 +58,21 @@ mod external {
         }
         pub fn get_dir(&self) -> PinConfig {
             self.dir.clone()
+        }
+        pub fn get_stepping_mode(&self) -> String{
+            self.stepping_mode.clone()
+        }
+        pub fn get_distance_per_step(&self) -> f64{
+            self.distance_per_step
+        }
+        pub fn get_steps_per_revolution(&self) -> u64{
+            self.steps_per_revolution
+        }
+        pub fn get_bounds(&self) -> StepperBounds{
+            self.bounds
+        }
+        pub fn get_positive_direction(&self) -> String{
+            self.positive_direction.clone()
         }
     }
 
@@ -379,6 +384,12 @@ fn main() {
         .get_dir()
         .get_pin()
         .expect("Stepper X dir pin is missing");
+    let steppers_x_stepping_mode = conf.steppers.get_x().get_stepping_mode();
+    let steppers_x_distance_per_step = conf.steppers.get_x().get_distance_per_step();
+    let steppers_x_steps_per_revolution = conf.steppers.get_x().get_steps_per_revolution();
+    let steppers_x_bounds = conf.steppers.get_x().get_bounds();
+    let steppers_x_positive_direction = conf.steppers.get_x().get_positive_direction();
+
     let steppers_y_step_pin = conf
         .steppers
         .get_y()
@@ -391,6 +402,11 @@ fn main() {
         .get_dir()
         .get_pin()
         .expect("Stepper Y dir pin is missing");
+    let steppers_y_stepping_mode = conf.steppers.get_y().get_stepping_mode();
+    let steppers_y_distance_per_step = conf.steppers.get_y().get_distance_per_step();
+    let steppers_y_steps_per_revolution = conf.steppers.get_y().get_steps_per_revolution();
+    let steppers_y_bounds = conf.steppers.get_y().get_bounds();
+    let steppers_y_positive_direction = conf.steppers.get_y().get_positive_direction();
     let steppers_z_step_pin = conf
         .steppers
         .get_z()
@@ -403,6 +419,11 @@ fn main() {
         .get_dir()
         .get_pin()
         .expect("Stepper Z dir pin is missing");
+    let steppers_z_stepping_mode = conf.steppers.get_z().get_stepping_mode();
+    let steppers_z_distance_per_step = conf.steppers.get_z().get_distance_per_step();
+    let steppers_z_steps_per_revolution = conf.steppers.get_z().get_steps_per_revolution();
+    let steppers_z_bounds = conf.steppers.get_z().get_bounds();
+    let steppers_z_positive_direction = conf.steppers.get_z().get_positive_direction();
     let steppers_e_step_pin = conf
         .steppers
         .get_e()
@@ -415,6 +436,11 @@ fn main() {
         .get_dir()
         .get_pin()
         .expect("Stepper E dir pin is missing");
+    let steppers_e_stepping_mode = conf.steppers.get_e().get_stepping_mode();
+    let steppers_e_distance_per_step = conf.steppers.get_e().get_distance_per_step();
+    let steppers_e_steps_per_revolution = conf.steppers.get_e().get_steps_per_revolution();
+    let steppers_e_bounds = conf.steppers.get_e().get_bounds();
+    let steppers_e_positive_direction = conf.steppers.get_e().get_positive_direction();
 
     let pwm_timer = conf
         .pwm
@@ -472,8 +498,8 @@ fn main() {
         .expect("Hotend ADC DMA peripheral is missing");
     let hotend_pwm_output_channel = conf.hotend.get_pwm().get_channel();
     let hotend_heater_r0 = conf.hotend.get_heater().get_r0();
-    let hotend_heater_r_series = conf.hotend.get_heater().get_r0();
-    let hotend_heater_b = conf.hotend.get_heater().get_r_series();
+    let hotend_heater_r_series = conf.hotend.get_heater().get_r_series();
+    let hotend_heater_b = conf.hotend.get_heater().get_b();
     let hotend_heater_pid = conf.hotend.get_heater().get_pid();
 
     let heatbed_adc_peripheral = conf
@@ -613,18 +639,38 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
             x: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
+                stepping_mode: \"{}\",
+                distance_per_step: {:.2},
+                steps_per_revolution: {},
+                bounds: ({:.2}, {:.2}),
+                positive_direction: \"{}\"
             }},
             y: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
+                stepping_mode: \"{}\",
+                distance_per_step: {:.2},
+                steps_per_revolution: {},
+                bounds: ({:.2}, {:.2}),
+                positive_direction: \"{}\"
             }},
             z: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
+                stepping_mode: \"{}\",
+                distance_per_step: {:.2},
+                steps_per_revolution: {},
+                bounds: ({:.2}, {:.2}),
+                positive_direction: \"{}\"
             }},
             e: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
+                stepping_mode: \"{}\",
+                distance_per_step: {:.2},
+                steps_per_revolution: {},
+                bounds: ({:.2}, {:.2}),
+                positive_direction: \"{}\"
             }}
         }},
         pwm: PwmConfig{{
@@ -734,12 +780,36 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         sdcard_spi_cs,
         steppers_x_step_pin,
         steppers_x_dir_pin,
+        steppers_x_stepping_mode.as_str(),
+        steppers_x_distance_per_step,
+        steppers_x_steps_per_revolution,
+        steppers_x_bounds.min,
+        steppers_x_bounds.max,
+        steppers_x_positive_direction,
         steppers_y_step_pin,
         steppers_y_dir_pin,
+        steppers_y_stepping_mode.as_str(),
+        steppers_y_distance_per_step,
+        steppers_y_steps_per_revolution,
+        steppers_y_bounds.min,
+        steppers_y_bounds.max,
+        steppers_y_positive_direction,
         steppers_z_step_pin,
         steppers_z_dir_pin,
+        steppers_z_stepping_mode.as_str(),
+        steppers_z_distance_per_step,
+        steppers_z_steps_per_revolution,
+        steppers_z_bounds.min,
+        steppers_z_bounds.max,
+        steppers_z_positive_direction,
         steppers_e_step_pin,
         steppers_e_dir_pin,
+        steppers_e_stepping_mode.as_str(),
+        steppers_e_distance_per_step,
+        steppers_e_steps_per_revolution,
+        steppers_e_bounds.min,
+        steppers_e_bounds.max,
+        steppers_e_positive_direction,
         pwm_frequency,
         pwm_timer,
         pwm_ch1,

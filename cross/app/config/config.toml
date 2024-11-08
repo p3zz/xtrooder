@@ -1,10 +1,25 @@
 # ------------- steppers ---------------
 
+[steppers.x]
+stepping_mode = "full"
+distance_per_step = 1
+steps_per_revolution = 200
+bounds = [-10, 10]
+positive_direction = "clockwise"
+
 [steppers.x.step]
 pin = "PA0"
 
 [steppers.x.dir]
 pin = "PA1"
+
+[steppers.y]
+stepping_mode = "full"
+distance_per_step = 1
+steps_per_revolution = 200
+bounds.min = -10
+bounds.max = 10
+positive_direction = "clockwise"
 
 [steppers.y.step]
 pin = "PA12"
@@ -12,11 +27,25 @@ pin = "PA12"
 [steppers.y.dir]
 pin = "PA10"
 
+[steppers.z]
+stepping_mode = "full"
+distance_per_step = 1
+steps_per_revolution = 200
+bounds = [-10, 10]
+positive_direction = "clockwise"
+
 [steppers.z.step]
 pin = "PA4"
 
 [steppers.z.dir]
 pin = "PA5"
+
+[steppers.e]
+stepping_mode = "full"
+distance_per_step = 1
+steps_per_revolution = 200
+bounds = [-10, 10]
+positive_direction = "clockwise"
 
 [steppers.e.step]
 pin = "PA6"

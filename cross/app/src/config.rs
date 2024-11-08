@@ -1,6 +1,11 @@
 pub struct StepperConfig<S, D> {
     pub step_pin: S,
     pub dir_pin: D,
+    pub stepping_mode: &'static str,
+    pub distance_per_step: f64,
+    pub steps_per_revolution: u64,
+    pub bounds: (f64, f64),
+    pub positive_direction: &'static str
 }
 
 pub struct UartPartConfig<P, D> {
