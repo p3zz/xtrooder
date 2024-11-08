@@ -7,6 +7,14 @@ pub mod fan;
 pub mod hotend;
 pub mod utils;
 
+pub enum PrinterError{
+    HotendOverheating,
+    HeatbedOverheating,
+    ColdExtrusion,
+    EndstopHit,
+    MoveOutOfBounds
+}
+
 #[macro_export]
 macro_rules! init_pin {
     ($config: ident) => {
