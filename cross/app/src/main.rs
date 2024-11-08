@@ -5,7 +5,7 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
-use app::config::{SdCardConfig, SteppersConfig, ThermistorConfig};
+use app::config::{FanConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
     HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
@@ -77,11 +77,6 @@ static UART_TX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
 static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 #[link_section = ".ram_d3"]
 static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
-
-struct MyStruct<T, P> {
-    pin1: T,
-    pin2: P,
-}
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -242,7 +237,8 @@ async fn command_dispatcher_task() {
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn hotend_handler(
-    config: ThermistorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>
+    config: ThermistorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
+    fan_config: FanConfig
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
@@ -253,14 +249,19 @@ async fn hotend_handler(
         config.adc.dma,
         config.adc.input.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohms(100_000.0),
-        Resistance::from_ohms(10_000.0),
-        Temperature::from_kelvin(3950.0),
+        Resistance::from_ohms(config.heater.r0),
+        Resistance::from_ohms(config.heater.r_series),
+        Temperature::from_kelvin(config.heater.b),
         readings,
     );
 
-    let mut fan_controller = FanController::new(TimerChannel::Ch2, 10f64);
-    let heater = Heater::new(TimerChannel::Ch4);
+    let channel = fan_config.pwm.channel;
+    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let mut fan_controller = FanController::new(channel, 10f64);
+
+    let channel = config.pwm.channel;
+    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let heater = Heater::new(channel);
     let mut hotend = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
@@ -733,7 +734,7 @@ async fn main(spawner: Spawner) {
 
     // FIXME the error is weird, we probably need to check the pins compatibility
     spawner
-        .spawn(hotend_handler(printer_config.hotend))
+        .spawn(hotend_handler(printer_config.hotend, printer_config.fan))
         .unwrap();
 
     spawner
