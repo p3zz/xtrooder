@@ -44,6 +44,8 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
+use math::common::RotationDirection;
+use math::measurements::Distance;
 use math::{
     measurements::{Resistance, Temperature},
     DistanceUnit,
@@ -51,7 +53,7 @@ use math::{
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions};
+use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use stepper::TimerTrait;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -261,7 +263,7 @@ async fn hotend_handler(
 
     let channel = config.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
-    let heater = Heater::new(channel);
+    let heater = Heater::new(channel, config.heater.pid);
     let mut hotend = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
@@ -347,7 +349,7 @@ async fn heatbed_handler(
 
     let channel = config.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
-    let heater = Heater::new(channel);
+    let heater = Heater::new(channel, config.heater.pid);
     let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
@@ -543,29 +545,58 @@ async fn planner_handler(
 
     let x_step = config.x.step_pin;
     let x_dir = config.x.dir_pin;
-    let x_options = StepperOptions::default();
-    let x_attachment = StepperAttachment::default();
+
+    let x_options = StepperOptions{
+        steps_per_revolution: config.x.steps_per_revolution,
+        stepping_mode: SteppingMode::from(config.x.stepping_mode),
+        bounds: Some(config.x.bounds),
+        positive_direction: RotationDirection::from(config.x.positive_direction)
+    };
+    let x_attachment = StepperAttachment{
+        distance_per_step: Distance::from_millimeters(config.x.distance_per_step)
+    };
 
     let x_stepper = init_stepper!(x_step, x_dir, x_options, x_attachment);
 
     let y_step = config.y.step_pin;
     let y_dir = config.y.dir_pin;
-    let y_options = StepperOptions::default();
-    let y_attachment = StepperAttachment::default();
+    let y_options = StepperOptions{
+        steps_per_revolution: config.y.steps_per_revolution,
+        stepping_mode: SteppingMode::from(config.y.stepping_mode),
+        bounds: Some(config.y.bounds),
+        positive_direction: RotationDirection::from(config.y.positive_direction)
+    };
+    let y_attachment = StepperAttachment{
+        distance_per_step: Distance::from_millimeters(config.y.distance_per_step)
+    };
 
     let y_stepper = init_stepper!(y_step, y_dir, y_options, y_attachment);
 
     let z_step = config.z.step_pin;
     let z_dir = config.z.dir_pin;
-    let z_options = StepperOptions::default();
-    let z_attachment = StepperAttachment::default();
+    let z_options = StepperOptions{
+        steps_per_revolution: config.z.steps_per_revolution,
+        stepping_mode: SteppingMode::from(config.z.stepping_mode),
+        bounds: Some(config.z.bounds),
+        positive_direction: RotationDirection::from(config.z.positive_direction)
+    };
+    let z_attachment = StepperAttachment{
+        distance_per_step: Distance::from_millimeters(config.z.distance_per_step)
+    };
 
     let z_stepper = init_stepper!(z_step, z_dir, z_options, z_attachment);
 
     let e_step = config.e.step_pin;
     let e_dir = config.e.dir_pin;
-    let e_options = StepperOptions::default();
-    let e_attachment = StepperAttachment::default();
+    let e_options = StepperOptions{
+        steps_per_revolution: config.e.steps_per_revolution,
+        stepping_mode: SteppingMode::from(config.e.stepping_mode),
+        bounds: Some(config.e.bounds),
+        positive_direction: RotationDirection::from(config.e.positive_direction)
+    };
+    let e_attachment = StepperAttachment{
+        distance_per_step: Distance::from_millimeters(config.e.distance_per_step)
+    };
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
 
@@ -685,7 +716,7 @@ async fn main(spawner: Spawner) {
     let printer_config = peripherals_init(p);
 
     let mut uart_config = embassy_stm32::usart::Config::default();
-    uart_config.baudrate = 19200;
+    uart_config.baudrate = printer_config.uart.baudrate as u32;
 
     // FIXME UART pins
     // let uart = Uart::new(

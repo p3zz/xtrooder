@@ -4,6 +4,8 @@ use math::measurements::Temperature;
 use micromath::F32Ext;
 use pid_lite::Controller;
 
+use crate::config::{HeaterConfig, PidConfig};
+
 pub struct Heater {
     ch: Channel,
     pid: Controller,
@@ -11,12 +13,12 @@ pub struct Heater {
 }
 
 impl Heater {
-    pub fn new(ch: Channel) -> Heater {
+    pub fn new(ch: Channel, config: PidConfig) -> Heater {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),
-            20.0,
-            0.02,
-            0.0,
+            config.k_p,
+            config.k_i,
+            config.k_d,
         );
         Heater {
             ch,

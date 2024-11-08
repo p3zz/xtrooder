@@ -23,6 +23,16 @@ impl From<RotationDirection> for i8 {
     }
 }
 
+impl From<&str> for RotationDirection{
+    fn from(value: &str) -> Self {
+        match value{
+            "clockwise" => RotationDirection::Clockwise,
+            "counterclockwise" => RotationDirection::CounterClockwise,
+            _ => panic!("Invalid rotation direction")
+        }
+    }
+}
+
 pub fn max<T: PartialEq + PartialOrd>(other: &[T]) -> Option<&T> {
     let mut max = other.first()?;
     for e in other {

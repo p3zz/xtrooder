@@ -80,6 +80,19 @@ impl From<SteppingMode> for u8 {
     }
 }
 
+impl From<&str> for SteppingMode{
+    fn from(value: &str) -> Self {
+        match value{
+            "full" => SteppingMode::FullStep,
+            "half" => SteppingMode::HalfStep,
+            "quarter" => SteppingMode::QuarterStep,
+            "eighth" => SteppingMode::EighthStep,
+            "sixteenth" => SteppingMode::SixteenthStep,
+            _ => panic!("Invalid stepping mode")
+        }
+    }
+}
+
 pub struct NotAttached {}
 pub struct Attached {}
 
