@@ -188,6 +188,9 @@ mod external {
     pub struct PwmConfig {
         frequency: u64,
         timer: String,
+        ch1: String,
+        ch2: String,
+        ch3: String,
     }
 
     impl PwmConfig {
@@ -198,19 +201,26 @@ mod external {
         pub fn get_timer(&self) -> Option<String> {
             get_string_value(self.timer.clone())
         }
+
+        pub fn get_ch1(&self) -> Option<String>{
+            get_string_value(self.ch1.clone())
+        }
+
+        pub fn get_ch2(&self) -> Option<String>{
+            get_string_value(self.ch2.clone())
+        }
+
+        pub fn get_ch3(&self) -> Option<String>{
+            get_string_value(self.ch3.clone())
+        }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PwmOutputConfig {
-        output: String,
         channel: u8,
     }
 
     impl PwmOutputConfig {
-        pub fn get_output(&self) -> Option<String> {
-            get_string_value(self.output.clone())
-        }
-
         pub fn get_channel(&self) -> u8 {
             self.channel
         }
@@ -275,22 +285,22 @@ mod external {
     // b = 0
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
     pub struct HeaterConfig {
-        r_series: u64,
-        r0: u64,
-        b: u64,
+        r_series: f64,
+        r0: f64,
+        b: f64,
         pid: PidConfig,
     }
 
     impl HeaterConfig {
-        pub fn get_r_series(&self) -> u64 {
+        pub fn get_r_series(&self) -> f64 {
             self.r_series
         }
 
-        pub fn get_r0(&self) -> u64 {
+        pub fn get_r0(&self) -> f64 {
             self.r0
         }
 
-        pub fn get_b(&self) -> u64 {
+        pub fn get_b(&self) -> f64 {
             self.b
         }
         pub fn get_pid(&self) -> PidConfig {
@@ -411,6 +421,9 @@ fn main() {
         .get_timer()
         .expect("PWM timer peripheral is missing");
     let pwm_frequency = conf.pwm.get_frequency();
+    let pwm_ch1 = conf.pwm.get_ch1().expect("PMW ch1 is missing");
+    let pwm_ch2 = conf.pwm.get_ch2().expect("PMW ch2 is missing");
+    let pwm_ch3 = conf.pwm.get_ch3().expect("PMW ch3 is missing");
 
     let uart_peripheral = conf
         .uart
@@ -457,11 +470,6 @@ fn main() {
         .get_dma()
         .get_peripheral()
         .expect("Hotend ADC DMA peripheral is missing");
-    let hotend_pwm_output_pin = conf
-        .hotend
-        .get_pwm()
-        .get_output()
-        .expect("Hotend PWM output pin is missing");
     let hotend_pwm_output_channel = conf.hotend.get_pwm().get_channel();
     let hotend_heater_r0 = conf.hotend.get_heater().get_r0();
     let hotend_heater_r_series = conf.hotend.get_heater().get_r0();
@@ -485,22 +493,12 @@ fn main() {
         .get_dma()
         .get_peripheral()
         .expect("Heatbed ADC DMA peripheral is missing");
-    let heatbed_pwm_output_pin = conf
-        .heatbed
-        .get_pwm()
-        .get_output()
-        .expect("Heatbed PWM output pin is missing");
     let heatbed_pwm_output_channel = conf.heatbed.get_pwm().get_channel();
     let heatbed_heater_r0 = conf.heatbed.get_heater().get_r0();
     let heatbed_heater_r_series = conf.heatbed.get_heater().get_r0();
     let heatbed_heater_b = conf.heatbed.get_heater().get_r_series();
     let heatbed_heater_pid = conf.heatbed.get_heater().get_pid();
 
-    let fan_pwm_output_pin = conf
-        .fan
-        .get_pwm()
-        .get_output()
-        .expect("Fan PWM output pin is missing");
     let fan_pwm_output_channel = conf.fan.get_pwm().get_channel();
 
     let sdcard_spi_peripheral = conf
@@ -543,17 +541,6 @@ fn main() {
         panic!("Fan PWM channel must be between 1 and 4");
     }
 
-    if hotend_pwm_output_channel == heatbed_pwm_output_channel{
-        panic!("The same PWM channel has been defined for both hotend and heatbed");
-    }
-
-    if heatbed_pwm_output_channel == fan_pwm_output_channel{
-        panic!("The same PWM channel has been defined for both heatbed and fan");
-    }
-
-    if fan_pwm_output_channel == hotend_pwm_output_channel{
-        panic!("The same PWM channel has been defined for both fan and hotend");
-    }
 
     let string = format!(
         "
@@ -571,6 +558,9 @@ pub type ZDirPin = {};
 pub type EStepPin = {};
 pub type EDirPin = {};
 pub type PwmTimer = {};
+pub type PwmCh1Pin = {};
+pub type PwmCh2Pin = {};
+pub type PwmCh3Pin = {};
 pub type UartPeripheral = {};
 pub type UartRxPin = {};
 pub type UartRxDma = {};
@@ -579,12 +569,9 @@ pub type UartTxDma = {};
 pub type HotendAdcPeripheral = {};
 pub type HotendAdcInputPin = {};
 pub type HotendAdcDma = {};
-pub type HotendPwmPin = {};
 pub type HeatbedAdcPeripheral = {};
 pub type HeatbedAdcInputPin = {};
 pub type HeatbedAdcDma = {};
-pub type HeatbedPwmPin = {};
-pub type FanPwmPin = {};
 pub type SdCardSpiPeripheral = {};
 pub type SdCardSpiTimer = {};
 pub type SdCardSpiMosiPin = {};
@@ -601,6 +588,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
     EStepPin,
     EDirPin,
     PwmTimer,
+    PwmCh1Pin,
+    PwmCh2Pin,
+    PwmCh3Pin,
     UartPeripheral,
     UartRxPin,
     UartRxDma,
@@ -609,12 +599,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
     HotendAdcPeripheral,
     HotendAdcInputPin,
     HotendAdcDma,
-    HotendPwmPin,
     HeatbedAdcPeripheral,
     HeatbedAdcInputPin,
     HeatbedAdcDma,
-    HeatbedPwmPin,
-    FanPwmPin,
     SdCardSpiPeripheral,
     SdCardSpiTimer,
     SdCardSpiMosiPin,
@@ -642,7 +629,10 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         }},
         pwm: PwmConfig{{
             frequency: {},
-            timer: p.{}
+            timer: p.{},
+            ch1: p.{},
+            ch2: p.{},
+            ch3: p.{},
         }},
         uart: UartConfig{{
             peripheral: p.{},
@@ -663,7 +653,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
                 dma: p.{}
             }},
             pwm: PwmOutputConfig {{
-                output: p.{},
                 channel: {}
             }},
             heater: HeaterConfig {{
@@ -684,7 +673,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
                 dma: p.{}
             }},
             pwm: PwmOutputConfig {{
-                output: p.{},
                 channel: {}
             }},
             heater: HeaterConfig {{
@@ -700,7 +688,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         }},
         fan: FanConfig{{
             pwm: PwmOutputConfig {{
-                output: p.{},
                 channel: {}
             }}
         }},
@@ -726,6 +713,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         steppers_e_step_pin,
         steppers_e_dir_pin,
         pwm_timer,
+        pwm_ch1,
+        pwm_ch2,
+        pwm_ch3,
         uart_peripheral,
         uart_rx_pin,
         uart_rx_dma,
@@ -734,12 +724,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         hotend_adc_peripheral,
         hotend_adc_input_pin,
         hotend_adc_dma,
-        hotend_pwm_output_pin,
         heatbed_adc_peripheral,
         heatbed_adc_input_pin,
         heatbed_adc_dma,
-        heatbed_pwm_output_pin,
-        fan_pwm_output_pin,
         sdcard_spi_peripheral,
         sdcard_spi_timer,
         sdcard_spi_mosi,
@@ -755,6 +742,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         steppers_e_dir_pin,
         pwm_frequency,
         pwm_timer,
+        pwm_ch1,
+        pwm_ch2,
+        pwm_ch3,
         uart_peripheral,
         uart_baudrate,
         uart_rx_pin,
@@ -764,7 +754,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         hotend_adc_peripheral,
         hotend_adc_input_pin,
         hotend_adc_dma,
-        hotend_pwm_output_pin,
         hotend_pwm_output_channel,
         hotend_heater_r0,
         hotend_heater_r_series,
@@ -775,7 +764,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         heatbed_adc_peripheral,
         heatbed_adc_input_pin,
         heatbed_adc_dma,
-        heatbed_pwm_output_pin,
         heatbed_pwm_output_channel,
         heatbed_heater_r0,
         heatbed_heater_r_series,
@@ -783,7 +771,6 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         heatbed_heater_pid.get_k_p(),
         heatbed_heater_pid.get_k_i(),
         heatbed_heater_pid.get_k_d(),
-        fan_pwm_output_pin,
         fan_pwm_output_channel,
         sdcard_spi_peripheral,
         sdcard_spi_timer,

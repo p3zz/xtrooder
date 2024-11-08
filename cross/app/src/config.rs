@@ -23,42 +23,20 @@ pub struct SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED> {
 }
 
 pub struct PrinterConfig<
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    AA,
-    AB,
-    AC,
-    AD,
-    AE,
+XP, XD, YP, YD, ZP, ZD, EP, ED,
+PWMT, CH1, CH2, CH3,
+UP, RXP, RXD, TXP, TXD,
+HOP, HOI, HOD,
+HEP, HEI, HED,
+SPIP, SPIT, SPIMO, SPIMI, SPICS
 > {
-    pub steppers: SteppersConfig<A, B, C, D, E, F, G, H>,
-    pub pwm: PwmConfig<I>,
-    pub uart: UartConfig<J, K, L, M, N>,
-    pub hotend: ThermistorConfig<O, P, Q, R>,
-    pub heatbed: ThermistorConfig<V, W, X, Y>,
-    pub fan: FanConfig<Z>,
-    pub sdcard: SdCardConfig<AA, AB, AC, AD, AE>,
+    pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
+    pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
+    pub uart: UartConfig<UP, RXP, RXD, TXP, TXD>,
+    pub hotend: ThermistorConfig<HOP, HOI, HOD>,
+    pub heatbed: ThermistorConfig<HEP, HEI, HED>,
+    pub fan: FanConfig,
+    pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
 }
 
 pub struct AdcConfig<P, I, D> {
@@ -67,13 +45,15 @@ pub struct AdcConfig<P, I, D> {
     pub dma: D,
 }
 
-pub struct PwmConfig<T> {
+pub struct PwmConfig<T, CH1, CH2, CH3> {
     pub frequency: u64,
     pub timer: T,
+    pub ch1: CH1,
+    pub ch2: CH2,
+    pub ch3: CH3,
 }
 
-pub struct PwmOutputConfig<O> {
-    pub output: O,
+pub struct PwmOutputConfig {
     pub channel: u8,
 }
 
@@ -91,20 +71,20 @@ pub struct PidConfig {
 }
 
 pub struct HeaterConfig {
-    pub r_series: u64,
-    pub r0: u64,
-    pub b: u64,
+    pub r_series: f64,
+    pub r0: f64,
+    pub b: f64,
     pub pid: PidConfig,
 }
 
-pub struct ThermistorConfig<ADCP, ADCI, ADCD, PWMO> {
+pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
     pub heater: HeaterConfig,
     pub adc: AdcConfig<ADCP, ADCI, ADCD>,
-    pub pwm: PwmOutputConfig<PWMO>,
+    pub pwm: PwmOutputConfig,
 }
 
-pub struct FanConfig<PWMO> {
-    pub pwm: PwmOutputConfig<PWMO>,
+pub struct FanConfig {
+    pub pwm: PwmOutputConfig,
 }
 
 pub struct SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS> {

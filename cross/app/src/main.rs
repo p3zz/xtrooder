@@ -5,6 +5,7 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
+use app::config::{SdCardConfig, SteppersConfig, ThermistorConfig};
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
     HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
@@ -13,17 +14,20 @@ use app::ext::{
 };
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::{init_pin, init_stepper};
-// use app::config::{peripherals_init, PrinterConfig};
+use app::{init_pin, init_stepper, timer_channel};
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::gpio::OutputType;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
-use embassy_stm32::usart::{self, UartRx, UartTx};
+use embassy_stm32::time::hz;
+use embassy_stm32::timer::low_level::CountingMode;
+use embassy_stm32::timer::simple_pwm::PwmPin;
+use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
@@ -236,20 +240,18 @@ async fn command_dispatcher_task() {
 }
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
-// #[embassy_executor::task]
+#[embassy_executor::task]
 async fn hotend_handler(
-    adc_peri: HotendAdcPeripheral,
-    dma_peri: HotendAdcDma,
-    read_pin: HotendAdcInputPin,
+    config: ThermistorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
-        adc_peri,
-        dma_peri,
-        read_pin.degrade_adc(),
+        config.adc.peripheral,
+        config.adc.dma,
+        config.adc.input.degrade_adc(),
         Resolution::BITS12,
         Resistance::from_ohms(100_000.0),
         Resistance::from_ohms(10_000.0),
@@ -325,26 +327,26 @@ async fn hotend_handler(
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn heatbed_handler(
-    adc_peri: HeatbedAdcPeripheral,
-    dma_peri: HeatbedAdcDma,
-    read_pin: HeatbedAdcInputPin,
+    config: ThermistorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let thermistor = Thermistor::new(
-        adc_peri,
-        dma_peri,
-        read_pin.degrade_adc(),
+        config.adc.peripheral,
+        config.adc.dma,
+        config.adc.input.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohms(100_000.0),
-        Resistance::from_ohms(10_000.0),
-        Temperature::from_kelvin(3950.0),
+        Resistance::from_ohms(config.heater.r0),
+        Resistance::from_ohms(config.heater.r_series),
+        Temperature::from_kelvin(config.heater.b),
         readings,
     );
 
-    let heater = Heater::new(TimerChannel::Ch4);
+    let channel = config.pwm.channel;
+    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let heater = Heater::new(channel);
     let mut heatbed = Hotend::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
@@ -397,19 +399,15 @@ async fn heatbed_handler(
 
 #[embassy_executor::task]
 async fn sdcard_handler(
-    spi_peri: SdCardSpiPeripheral,
-    clk: SdCardSpiTimer,
-    mosi: SdCardSpiMosiPin,
-    miso: SdCardSpiMisoPin,
-    cs: SdCardSpiCsPin,
+    config: SdCardConfig<SdCardSpiPeripheral, SdCardSpiTimer, SdCardSpiMosiPin, SdCardSpiMisoPin, SdCardSpiCsPin>
 ) {
     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
-    let spi = spi::Spi::new_blocking(spi_peri, clk, mosi, miso, Default::default());
+    let spi = spi::Spi::new_blocking(config.spi.peripheral, config.spi.clk, config.spi.mosi, config.spi.miso, Default::default());
     let spi_bus = NoopMutex::new(RefCell::new(spi));
     let spi_bus = SPI_BUS.init(spi_bus);
 
     // Device 1, using embedded-hal compatible driver for ST7735 LCD display
-    let cs_pin = Output::new(cs, Level::High, embassy_stm32::gpio::Speed::Low);
+    let cs_pin = Output::new(config.spi.cs, Level::High, embassy_stm32::gpio::Speed::Low);
 
     let spi = SpiDevice::new(spi_bus, cs_pin);
     let sdcard = SdCard::new(spi, Delay);
@@ -529,37 +527,47 @@ async fn sdcard_handler(
 
 #[embassy_executor::task]
 async fn planner_handler(
-    x_step_pin: XStepPin,
-    x_dir_pin: XDirPin,
-    y_step_pin: YStepPin,
-    y_dir_pin: YDirPin,
-    z_step_pin: ZStepPin,
-    z_dir_pin: ZDirPin,
-    e_step_pin: EStepPin,
-    e_dir_pin: EDirPin,
+    config: SteppersConfig<
+    XStepPin,
+    XDirPin,
+    YStepPin,
+    YDirPin,
+    ZStepPin,
+    ZDirPin,
+    EStepPin,
+    EDirPin>
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
 
+    let x_step = config.x.step_pin;
+    let x_dir = config.x.dir_pin;
     let x_options = StepperOptions::default();
     let x_attachment = StepperAttachment::default();
 
-    let x_stepper = init_stepper!(x_step_pin, x_dir_pin, x_options, x_attachment);
+    let x_stepper = init_stepper!(x_step, x_dir, x_options, x_attachment);
 
+    let y_step = config.y.step_pin;
+    let y_dir = config.y.dir_pin;
     let y_options = StepperOptions::default();
     let y_attachment = StepperAttachment::default();
 
-    let y_stepper = init_stepper!(y_step_pin, y_dir_pin, y_options, y_attachment);
+    let y_stepper = init_stepper!(y_step, y_dir, y_options, y_attachment);
 
+    let z_step = config.z.step_pin;
+    let z_dir = config.z.dir_pin;
     let z_options = StepperOptions::default();
     let z_attachment = StepperAttachment::default();
 
-    let z_stepper = init_stepper!(z_step_pin, z_dir_pin, z_options, z_attachment);
+    let z_stepper = init_stepper!(z_step, z_dir, z_options, z_attachment);
 
+    let e_step = config.e.step_pin;
+    let e_dir = config.e.dir_pin;
     let e_options = StepperOptions::default();
     let e_attachment = StepperAttachment::default();
 
-    let e_stepper = init_stepper!(e_step_pin, e_dir_pin, e_options, e_attachment);
+    let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
+
 
     let mut planner: Planner<StepperPin<'_>, StepperTimer> =
         Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
@@ -678,6 +686,7 @@ async fn main(spawner: Spawner) {
     let mut uart_config = embassy_stm32::usart::Config::default();
     uart_config.baudrate = 19200;
 
+    // FIXME UART pins
     // let uart = Uart::new(
     //     printer_config.uart.peripheral, printer_config.uart.rx.pin, printer_config.uart.rx.dma, Irqs, printer_config.uart.tx.pin, printer_config.uart.tx.dma, uart_config,
     // )
@@ -694,6 +703,22 @@ async fn main(spawner: Spawner) {
     //     uart_tx.replace(tx);
     // }
 
+    // FIXME PWM pins
+    // let pwm= SimplePwm::new(
+    //     printer_config.pwm.timer,
+    //     Some(PwmPin::new_ch1(printer_config.pwm.ch1, OutputType::PushPull)),
+    //     Some(PwmPin::new_ch2(printer_config.pwm.ch2, OutputType::PushPull)),
+    //     Some(PwmPin::new_ch3(printer_config.pwm.ch3, OutputType::PushPull)),
+    //     None,
+    //     hz(1000),
+    //     CountingMode::EdgeAlignedUp
+    // );
+
+    // {
+    //     let mut pwm_global = PMW.lock().await;
+    //     pwm_global.replace(pwm);
+    // }
+
     spawner.spawn(input_handler()).unwrap();
 
     spawner.spawn(output_handler()).unwrap();
@@ -702,39 +727,27 @@ async fn main(spawner: Spawner) {
 
     spawner
         .spawn(heatbed_handler(
-            printer_config.heatbed.adc.peripheral,
-            printer_config.heatbed.adc.dma,
-            printer_config.heatbed.adc.input,
+            printer_config.heatbed
         ))
         .unwrap();
 
     // FIXME the error is weird, we probably need to check the pins compatibility
-    // spawner
-    //     .spawn(hotend_handler(printer_config.hotend.adc.peripheral, printer_config.hotend.adc.dma, printer_config.hotend.adc.input))
-    //     .unwrap();
+    spawner
+        .spawn(hotend_handler(printer_config.hotend))
+        .unwrap();
 
     spawner
         .spawn(planner_handler(
-            printer_config.steppers.x.step_pin,
-            printer_config.steppers.x.dir_pin,
-            printer_config.steppers.y.step_pin,
-            printer_config.steppers.y.dir_pin,
-            printer_config.steppers.z.step_pin,
-            printer_config.steppers.z.dir_pin,
-            printer_config.steppers.e.step_pin,
-            printer_config.steppers.e.dir_pin,
+            printer_config.steppers
         ))
         .unwrap();
 
     spawner
         .spawn(sdcard_handler(
-            printer_config.sdcard.spi.peripheral,
-            printer_config.sdcard.spi.clk,
-            printer_config.sdcard.spi.mosi,
-            printer_config.sdcard.spi.miso,
-            printer_config.sdcard.spi.cs,
+            printer_config.sdcard
         ))
         .unwrap();
+    
 
     loop {
         info!("[MAIN LOOP] alive");

@@ -46,6 +46,9 @@ peripheral="DMA1_CH1"
 [pwm]
 frequency = 0
 timer = "TIM2"
+ch1 = "PA11"
+ch2 = "PA13"
+ch3 = "PA14"
 
 # ------------- hotend ---------------
 
@@ -69,7 +72,6 @@ pin = "PA3"
 peripheral = "DMA1_CH2"
 
 [hotend.pwm]
-output = "PA11"
 channel = 1
 
 # ------------- heatbed ---------------
@@ -94,13 +96,11 @@ pin = "PA2"
 peripheral = "DMA1_CH3"
 
 [heatbed.pwm]
-output = "PA13"
 channel = 2
 
 # ------------- fan ---------------
 
 [fan.pwm]
-output = "PA14"
 channel = 3
 
 # ------------- sdcard ---------------

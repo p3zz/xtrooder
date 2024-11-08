@@ -27,3 +27,16 @@ macro_rules! init_stepper {
         )
     };
 }
+
+#[macro_export]
+macro_rules! timer_channel{
+    ($channel: ident) => {
+        match $channel{
+            1 => Some(TimerChannel::Ch1),
+            2 => Some(TimerChannel::Ch2),
+            3 => Some(TimerChannel::Ch3),
+            4 => Some(TimerChannel::Ch4),
+            _ => None
+        }  
+    };
+}
