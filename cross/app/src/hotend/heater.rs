@@ -1,19 +1,22 @@
+use core::marker::PhantomData;
+
 use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel};
 use embassy_time::Duration;
 use math::measurements::Temperature;
 use micromath::F32Ext;
 use pid_lite::Controller;
 
-use crate::config::{HeaterConfig, PidConfig};
+use crate::config::PidConfig;
 
-pub struct Heater {
+pub struct Heater<T: GeneralInstance4Channel> {
     ch: Channel,
     pid: Controller,
     target_temperature: Option<Temperature>,
+    phantom: PhantomData<T>
 }
 
-impl Heater {
-    pub fn new(ch: Channel, config: PidConfig) -> Heater {
+impl<T: GeneralInstance4Channel> Heater<T> {
+    pub fn new(ch: Channel, config: PidConfig) -> Self {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),
             config.k_p,
@@ -24,18 +27,19 @@ impl Heater {
             ch,
             pid,
             target_temperature: None,
+            phantom: PhantomData
         }
     }
 
-    pub fn enable<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) {
+    pub fn enable(&self, pwm: &mut SimplePwm<'_, T>) {
         pwm.enable(self.ch);
     }
 
-    pub fn disable<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) {
+    pub fn disable(&self, pwm: &mut SimplePwm<'_, T>) {
         pwm.disable(self.ch);
     }
 
-    pub fn is_enabled<T: GeneralInstance4Channel>(&self, pwm: &mut SimplePwm<'_, T>) -> bool {
+    pub fn is_enabled(&self, pwm: &mut SimplePwm<'_, T>) -> bool {
         pwm.is_enabled(self.ch)
     }
 
@@ -49,7 +53,7 @@ impl Heater {
             .set_target(self.target_temperature.unwrap().as_celsius());
     }
 
-    pub fn update<T: GeneralInstance4Channel>(
+    pub fn update(
         &mut self,
         tmp: Temperature,
         dt: Duration,
