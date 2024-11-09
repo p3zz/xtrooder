@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 use core::time::Duration;
 use math::common::RotationDirection;
-use math::measurements::{Distance, Speed};
+use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 use super::motion::{
@@ -15,15 +15,25 @@ use super::stepper::{
 use super::TimerTrait;
 
 #[derive(Clone, Copy)]
-pub struct Config{
-    retraction_feedrate: Speed,
-    retraction_length: Distance,
-    retraction_z_lift: Distance,
-    recover_feedrate: Speed,
-    recover_length: Distance,
-    arc_unit_length: Distance,
-    feedrate: Speed,
-    positioning: Positioning,
+pub struct RecoverMotionConfig{
+    pub feedrate: Speed,
+    pub length: Length,
+}
+
+#[derive(Clone, Copy)]
+pub struct RetractionMotionConfig{
+    pub feedrate: Speed,
+    pub length: Length,
+    pub z_lift: Length,
+}
+
+#[derive(Clone, Copy)]
+pub struct MotionConfig{
+    pub arc_unit_length: Length,
+    pub feedrate: Speed,
+    pub positioning: Positioning,
+    pub retraction: RetractionMotionConfig,
+    pub recover: RecoverMotionConfig,
 }
 
 pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
@@ -31,7 +41,7 @@ pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
     y_stepper: Stepper<P, Attached>,
     z_stepper: Stepper<P, Attached>,
     e_stepper: Stepper<P, Attached>,
-    config: Config,
+    config: MotionConfig,
     _timer: PhantomData<T>
 }
 
@@ -41,7 +51,7 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         y_stepper: Stepper<P, Attached>,
         z_stepper: Stepper<P, Attached>,
         e_stepper: Stepper<P, Attached>,
-        config: Config
+        config: MotionConfig
     ) -> Self {
         Planner {
             x_stepper,
@@ -164,14 +174,14 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
 
     // firmware retraction settings
     fn m207(&mut self, f: Speed, s: Distance, z: Distance) {
-        self.config.retraction_feedrate = f;
-        self.config.retraction_length = s;
-        self.config.retraction_z_lift = z;
+        self.config.retraction.feedrate = f;
+        self.config.retraction.length = s;
+        self.config.retraction.z_lift = z;
     }
 
     fn m208(&mut self, f: Speed, s: Distance) {
-        self.config.retraction_feedrate = f;
-        self.config.retraction_length = s + self.config.recover_length;
+        self.config.recover.feedrate = f;
+        self.config.recover.length = s + self.config.retraction.length;
     }
 
     async fn g0(
@@ -416,17 +426,17 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         retract::<P, T>(
             &mut self.e_stepper,
             &mut self.z_stepper,
-            self.config.retraction_feedrate,
-            self.config.retraction_length,
-            self.config.retraction_z_lift,
+            self.config.retraction.feedrate,
+            self.config.retraction.length,
+            self.config.retraction.z_lift,
         )
         .await
     }
 
     // recover
     async fn g11(&mut self) -> Result<core::time::Duration, StepperError> {
-        let e_destination = self.e_stepper.get_position() + self.config.recover_length;
-        linear_move_to::<P, T>(&mut self.e_stepper, e_destination, self.config.recover_feedrate).await
+        let e_destination = self.e_stepper.get_position() + self.config.recover.length;
+        linear_move_to::<P, T>(&mut self.e_stepper, e_destination, self.config.recover.feedrate).await
     }
 
     // auto home

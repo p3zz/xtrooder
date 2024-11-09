@@ -35,20 +35,88 @@ mod external {
         }
     }
 
+//     [motion]
+// arc_unit_length = 0.0
+// feedrate = 0.0
+// positioning = "absolute"
+
+// [motion.retraction]
+// feedrate = 0.0
+// length = 0.0
+// z_lift = 0.0
+
+// [motion.recover]
+// feedrate = 0.0
+// length = 0.0
+
+
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
     pub struct RecoverMotionConfig{
+        feedrate: f64,
+        length: f64,
+    }
 
+    impl RecoverMotionConfig{
+        pub fn get_feedrate(&self) -> f64 {
+            self.feedrate
+        }
+
+        pub fn get_length(&self) -> f64 {
+            self.length
+        }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
     pub struct RetractionMotionConfig{
-
+        feedrate: f64,
+        length: f64,
+        z_lift: f64,
     }
 
-    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
+    impl RetractionMotionConfig{
+        pub fn get_feedrate(&self) -> f64 {
+            self.feedrate
+        }
+
+        pub fn get_length(&self) -> f64 {
+            self.length
+        }
+
+        pub fn get_zlift(&self) -> f64 {
+            self.z_lift
+        }
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct MotionConfig{
+        arc_unit_length: f64,
+        feedrate: f64,
+        positioning: String,
         retraction: RetractionMotionConfig,
-        recover: RetractionMotionConfig,
+        recover: RecoverMotionConfig,
+    }
+
+    impl MotionConfig{
+        pub fn get_arc_unit_length(&self) -> f64 {
+            self.arc_unit_length
+        }
+
+        pub fn get_feedrate(&self) -> f64 {
+            self.feedrate
+        }
+
+        pub fn get_positioning(&self) -> Option<String> {
+            get_string_value(self.positioning.clone())
+        }
+
+        pub fn get_retraction(&self) -> RetractionMotionConfig{
+            self.retraction
+        }
+
+        pub fn get_recover(&self) -> RecoverMotionConfig{
+            self.recover
+        }
+
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
@@ -381,6 +449,7 @@ mod external {
         pub heatbed: ThermistorConfig,
         pub fan: FanConfig,
         pub sdcard: SdCardConfig,
+        pub motion: MotionConfig
     }
 }
 
@@ -388,6 +457,15 @@ fn main() {
     println!("cargo::rerun-if-changed=config/config.toml");
     let path = Path::new("config/config.toml");
     let conf = confy::load_path::<external::MyConfig>(path).expect("Error reading config file");
+    let motion_arc_unit_len = conf.motion.get_arc_unit_length();
+    let motion_feedrate = conf.motion.get_feedrate();
+    let motion_positioning = conf.motion.get_positioning().expect("Motion positioning is missing");
+    let motion_retraction_z_lift = conf.motion.get_retraction().get_zlift();
+    let motion_retraction_feedrate = conf.motion.get_retraction().get_feedrate();
+    let motion_retraction_len = conf.motion.get_retraction().get_length();
+    let motion_recover_feedrate = conf.motion.get_recover().get_feedrate();
+    let motion_recover_len = conf.motion.get_recover().get_length();
+
     let steppers_x_step_pin = conf
         .steppers
         .get_x()
@@ -589,6 +667,9 @@ fn main() {
 
 use embassy_stm32::Peripherals;
 use embassy_stm32::peripherals::*;
+use math::measurements::{{Speed, Length}};
+use stepper::motion::Positioning;
+use stepper::planner::{{MotionConfig, RecoverMotionConfig, RetractionMotionConfig}};
 use crate::config::*;
 
 pub type XStepPin = {};
@@ -651,6 +732,20 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
     SdCardSpiCsPin,
 >{{
     PrinterConfig{{
+        motion: MotionConfig{{
+            arc_unit_length: Length::from_millimeters({:.2}),
+            feedrate: Speed::from_meters_per_second({:.2} / 1000.0),
+            positioning: Positioning::from(\"{:.2}\"),
+            retraction: RetractionMotionConfig{{
+                feedrate: Speed::from_meters_per_second({:.2}),
+                length: Length::from_meters({:.2} * 1000.0),
+                z_lift: Length::from_meters({:.2} * 1000.0)
+            }},
+            recover: RecoverMotionConfig{{
+                feedrate: Speed::from_meters_per_second({:.2}),
+                length: Length::from_meters({:.2} * 1000.0),
+            }},
+        }},
         steppers: SteppersConfig{{
             x: StepperConfig{{
                 step_pin: p.{},
@@ -794,6 +889,15 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         sdcard_spi_mosi,
         sdcard_spi_miso,
         sdcard_spi_cs,
+
+        motion_arc_unit_len,
+        motion_feedrate,
+        motion_positioning,
+        motion_retraction_z_lift,
+        motion_retraction_feedrate,
+        motion_retraction_len,
+        motion_recover_feedrate,
+        motion_recover_len,
         steppers_x_step_pin,
         steppers_x_dir_pin,
         steppers_x_stepping_mode.as_str(),

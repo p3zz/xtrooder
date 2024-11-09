@@ -19,6 +19,16 @@ pub enum Positioning {
     Absolute,
 }
 
+impl From<&str> for Positioning{
+    fn from(value: &str) -> Self {
+        match value{
+            "relative" => Positioning::Relative,
+            "absolute" => Positioning::Absolute,
+            _ => panic!("Invalid positioning")
+        }
+    }
+}
+
 pub fn no_move<P: StatefulOutputPin>(
     stepper: &Stepper<P, Attached>,
     positioning: Positioning,

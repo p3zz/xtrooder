@@ -5,7 +5,7 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
-use app::config::{FanConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
+use app::config::{self, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
     HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
@@ -538,7 +538,8 @@ async fn planner_handler(
     ZStepPin,
     ZDirPin,
     EStepPin,
-    EDirPin>
+    EDirPin>,
+    motion_config: MotionConfig
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
@@ -600,9 +601,8 @@ async fn planner_handler(
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
 
-
     let mut planner: Planner<StepperPin<'_>, StepperTimer> =
-        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper);
+        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config);
 
     let dt = Duration::from_millis(500);
 
@@ -770,7 +770,8 @@ async fn main(spawner: Spawner) {
 
     spawner
         .spawn(planner_handler(
-            printer_config.steppers
+            printer_config.steppers,
+            printer_config.motion
         ))
         .unwrap();
 

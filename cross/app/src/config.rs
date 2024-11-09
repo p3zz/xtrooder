@@ -1,3 +1,5 @@
+pub use stepper::planner::MotionConfig as MotionConfig;
+
 pub struct StepperConfig<S, D> {
     pub step_pin: S,
     pub dir_pin: D,
@@ -42,6 +44,7 @@ SPIP, SPIT, SPIMO, SPIMI, SPICS
     pub heatbed: ThermistorConfig<HEP, HEI, HED>,
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
+    pub motion: MotionConfig
 }
 
 pub struct AdcConfig<P, I, D> {

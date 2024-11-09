@@ -1,17 +1,17 @@
 # ------------- motion ---------------
 [motion]
-arc_unit_length = 0.0,
-feedrate = 0.0,
-positioning = "absolute",
+arc_unit_length = 0.0
+feedrate = 0.0
+positioning = "absolute"
 
 [motion.retraction]
-feedrate = 0.0,
-length = 0.0,
-z_lift = 0.0,
+feedrate = 0.0
+length = 0.0
+z_lift = 0.0
 
 [motion.recover]
-feedrate = 0.0,
-length = 0.0,
+feedrate = 0.0
+length = 0.0
 
 # ------------- steppers ---------------
 
