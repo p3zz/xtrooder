@@ -88,12 +88,34 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct EndstopsConfig{
+        x: PinConfig,
+        y: PinConfig,
+        z: PinConfig,
+    }
+
+    impl EndstopsConfig{
+        pub fn get_x(&self) -> PinConfig{
+            self.x.clone()
+        }
+        
+        pub fn get_y(&self) -> PinConfig{
+            self.y.clone()
+        }
+
+        pub fn get_z(&self) -> PinConfig{
+            self.z.clone()
+        }
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct MotionConfig{
         arc_unit_length: f64,
         feedrate: f64,
         positioning: String,
         retraction: RetractionMotionConfig,
         recover: RecoverMotionConfig,
+        endstops: EndstopsConfig
     }
 
     impl MotionConfig{
@@ -115,6 +137,10 @@ mod external {
 
         pub fn get_recover(&self) -> RecoverMotionConfig{
             self.recover
+        }
+
+        pub fn get_endstops(&self) -> EndstopsConfig{
+            self.endstops.clone()
         }
 
     }
@@ -465,6 +491,9 @@ fn main() {
     let motion_retraction_len = conf.motion.get_retraction().get_length();
     let motion_recover_feedrate = conf.motion.get_recover().get_feedrate();
     let motion_recover_len = conf.motion.get_recover().get_length();
+    let motion_endstop_x = conf.motion.get_endstops().get_x().get_pin().expect("Endstop x axis is missing");
+    let motion_endstop_y = conf.motion.get_endstops().get_y().get_pin().expect("Endstop y axis is missing");
+    let motion_endstop_z = conf.motion.get_endstops().get_z().get_pin().expect("Endstop z axis is missing");
 
     let steppers_x_step_pin = conf
         .steppers
@@ -700,6 +729,9 @@ pub type SdCardSpiTimer = {};
 pub type SdCardSpiMosiPin = {};
 pub type SdCardSpiMisoPin = {};
 pub type SdCardSpiCsPin = {};
+pub type XEndstop = {};
+pub type YEndstop = {};
+pub type ZEndstop = {};
 
 pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
     XStepPin,
@@ -730,6 +762,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
     SdCardSpiMosiPin,
     SdCardSpiMisoPin,
     SdCardSpiCsPin,
+    XEndstop,
+    YEndstop,
+    ZEndstop,
 >{{
     PrinterConfig{{
         motion: MotionConfig{{
@@ -745,6 +780,11 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
                 feedrate: Speed::from_meters_per_second({:.2}),
                 length: Length::from_meters({:.2} * 1000.0),
             }},
+        }},
+        endstops: EndstopsConfig{{
+            x: p.{},
+            y: p.{},
+            z: p.{},
         }},
         steppers: SteppersConfig{{
             x: StepperConfig{{
@@ -889,6 +929,9 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         sdcard_spi_mosi,
         sdcard_spi_miso,
         sdcard_spi_cs,
+        motion_endstop_x,
+        motion_endstop_y,
+        motion_endstop_z,
 
         motion_arc_unit_len,
         motion_feedrate,
@@ -898,6 +941,10 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         motion_retraction_len,
         motion_recover_feedrate,
         motion_recover_len,
+        motion_endstop_x,
+        motion_endstop_y,
+        motion_endstop_z,
+        
         steppers_x_step_pin,
         steppers_x_dir_pin,
         steppers_x_stepping_mode.as_str(),

@@ -27,7 +27,6 @@ pub struct RetractionMotionConfig{
     pub z_lift: Length,
 }
 
-#[derive(Clone, Copy)]
 pub struct MotionConfig{
     pub arc_unit_length: Length,
     pub feedrate: Speed,
@@ -51,7 +50,8 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
         y_stepper: Stepper<P, Attached>,
         z_stepper: Stepper<P, Attached>,
         e_stepper: Stepper<P, Attached>,
-        config: MotionConfig
+        config: MotionConfig,
+        endstops: (P,P,P)
     ) -> Self {
         Planner {
             x_stepper,

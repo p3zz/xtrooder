@@ -5,12 +5,9 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
-use app::config::{self, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
+use app::config::{self, EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
 use app::ext::{
-    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
-    HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
-    SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XStepPin,
-    YDirPin, YStepPin, ZDirPin, ZStepPin,
+    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstop, XStepPin, YDirPin, YEndstop, YStepPin, ZDirPin, ZEndstop, ZStepPin
 };
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
@@ -539,7 +536,8 @@ async fn planner_handler(
     ZDirPin,
     EStepPin,
     EDirPin>,
-    motion_config: MotionConfig
+    motion_config: MotionConfig,
+    endstops_config: EndstopsConfig<XEndstop, YEndstop, ZEndstop>
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
@@ -600,9 +598,13 @@ async fn planner_handler(
     };
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
+    let x_endstop = endstops_config.x;
+    let y_endstop = endstops_config.y;
+    let z_endstop = endstops_config.z;
+    let endstops = (init_pin!(x_endstop), init_pin!(y_endstop), init_pin!(z_endstop));
 
     let mut planner: Planner<StepperPin<'_>, StepperTimer> =
-        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config);
+        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config, endstops);
 
     let dt = Duration::from_millis(500);
 
@@ -771,7 +773,8 @@ async fn main(spawner: Spawner) {
     spawner
         .spawn(planner_handler(
             printer_config.steppers,
-            printer_config.motion
+            printer_config.motion,
+            printer_config.endstops
         ))
         .unwrap();
 

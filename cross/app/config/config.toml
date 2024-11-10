@@ -13,6 +13,11 @@ z_lift = 0.0
 feedrate = 0.0
 length = 0.0
 
+[motion.endstops]
+x.pin = "PB6"
+y.pin = "PB7"
+z.pin = "PB8"
+
 # ------------- steppers ---------------
 
 [steppers.x]

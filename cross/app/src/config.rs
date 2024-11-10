@@ -1,5 +1,11 @@
 pub use stepper::planner::MotionConfig as MotionConfig;
 
+pub struct EndstopsConfig<X,Y,Z>{
+    pub x: X,
+    pub y: Y,
+    pub z: Z,
+}
+
 pub struct StepperConfig<S, D> {
     pub step_pin: S,
     pub dir_pin: D,
@@ -35,7 +41,8 @@ PWMT, CH1, CH2, CH3,
 UP, RXP, RXD, TXP, TXD,
 HOP, HOI, HOD,
 HEP, HEI, HED,
-SPIP, SPIT, SPIMO, SPIMI, SPICS
+SPIP, SPIT, SPIMO, SPIMI, SPICS,
+EX, EY,EZ
 > {
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
@@ -44,7 +51,8 @@ SPIP, SPIT, SPIMO, SPIMI, SPICS
     pub heatbed: ThermistorConfig<HEP, HEI, HED>,
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
-    pub motion: MotionConfig
+    pub motion: MotionConfig,
+    pub endstops: EndstopsConfig<EX, EY,EZ>
 }
 
 pub struct AdcConfig<P, I, D> {
