@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 use core::time::Duration;
+use futures::future::select;
 use math::common::RotationDirection;
 use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
@@ -9,7 +10,7 @@ use super::motion::{
     linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
 use super::stepper::{
-    Attached, StatefulOutputPin, Stepper, StepperError, StepperInputPin
+    Attached, StatefulOutputPin, Stepper, StepperError, StatefulInputPin
 };
 
 use super::TimerTrait;
@@ -35,23 +36,24 @@ pub struct MotionConfig{
     pub recover: RecoverMotionConfig,
 }
 
-pub struct Planner<P: StatefulOutputPin, T: TimerTrait> {
+pub struct Planner<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> {
     x_stepper: Stepper<P, Attached>,
     y_stepper: Stepper<P, Attached>,
     z_stepper: Stepper<P, Attached>,
     e_stepper: Stepper<P, Attached>,
     config: MotionConfig,
+    endstops: (I,I,I),
     _timer: PhantomData<T>
 }
 
-impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
+impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> {
     pub fn new(
         x_stepper: Stepper<P, Attached>,
         y_stepper: Stepper<P, Attached>,
         z_stepper: Stepper<P, Attached>,
         e_stepper: Stepper<P, Attached>,
         config: MotionConfig,
-        endstops: (P,P,P)
+        endstops: (I,I,I)
     ) -> Self {
         Planner {
             x_stepper,
@@ -59,7 +61,8 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
             z_stepper,
             e_stepper,
             _timer: PhantomData,
-            config
+            config,
+            endstops
         }
     }
 
@@ -82,7 +85,7 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
     pub async fn execute(&mut self, command: GCommand) -> Result<Option<Duration>, StepperError> {
         match command {
             GCommand::G0 { x, y, z, f } => {
-                let duration = self.g0(x, y, z, f).await?;
+                let duration = select(self.g0(x, y, z, f), self.endstops.0.) self.g0(x, y, z, f).await?;
                 Ok(Some(duration))
             }
             GCommand::G1 { x, y, z, e, f } => {
@@ -440,19 +443,16 @@ impl<P: StatefulOutputPin, T: TimerTrait> Planner<P, T> {
     }
 
     // auto home
-    async fn g28<I: StepperInputPin>(
+    async fn g28(
         &mut self,
-        x_button: &I,
-        y_button: &I,
-        z_button: &I,
     ) -> Result<core::time::Duration, StepperError> {
         auto_home_3d::<I, P, T, Attached>(
             &mut self.x_stepper,
             &mut self.y_stepper,
             &mut self.z_stepper,
-            x_button,
-            y_button,
-            z_button,
+            &mut self.endstops.0,
+            &mut self.endstops.1,
+            &mut self.endstops.2,
         )
         .await
     }

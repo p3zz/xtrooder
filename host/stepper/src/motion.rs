@@ -8,7 +8,7 @@ use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
 use crate::stepper::{
-    Attached, AttachmentMode, StatefulOutputPin, Stepper, StepperError, StepperInputPin,
+    Attached, AttachmentMode, StatefulOutputPin, Stepper, StepperError, StatefulInputPin,
 };
 
 use super::TimerTrait;
@@ -383,7 +383,7 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
 }
 
 pub async fn auto_home<
-    I: StepperInputPin,
+    I: StatefulInputPin,
     O: StatefulOutputPin,
     T: TimerTrait,
     M: AttachmentMode,
@@ -412,7 +412,7 @@ pub async fn auto_home<
 
 // perform one calibration at a time
 pub async fn auto_home_3d<
-    I: StepperInputPin,
+    I: StatefulInputPin,
     O: StatefulOutputPin,
     T: TimerTrait,
     M: AttachmentMode,
@@ -519,7 +519,7 @@ mod tests {
         }
     }
 
-    impl StepperInputPin for InputPinMock {
+    impl StatefulInputPin for InputPinMock {
         fn is_high(&self) -> bool {
             self.state
         }

@@ -16,10 +16,19 @@ pub enum PrinterError{
 }
 
 #[macro_export]
-macro_rules! init_pin {
+macro_rules! init_output_pin {
     ($config: ident) => {
-        StepperPin {
+        StepperOutputPin {
             pin: Output::new($config, Level::Low, PinSpeed::Low),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! init_input_pin {
+    ($config: ident) => {
+        StepperInputPin {
+            pin: Input::new($config, Pull::Down),
         }
     };
 }
@@ -28,8 +37,8 @@ macro_rules! init_pin {
 macro_rules! init_stepper {
     ($step_pin: ident, $dir_pin: ident, $options: ident, $attachment: ident) => {
         Stepper::new_with_attachment(
-            init_pin!($step_pin),
-            init_pin!($dir_pin),
+            init_output_pin!($step_pin),
+            init_output_pin!($dir_pin),
             $options,
             $attachment,
         )

@@ -14,7 +14,7 @@ pub trait StatefulOutputPin {
     fn is_high(&self) -> bool;
 }
 
-pub trait StepperInputPin {
+pub trait StatefulInputPin {
     fn is_high(&self) -> bool;
 }
 

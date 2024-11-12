@@ -11,13 +11,13 @@ use app::ext::{
 };
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::{init_pin, init_stepper, timer_channel};
+use app::{init_input_pin, init_output_pin, init_stepper, timer_channel};
 use app::utils::stopwatch::Clock;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
-use embassy_stm32::gpio::OutputType;
+use embassy_stm32::gpio::{Input, OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
@@ -39,6 +39,7 @@ use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
+use embedded_hal::digital::InputPin;
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
 use math::common::RotationDirection;
@@ -50,7 +51,7 @@ use math::{
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
-use stepper::stepper::{StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode};
+use stepper::stepper::{StatefulOutputPin, StatefulInputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode};
 use stepper::TimerTrait;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -81,11 +82,11 @@ bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
 });
 
-struct StepperPin<'a> {
+struct StepperOutputPin<'a> {
     pin: Output<'a>,
 }
 
-impl StatefulOutputPin for StepperPin<'_> {
+impl StatefulOutputPin for StepperOutputPin<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }
@@ -98,6 +99,17 @@ impl StatefulOutputPin for StepperPin<'_> {
         self.pin.is_set_high()
     }
 }
+
+struct StepperInputPin<'a> {
+    pin: Input<'a>,
+}
+
+impl StatefulInputPin for StepperInputPin<'_>{
+    fn is_high(&self) -> bool {
+        self.pin.is_high()
+    }
+}
+
 
 struct StepperTimer {}
 
@@ -601,11 +613,11 @@ async fn planner_handler(
     let x_endstop = endstops_config.x;
     let y_endstop = endstops_config.y;
     let z_endstop = endstops_config.z;
-    let endstops = (init_pin!(x_endstop), init_pin!(y_endstop), init_pin!(z_endstop));
+    let endstops = (init_input_pin!(x_endstop), init_input_pin!(y_endstop), init_input_pin!(z_endstop));
 
-    let mut planner: Planner<StepperPin<'_>, StepperTimer> =
+    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin<'_>> =
         Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config, endstops);
-
+    
     let dt = Duration::from_millis(500);
 
     loop {
