@@ -74,7 +74,7 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
         motion: MotionConfig{{
             arc_unit_length: Length::from_millimeters({:.2}),
             feedrate: Speed::from_meters_per_second({:.2} / 1000.0),
-            positioning: Positioning::from(\"{:.2}\"),
+            positioning: Positioning::from("{:.2}"),
             retraction: RetractionMotionConfig{{
                 feedrate: Speed::from_meters_per_second({:.2}),
                 length: Length::from_meters({:.2} * 1000.0),
@@ -94,38 +94,38 @@ pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
             x: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
-                stepping_mode: \"{}\",
-                distance_per_step: {:.2},
+                stepping_mode: SteppingMode::from("{}"),
+                distance_per_step: Distance::from_millimeters({:.2}),
                 steps_per_revolution: {},
-                bounds: ({:.2}, {:.2}),
-                positive_direction: \"{}\"
+                bounds: (Distance::from_millimeters({:.2}), Distance::from_millimeters({:.2})),
+                positive_direction: RotationDirection::from("{}")
             }},
             y: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
-                stepping_mode: \"{}\",
+                stepping_mode: "{}",
                 distance_per_step: {:.2},
                 steps_per_revolution: {},
                 bounds: ({:.2}, {:.2}),
-                positive_direction: \"{}\"
+                positive_direction: "{}"
             }},
             z: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
-                stepping_mode: \"{}\",
+                stepping_mode: "{}",
                 distance_per_step: {:.2},
                 steps_per_revolution: {},
                 bounds: ({:.2}, {:.2}),
-                positive_direction: \"{}\"
+                positive_direction: "{}"
             }},
             e: StepperConfig{{
                 step_pin: p.{},
                 dir_pin: p.{},
-                stepping_mode: \"{}\",
+                stepping_mode: "{}",
                 distance_per_step: {:.2},
                 steps_per_revolution: {},
                 bounds: ({:.2}, {:.2}),
-                positive_direction: \"{}\"
+                positive_direction: "{}"
             }}
         }},
         pwm: PwmConfig{{

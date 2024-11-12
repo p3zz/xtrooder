@@ -85,7 +85,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
     pub async fn execute(&mut self, command: GCommand) -> Result<Option<Duration>, StepperError> {
         match command {
             GCommand::G0 { x, y, z, f } => {
-                let duration = select(self.g0(x, y, z, f), self.endstops.0.) self.g0(x, y, z, f).await?;
+                let duration = self.g0(x, y, z, f).await?;
                 Ok(Some(duration))
             }
             GCommand::G1 { x, y, z, e, f } => {

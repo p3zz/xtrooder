@@ -1,4 +1,6 @@
+use math::{common::RotationDirection, measurements::{Distance, Length, Resistance, Temperature}};
 pub use stepper::planner::MotionConfig as MotionConfig;
+use stepper::stepper::SteppingMode;
 
 pub struct EndstopsConfig<X,Y,Z>{
     pub x: X,
@@ -9,11 +11,11 @@ pub struct EndstopsConfig<X,Y,Z>{
 pub struct StepperConfig<S, D> {
     pub step_pin: S,
     pub dir_pin: D,
-    pub stepping_mode: &'static str,
-    pub distance_per_step: f64,
+    pub stepping_mode: SteppingMode,
+    pub distance_per_step: Length,
     pub steps_per_revolution: u64,
     pub bounds: (f64, f64),
-    pub positive_direction: &'static str
+    pub positive_direction: RotationDirection
 }
 
 pub struct UartPartConfig<P, D> {
@@ -87,9 +89,9 @@ pub struct PidConfig {
 }
 
 pub struct HeaterConfig {
-    pub r_series: f64,
-    pub r0: f64,
-    pub b: f64,
+    pub r_series: Resistance,
+    pub r0: Resistance,
+    pub b: Temperature,
     pub pid: PidConfig,
 }
 

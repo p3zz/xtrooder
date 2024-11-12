@@ -260,9 +260,9 @@ async fn hotend_handler(
         config.adc.dma,
         config.adc.input.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohms(config.heater.r0),
-        Resistance::from_ohms(config.heater.r_series),
-        Temperature::from_kelvin(config.heater.b),
+        config.heater.r0,
+        config.heater.r_series,
+        config.heater.b,
         readings,
     );
 
@@ -350,9 +350,9 @@ async fn heatbed_handler(
         config.adc.dma,
         config.adc.input.degrade_adc(),
         Resolution::BITS12,
-        Resistance::from_ohms(config.heater.r0),
-        Resistance::from_ohms(config.heater.r_series),
-        Temperature::from_kelvin(config.heater.b),
+        config.heater.r0,
+        config.heater.r_series,
+        config.heater.b,
         readings,
     );
 
@@ -559,12 +559,12 @@ async fn planner_handler(
 
     let x_options = StepperOptions{
         steps_per_revolution: config.x.steps_per_revolution,
-        stepping_mode: SteppingMode::from(config.x.stepping_mode),
+        stepping_mode: config.x.stepping_mode,
         bounds: Some(config.x.bounds),
-        positive_direction: RotationDirection::from(config.x.positive_direction)
+        positive_direction: config.x.positive_direction
     };
     let x_attachment = StepperAttachment{
-        distance_per_step: Distance::from_millimeters(config.x.distance_per_step)
+        distance_per_step: config.x.distance_per_step
     };
 
     let x_stepper = init_stepper!(x_step, x_dir, x_options, x_attachment);
@@ -573,12 +573,12 @@ async fn planner_handler(
     let y_dir = config.y.dir_pin;
     let y_options = StepperOptions{
         steps_per_revolution: config.y.steps_per_revolution,
-        stepping_mode: SteppingMode::from(config.y.stepping_mode),
+        stepping_mode: config.y.stepping_mode,
         bounds: Some(config.y.bounds),
-        positive_direction: RotationDirection::from(config.y.positive_direction)
+        positive_direction: config.y.positive_direction
     };
     let y_attachment = StepperAttachment{
-        distance_per_step: Distance::from_millimeters(config.y.distance_per_step)
+        distance_per_step: config.y.distance_per_step
     };
 
     let y_stepper = init_stepper!(y_step, y_dir, y_options, y_attachment);
@@ -587,12 +587,12 @@ async fn planner_handler(
     let z_dir = config.z.dir_pin;
     let z_options = StepperOptions{
         steps_per_revolution: config.z.steps_per_revolution,
-        stepping_mode: SteppingMode::from(config.z.stepping_mode),
+        stepping_mode: config.z.stepping_mode,
         bounds: Some(config.z.bounds),
-        positive_direction: RotationDirection::from(config.z.positive_direction)
+        positive_direction: config.z.positive_direction
     };
     let z_attachment = StepperAttachment{
-        distance_per_step: Distance::from_millimeters(config.z.distance_per_step)
+        distance_per_step: config.z.distance_per_step
     };
 
     let z_stepper = init_stepper!(z_step, z_dir, z_options, z_attachment);
@@ -601,12 +601,12 @@ async fn planner_handler(
     let e_dir = config.e.dir_pin;
     let e_options = StepperOptions{
         steps_per_revolution: config.e.steps_per_revolution,
-        stepping_mode: SteppingMode::from(config.e.stepping_mode),
+        stepping_mode: config.e.stepping_mode,
         bounds: Some(config.e.bounds),
-        positive_direction: RotationDirection::from(config.e.positive_direction)
+        positive_direction: config.e.positive_direction
     };
     let e_attachment = StepperAttachment{
-        distance_per_step: Distance::from_millimeters(config.e.distance_per_step)
+        distance_per_step: config.e.distance_per_step
     };
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
