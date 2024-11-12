@@ -7,7 +7,7 @@ use core::str::FromStr;
 
 use app::config::{self, EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
 use app::ext::{
-    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstop, XStepPin, YDirPin, YEndstop, YStepPin, ZDirPin, ZEndstop, ZStepPin
+    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopPin, XEndstopExti, XStepPin, YDirPin, YEndstopPin, YEndstopExti, YStepPin, ZDirPin, ZEndstopPin, ZEndstopExti, ZStepPin
 };
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
@@ -17,6 +17,7 @@ use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{Input, OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
@@ -101,7 +102,7 @@ impl StatefulOutputPin for StepperOutputPin<'_> {
 }
 
 struct StepperInputPin<'a> {
-    pin: Input<'a>,
+    pin: ExtiInput<'a>,
 }
 
 impl StatefulInputPin for StepperInputPin<'_>{
@@ -549,7 +550,7 @@ async fn planner_handler(
     EStepPin,
     EDirPin>,
     motion_config: MotionConfig,
-    endstops_config: EndstopsConfig<XEndstop, YEndstop, ZEndstop>
+    endstops_config: EndstopsConfig<XEndstopPin, XEndstopExti, YEndstopPin, YEndstopExti, ZEndstopPin, ZEndstopExti>
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
@@ -610,9 +611,10 @@ async fn planner_handler(
     };
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
-    let x_endstop = endstops_config.x;
-    let y_endstop = endstops_config.y;
-    let z_endstop = endstops_config.z;
+
+    let x_endstop = ExtiInput::new(endstops_config.x.pin, endstops_config.x.exti, Pull::Down);
+    let y_endstop = ExtiInput::new(endstops_config.y.pin, endstops_config.y.exti, Pull::Down);
+    let z_endstop = ExtiInput::new(endstops_config.z.pin, endstops_config.z.exti, Pull::Down);
     let endstops = (init_input_pin!(x_endstop), init_input_pin!(y_endstop), init_input_pin!(z_endstop));
 
     let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin<'_>> =

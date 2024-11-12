@@ -94,22 +94,38 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct EndstopPartConfig{
+        pin: String,
+        exti: String
+    }
+
+    impl EndstopPartConfig{
+        pub fn get_pin(&self) -> Option<String>{
+            get_string_value(self.pin.clone())
+        }
+
+        pub fn get_exti(&self) -> Option<String>{
+            get_string_value(self.exti.clone())
+        }
+    }
+
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct EndstopsConfig{
-        x: PinConfig,
-        y: PinConfig,
-        z: PinConfig,
+        x: EndstopPartConfig,
+        y: EndstopPartConfig,
+        z: EndstopPartConfig,
     }
 
     impl EndstopsConfig{
-        pub fn get_x(&self) -> PinConfig{
+        pub fn get_x(&self) -> EndstopPartConfig{
             self.x.clone()
         }
         
-        pub fn get_y(&self) -> PinConfig{
+        pub fn get_y(&self) -> EndstopPartConfig{
             self.y.clone()
         }
 
-        pub fn get_z(&self) -> PinConfig{
+        pub fn get_z(&self) -> EndstopPartConfig{
             self.z.clone()
         }
     }
@@ -501,12 +517,24 @@ fn main() {
     let motion_retraction_len = conf.motion.get_retraction().get_length();
     let motion_recover_feedrate = conf.motion.get_recover().get_feedrate();
     let motion_recover_len = conf.motion.get_recover().get_length();
+
     let motion_endstop_x = conf.motion.get_endstops().get_x().get_pin().expect("Endstop x axis is missing");
     let motion_endstop_x = Ident::new(motion_endstop_x.as_str(), Span::call_site());
+
+    let motion_endstop_x_exti = conf.motion.get_endstops().get_x().get_exti().expect("Endstop x EXTI is missing");
+    let motion_endstop_x_exti = Ident::new(motion_endstop_x_exti.as_str(), Span::call_site());
+
     let motion_endstop_y = conf.motion.get_endstops().get_y().get_pin().expect("Endstop y axis is missing");
     let motion_endstop_y = Ident::new(motion_endstop_y.as_str(), Span::call_site());
+
+    let motion_endstop_y_exti = conf.motion.get_endstops().get_y().get_exti().expect("Endstop y EXTI is missing");
+    let motion_endstop_y_exti = Ident::new(motion_endstop_y_exti.as_str(), Span::call_site());
+
     let motion_endstop_z = conf.motion.get_endstops().get_z().get_pin().expect("Endstop z axis is missing");
     let motion_endstop_z = Ident::new(motion_endstop_z.as_str(), Span::call_site());
+
+    let motion_endstop_z_exti = conf.motion.get_endstops().get_z().get_exti().expect("Endstop z EXTI is missing");
+    let motion_endstop_z_exti = Ident::new(motion_endstop_z_exti.as_str(), Span::call_site());
 
     let steppers_x_step_pin = conf
         .steppers
@@ -824,9 +852,12 @@ fn main() {
         pub type SdCardSpiMosiPin = #sdcard_spi_mosi;
         pub type SdCardSpiMisoPin = #sdcard_spi_miso;
         pub type SdCardSpiCsPin = #sdcard_spi_cs;
-        pub type XEndstop = #motion_endstop_x;
-        pub type YEndstop = #motion_endstop_y;
-        pub type ZEndstop = #motion_endstop_z;
+        pub type XEndstopPin = #motion_endstop_x;
+        pub type XEndstopExti = #motion_endstop_x_exti;
+        pub type YEndstopPin = #motion_endstop_y;
+        pub type YEndstopExti = #motion_endstop_y_exti;
+        pub type ZEndstopPin = #motion_endstop_z;
+        pub type ZEndstopExti = #motion_endstop_z_exti;
 
         pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
             XStepPin,
@@ -857,9 +888,12 @@ fn main() {
             SdCardSpiMosiPin,
             SdCardSpiMisoPin,
             SdCardSpiCsPin,
-            XEndstop,
-            YEndstop,
-            ZEndstop,
+            XEndstopPin,
+            XEndstopExti,
+            YEndstopPin,
+            YEndstopExti,
+            ZEndstopPin,
+            ZEndstopExti,
         >{
             PrinterConfig{
                 motion: MotionConfig{
@@ -877,9 +911,18 @@ fn main() {
                     },
                 },
                 endstops: EndstopsConfig{
-                    x: p.#motion_endstop_x,
-                    y: p.#motion_endstop_y,
-                    z: p.#motion_endstop_z,
+                    x: EndstopPartConfig {
+                        pin: p.#motion_endstop_x,
+                        exti: p.#motion_endstop_x_exti,
+                    },
+                    y: EndstopPartConfig {
+                        pin: p.#motion_endstop_y,
+                        exti: p.#motion_endstop_y_exti,
+                    },
+                    z: EndstopPartConfig {
+                        pin: p.#motion_endstop_z,
+                        exti: p.#motion_endstop_z_exti,
+                    },
                 },
                 steppers: SteppersConfig{
                     x: StepperConfig{

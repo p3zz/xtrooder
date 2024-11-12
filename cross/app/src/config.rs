@@ -1,11 +1,16 @@
-use math::{common::RotationDirection, measurements::{Distance, Length, Resistance, Temperature}};
+use math::{common::RotationDirection, measurements::{Length, Resistance, Temperature}};
 pub use stepper::planner::MotionConfig as MotionConfig;
 use stepper::stepper::SteppingMode;
 
-pub struct EndstopsConfig<X,Y,Z>{
-    pub x: X,
-    pub y: Y,
-    pub z: Z,
+pub struct EndstopPartConfig<P,E>{
+    pub pin: P,
+    pub exti: E
+}
+
+pub struct EndstopsConfig<XP,XE,YP,YE,ZP,ZE>{
+    pub x: EndstopPartConfig<XP,XE>,
+    pub y: EndstopPartConfig<YP,YE>,
+    pub z: EndstopPartConfig<ZP,ZE>,
 }
 
 pub struct StepperConfig<S, D> {
@@ -44,7 +49,7 @@ UP, RXP, RXD, TXP, TXD,
 HOP, HOI, HOD,
 HEP, HEI, HED,
 SPIP, SPIT, SPIMO, SPIMI, SPICS,
-EX, EY,EZ
+XEP, XEE, YEP, YEE, ZEP, ZEE,
 > {
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
@@ -54,7 +59,7 @@ EX, EY,EZ
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
     pub motion: MotionConfig,
-    pub endstops: EndstopsConfig<EX, EY,EZ>
+    pub endstops: EndstopsConfig<XEP, XEE, YEP, YEE, ZEP, ZEE>
 }
 
 pub struct AdcConfig<P, I, D> {

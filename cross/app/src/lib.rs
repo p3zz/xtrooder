@@ -28,7 +28,7 @@ macro_rules! init_output_pin {
 macro_rules! init_input_pin {
     ($config: ident) => {
         StepperInputPin {
-            pin: Input::new($config, Pull::Down),
+            pin: $config
         }
     };
 }
