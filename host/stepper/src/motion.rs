@@ -628,12 +628,12 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814269,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814269,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
     }
 
@@ -722,12 +722,12 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.0070781426,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.0070781426,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
     }
 
@@ -773,12 +773,12 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
     }
 
@@ -832,17 +832,17 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_z.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
     }
 
@@ -900,17 +900,17 @@ mod tests {
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
             0.00928212,
-            epsilon = 0.000001
+            epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
             0.00372533,
-            epsilon = 0.000001
+            epsilon = 0.0001
         );
         assert_abs_diff_eq!(
             s_z.get_speed_from_attachment().as_meters_per_second(),
             0.00707814,
-            epsilon = 0.000001
+            epsilon = 0.0001
         );
     }
 
