@@ -620,12 +620,18 @@ async fn planner_handler(
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
 
     let x_endstop = ExtiInput::new(endstops_config.x.pin, endstops_config.x.exti, Pull::Down);
-    let y_endstop = ExtiInput::new(endstops_config.y.pin, endstops_config.y.exti, Pull::Down);
-    let z_endstop = ExtiInput::new(endstops_config.z.pin, endstops_config.z.exti, Pull::Down);
-    let mut endstops = (init_input_pin!(x_endstop), init_input_pin!(y_endstop), init_input_pin!(z_endstop));
+    let x_endstop = init_input_pin!(x_endstop);
 
-    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer> =
-        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config);
+    let y_endstop = ExtiInput::new(endstops_config.y.pin, endstops_config.y.exti, Pull::Down);
+    let y_endstop = init_input_pin!(y_endstop);
+
+    let z_endstop = ExtiInput::new(endstops_config.z.pin, endstops_config.z.exti, Pull::Down);
+    let z_endstop = init_input_pin!(z_endstop);
+
+    let endstops = (Some(x_endstop), Some(y_endstop), Some(z_endstop), None);
+
+    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin> =
+        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config, endstops);
     
     let dt = Duration::from_millis(500);
 
@@ -645,7 +651,7 @@ async fn planner_handler(
             | GCommand::G91
             | GCommand::M207 { .. }
             | GCommand::M208 { .. } => {
-                let duration = planner.execute(cmd.clone(), Some(&mut endstops)).await.expect("Planner error");
+                let duration = planner.execute(cmd.clone()).await.expect("Planner error");
                 if debug {
                     match cmd {
                         GCommand::G0 { .. } => {

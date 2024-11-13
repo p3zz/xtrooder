@@ -1,7 +1,8 @@
 use core::ops::AddAssign;
 use core::time::Duration;
 
-use futures::join;
+use futures::future::select;
+use futures::{join, pin_mut};
 use math::angle::{cos, sin};
 use math::common::{abs, compute_arc_destination, compute_arc_length, floor, RotationDirection};
 use math::measurements::{AngularVelocity, Distance, Speed};
@@ -41,27 +42,40 @@ pub fn no_move<P: StatefulOutputPin>(
 
 // ---------------------------- LINEAR MOVE 1D ----------------------------
 
-pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper: &mut Stepper<P, Attached>,
     dest: Distance,
     speed: Speed,
+    endstop: &mut Option<I>,
 ) -> Result<Duration, StepperError> {
     let s = Speed::from_meters_per_second(abs(speed.as_meters_per_second()));
     stepper.set_speed_from_attachment(s);
-    stepper.move_to_destination::<T>(dest).await
+    let f1 = stepper.move_to_destination::<T>(dest);
+    if let Some(endstop) = endstop{
+        let f2 = endstop.wait_for_high();
+        pin_mut!(f1, f2);
+        match select(f1, f2).await{
+            futures::future::Either::Left(r) => r.0,
+            futures::future::Either::Right(_) => Err(StepperError::MoveOutOfBounds),
+        }
+    }
+    else{
+        f1.await
+    }
 }
 
 // ---------------------------- LINEAR MOVE 2D ----------------------------
 
-async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait>(
+async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     dest: Vector2D<Distance>,
     speed: Vector2D<Speed>,
+    endstops: (&mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     match join!(
-        linear_move_to::<P, T>(stepper_a, dest.get_x(), speed.get_x()),
-        linear_move_to::<P, T>(stepper_b, dest.get_y(), speed.get_y()),
+        linear_move_to::<P, T, I>(stepper_a, dest.get_x(), speed.get_x(), endstops.0),
+        linear_move_to::<P, T, I>(stepper_b, dest.get_y(), speed.get_y(), endstops.1),
     ) {
         (Ok(da), Ok(db)) => {
             let max = da.max(db);
@@ -85,47 +99,50 @@ fn linear_move_to_2d_inner<P: StatefulOutputPin>(
     Ok(Vector2D::new(speed_x, speed_y))
 }
 
-pub async fn linear_move_to_2d<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_to_2d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     dest: Vector2D<Distance>,
     speed: Speed,
+    endstops: (&mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let speed = linear_move_to_2d_inner(stepper_a, stepper_b, dest, speed)?;
-    linear_move_to_2d_raw::<P, T>(stepper_a, stepper_b, dest, speed).await
+    linear_move_to_2d_raw::<P, T, I>(stepper_a, stepper_b, dest, speed, endstops).await
 }
 
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
-pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
     dest: Vector3D<Distance>,
     speed: Speed,
     positioning: Positioning,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
-            linear_move_for_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed).await
+            linear_move_for_3d::<P, T, I>(stepper_a, stepper_b, stepper_c, dest, speed, endstops).await
         }
         Positioning::Absolute => {
-            linear_move_to_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed).await
+            linear_move_to_3d::<P, T, I>(stepper_a, stepper_b, stepper_c, dest, speed, endstops).await
         }
     }
 }
 
-async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait>(
+async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
     dest: Vector3D<Distance>,
     speed: Vector3D<Speed>,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     match join!(
-        linear_move_to::<P, T>(stepper_a, dest.get_x(), speed.get_x()),
-        linear_move_to::<P, T>(stepper_b, dest.get_y(), speed.get_y()),
-        linear_move_to::<P, T>(stepper_c, dest.get_z(), speed.get_z()),
+        linear_move_to::<P, T, I>(stepper_a, dest.get_x(), speed.get_x(), endstops.0),
+        linear_move_to::<P, T, I>(stepper_b, dest.get_y(), speed.get_y(), endstops.1),
+        linear_move_to::<P, T, I>(stepper_c, dest.get_z(), speed.get_z(), endstops.2),
     ) {
         (Ok(da), Ok(db), Ok(dc)) => {
             let max = da.max(db).max(dc);
@@ -157,23 +174,25 @@ pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
     Ok(Vector3D::new(speed_x, speed_y, speed_z))
 }
 
-pub async fn linear_move_to_3d<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_to_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
     dest: Vector3D<Distance>,
     speed: Speed,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let speed = linear_move_to_3d_inner::<P>(stepper_a, stepper_b, stepper_c, dest, speed)?;
-    linear_move_to_3d_raw::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed).await
+    linear_move_to_3d_raw::<P, T, I>(stepper_a, stepper_b, stepper_c, dest, speed, endstops).await
 }
 
-pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
     distance: Vector3D<Distance>,
     speed: Speed,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let source = Vector3D::new(
         stepper_a.get_position(),
@@ -181,10 +200,10 @@ pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait>(
         stepper_c.get_position(),
     );
     let dest = source + distance;
-    linear_move_to_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed).await
+    linear_move_to_3d::<P, T, I>(stepper_a, stepper_b, stepper_c, dest, speed, endstops).await
 }
 
-pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -193,24 +212,25 @@ pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     speed: Speed,
     e_dest: Distance,
     positioning: Positioning,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
-            linear_move_for_3d_e::<P, T>(
-                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest,
+            linear_move_for_3d_e::<P, T, I>(
+                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest, endstops
             )
             .await
         }
         Positioning::Absolute => {
-            linear_move_to_3d_e::<P, T>(
-                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest,
+            linear_move_to_3d_e::<P, T, I>(
+                stepper_a, stepper_b, stepper_c, stepper_e, dest, speed, e_dest, endstops
             )
             .await
         }
     }
 }
 
-pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -218,6 +238,7 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     dest: Vector3D<Distance>,
     speed: Speed,
     e_dest: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position(),
@@ -231,8 +252,8 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     let e_speed = e_delta / time;
 
     match join!(
-        linear_move_to_3d::<P, T>(stepper_a, stepper_b, stepper_c, dest, speed),
-        linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
+        linear_move_to_3d::<P, T, I>(stepper_a, stepper_b, stepper_c, dest, speed, (endstops.0, endstops.1, endstops.2)),
+        linear_move_to::<P, T, I>(stepper_e, e_dest, e_speed, endstops.3)
     ) {
         (Ok(dabc), Ok(de)) => {
             let max = dabc.max(de);
@@ -242,7 +263,7 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     }
 }
 
-pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -250,6 +271,7 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     distance: Vector3D<Distance>,
     speed: Speed,
     e_distance: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let src = Vector3D::new(
         stepper_a.get_position(),
@@ -259,7 +281,7 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait>(
     let abc_destination = src + distance;
     let e_destination = stepper_e.get_position() + e_distance;
 
-    linear_move_to_3d_e::<P, T>(
+    linear_move_to_3d_e::<P, T, I>(
         stepper_a,
         stepper_b,
         stepper_c,
@@ -267,20 +289,22 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait>(
         abc_destination,
         speed,
         e_destination,
+        endstops
     )
     .await
 }
 
 // ---------------------------- ARC MOVE 2D ----------------------------
 
-pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     arc_length: Distance,
     center: Vector2D<Distance>,
     speed: Speed,
     direction: RotationDirection,
-    arc_unit_length: Distance
+    arc_unit_length: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     if arc_length < arc_unit_length {
         return Err(StepperError::MoveTooShort);
@@ -291,12 +315,12 @@ pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait>(
     for n in 0..(arcs_n + 1) {
         let arc_length = arc_unit_length * n as f64;
         let arc_dst = compute_arc_destination(source, center, arc_length, direction);
-        total_duration += linear_move_to_2d::<P, T>(stepper_a, stepper_b, arc_dst, speed).await?;
+        total_duration += linear_move_to_2d::<P, T, I>(stepper_a, stepper_b, arc_dst, speed, (endstops.0, endstops.1)).await?;
     }
     Ok(total_duration)
 }
 
-pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -307,7 +331,8 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
     direction: RotationDirection,
     e_dest: Distance,
     full_circle_enabled: bool,
-    arc_unit_length: Distance
+    arc_unit_length: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     // TODO compute the minimum arc unit possible using the distance_per_step of each stepper
     let xy_dest = Vector2D::new(dest.get_x(), dest.get_y());
@@ -325,11 +350,11 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
     let e_speed = e_delta / time;
 
     match join!(
-        arc_move_2d_arc_length::<P, T>(
-            stepper_a, stepper_b, arc_length, xy_center, speed, direction, arc_unit_length
+        arc_move_2d_arc_length::<P, T, I>(
+            stepper_a, stepper_b, arc_length, xy_center, speed, direction, arc_unit_length, (endstops.0, endstops.1)
         ),
-        linear_move_to::<P, T>(stepper_c, dest.get_z(), z_speed),
-        linear_move_to::<P, T>(stepper_e, e_dest, e_speed)
+        linear_move_to::<P, T, I>(stepper_c, dest.get_z(), z_speed, endstops.2),
+        linear_move_to::<P, T, I>(stepper_e, e_dest, e_speed, endstops.3)
     ) {
         (Ok(dab), Ok(dc), Ok(de)) => {
             let max = dab.max(dc).max(de);
@@ -339,7 +364,7 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait>(
     }
 }
 
-pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -349,20 +374,21 @@ pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait>(
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
-    arc_unit_length: Distance
+    arc_unit_length: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let angle = source.get_angle();
     let center_offset_x = radius * cos(angle);
     let center_offset_y = radius * sin(angle);
     let center = source + Vector2D::new(center_offset_x, center_offset_y);
-    arc_move_3d_e_center::<P, T>(
-        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,arc_unit_length
+    arc_move_3d_e_center::<P, T, I>(
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, false,arc_unit_length, endstops
     )
     .await
 }
 
-pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrait>(
+pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     stepper_a: &mut Stepper<P, Attached>,
     stepper_b: &mut Stepper<P, Attached>,
     stepper_c: &mut Stepper<P, Attached>,
@@ -372,12 +398,13 @@ pub async fn arc_move_3d_e_offset_from_center<P: StatefulOutputPin, T: TimerTrai
     speed: Speed,
     direction: RotationDirection,
     e_dest: Distance,
-    arc_unit_length: Distance
+    arc_unit_length: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(stepper_a.get_position(), stepper_b.get_position());
     let center = source + offset;
-    arc_move_3d_e_center::<P, T>(
-        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true, arc_unit_length
+    arc_move_3d_e_center::<P, T, I>(
+        stepper_a, stepper_b, stepper_c, stepper_e, dest, center, speed, direction, e_dest, true, arc_unit_length, endstops
     )
     .await
 }
@@ -431,12 +458,13 @@ pub async fn auto_home_3d<
     Ok(duration)
 }
 
-pub async fn retract<O: StatefulOutputPin, T: TimerTrait>(
+pub async fn retract<O: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
     e_stepper: &mut Stepper<O, Attached>,
     z_stepper: &mut Stepper<O, Attached>,
     e_speed: Speed,
     e_distance: Distance,
     z_distance: Distance,
+    endstops: (&mut Option<I>, &mut Option<I>)
 ) -> Result<Duration, StepperError> {
     let e_destination = e_stepper.get_position() - e_distance;
     let z_destination = z_stepper.get_position() + z_distance;
@@ -444,8 +472,8 @@ pub async fn retract<O: StatefulOutputPin, T: TimerTrait>(
     let z_speed = z_distance / e_time;
 
     match join!(
-        linear_move_to::<O, T>(e_stepper, e_destination, e_speed),
-        linear_move_to::<O, T>(z_stepper, z_destination, z_speed)
+        linear_move_to::<O, T, I>(e_stepper, e_destination, e_speed, endstops.0),
+        linear_move_to::<O, T, I>(z_stepper, z_destination, z_speed, endstops.1)
     ) {
         (Ok(da), Ok(db)) => {
             let duration = da.max(db);
@@ -544,8 +572,9 @@ mod tests {
         );
         let destination = Distance::from_millimeters(0.0);
         let speed = Speed::from_meters_per_second(0.01);
+        let mut endstop = None;
         let res =
-            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+            linear_move_to::<StatefulOutputPinMock, StepperTimer, InputPinMock>(&mut s, destination, speed, &mut endstop).await;
         assert!(res.is_ok());
         assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
         assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
@@ -562,8 +591,9 @@ mod tests {
         );
         let destination = Distance::from_millimeters(10.0);
         let speed = Speed::from_meters_per_second(0.01);
+        let mut endstop = None;
         let res =
-            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+            linear_move_to::<StatefulOutputPinMock, StepperTimer, InputPinMock>(&mut s, destination, speed, &mut endstop).await;
         assert!(res.is_ok());
         assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
         assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
@@ -585,8 +615,10 @@ mod tests {
         );
         let destination = Distance::from_millimeters(-10.0);
         let speed = Speed::from_meters_per_second(0.01);
+        let mut endstop = None;
+        let mut inp = InputPinMock::new(Duration::from_micros(1));
         let res =
-            linear_move_to::<StatefulOutputPinMock, StepperTimer>(&mut s, destination, speed).await;
+            linear_move_to::<StatefulOutputPinMock, StepperTimer, InputPinMock>(&mut s, destination, speed, &mut endstop).await;
         assert!(res.is_ok());
         assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
         assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.0, epsilon = 0.000001);
@@ -611,12 +643,15 @@ mod tests {
             Distance::from_millimeters(-10.0),
             Distance::from_millimeters(-10.0),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
         let speed = Speed::from_meters_per_second(-0.01);
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y)
         )
         .await;
         assert!(res.is_ok());
@@ -660,16 +695,19 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
         let destination = Vector2D::new(
             Distance::from_millimeters(0.0),
             Distance::from_millimeters(0.0),
         );
         let speed = Speed::from_meters_per_second(-0.01);
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y)
         )
         .await;
         assert!(res.is_ok());
@@ -705,16 +743,19 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
         let destination = Vector2D::new(
             Distance::from_millimeters(-5.0),
             Distance::from_millimeters(5.0),
         );
         let speed = Speed::from_meters_per_second(0.01);
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y)
         )
         .await;
         assert!(res.is_ok());
@@ -759,13 +800,16 @@ mod tests {
             Distance::from_millimeters(5.0),
         );
         let speed = Speed::from_meters_per_second(0.01);
+        let mut endstop_x = None;
+        let mut endstop_y = None;
         s_x.set_stepping_mode(SteppingMode::HalfStep);
         s_y.set_stepping_mode(SteppingMode::QuarterStep);
-        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_2d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y)
         )
         .await;
         assert!(res.is_ok());
@@ -811,6 +855,9 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
+        let mut endstop_z = None;
         let destination = Vector3D::new(
             Distance::from_millimeters(-5.0),
             Distance::from_millimeters(5.0),
@@ -820,12 +867,13 @@ mod tests {
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             &mut s_z,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y, &mut endstop_z)
         )
         .await;
         assert!(res.is_ok());
@@ -884,16 +932,20 @@ mod tests {
             Distance::from_millimeters(-2.0),
             Distance::from_millimeters(5.0),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
+        let mut endstop_z = None;
         let speed = Speed::from_meters_per_second(0.01);
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             &mut s_z,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y, &mut endstop_z)
         )
         .await;
         assert!(res.is_ok());
@@ -943,6 +995,9 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
+        let mut endstop_z = None;
         let destination = Vector3D::new(
             Distance::from_millimeters(0.0),
             Distance::from_millimeters(0.0),
@@ -952,12 +1007,13 @@ mod tests {
         s_x.set_stepping_mode(SteppingMode::FullStep);
         s_y.set_stepping_mode(SteppingMode::FullStep);
         s_z.set_stepping_mode(SteppingMode::FullStep);
-        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer>(
+        let res = linear_move_to_3d::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s_x,
             &mut s_y,
             &mut s_z,
             destination,
             speed,
+            (&mut endstop_x, &mut endstop_y, &mut endstop_z)
         )
         .await;
         assert!(res.is_ok());
@@ -986,6 +1042,8 @@ mod tests {
             StepperOptions::default(),
             StepperAttachment::default(),
         );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
         let arc_length = Distance::from_millimeters(20.0);
         let center = Vector2D::new(
             Distance::from_millimeters(10.0),
@@ -993,8 +1051,9 @@ mod tests {
         );
         let speed = Speed::from_meters_per_second(0.01);
         let direction = RotationDirection::Clockwise;
-        let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer>(
-            &mut s_x, &mut s_y, arc_length, center, speed, direction, Distance::from_millimeters(1.0)
+        let res = arc_move_2d_arc_length::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
+            &mut s_x, &mut s_y, arc_length, center, speed, direction, Distance::from_millimeters(1.0),
+            (&mut endstop_x, &mut endstop_y)
         )
         .await;
         assert!(res.is_ok());
