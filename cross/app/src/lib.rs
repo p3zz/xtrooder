@@ -7,12 +7,12 @@ pub mod fan;
 pub mod hotend;
 pub mod utils;
 
-pub enum PrinterError{
+pub enum PrinterError {
     HotendOverheating,
     HotendUnderheating,
     HeatbedOverheating,
     EndstopHit,
-    MoveOutOfBounds
+    MoveOutOfBounds,
 }
 
 #[macro_export]
@@ -27,9 +27,7 @@ macro_rules! init_output_pin {
 #[macro_export]
 macro_rules! init_input_pin {
     ($config: ident) => {
-        StepperInputPin {
-            pin: $config
-        }
+        StepperInputPin { pin: $config }
     };
 }
 
@@ -46,14 +44,14 @@ macro_rules! init_stepper {
 }
 
 #[macro_export]
-macro_rules! timer_channel{
+macro_rules! timer_channel {
     ($channel: ident) => {
-        match $channel{
+        match $channel {
             1 => Some(TimerChannel::Ch1),
             2 => Some(TimerChannel::Ch2),
             3 => Some(TimerChannel::Ch3),
             4 => Some(TimerChannel::Ch4),
-            _ => None
-        }  
+            _ => None,
+        }
     };
 }

@@ -1,13 +1,15 @@
 use std::{
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
 };
 
-use math::{common::RotationDirection, measurements::{Distance, Length, Resistance, Speed}};
+use math::{
+    common::RotationDirection,
+    measurements::{Distance, Length, Resistance, Speed},
+};
 use proc_macro2::Span;
-use stepper::{motion::Positioning, stepper::SteppingMode};
 use quote::quote;
+use stepper::{motion::Positioning, stepper::SteppingMode};
 use syn::Ident;
 
 mod external {
@@ -17,7 +19,7 @@ mod external {
 
     fn get_string_value(s: String) -> Option<String> {
         s.is_empty().not().then_some(s)
-    }    
+    }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PinConfig {
@@ -41,28 +43,27 @@ mod external {
         }
     }
 
-//     [motion]
-// arc_unit_length = 0.0
-// feedrate = 0.0
-// positioning = "absolute"
+    //     [motion]
+    // arc_unit_length = 0.0
+    // feedrate = 0.0
+    // positioning = "absolute"
 
-// [motion.retraction]
-// feedrate = 0.0
-// length = 0.0
-// z_lift = 0.0
+    // [motion.retraction]
+    // feedrate = 0.0
+    // length = 0.0
+    // z_lift = 0.0
 
-// [motion.recover]
-// feedrate = 0.0
-// length = 0.0
-
+    // [motion.recover]
+    // feedrate = 0.0
+    // length = 0.0
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
-    pub struct RecoverMotionConfig{
+    pub struct RecoverMotionConfig {
         feedrate: f64,
         length: f64,
     }
 
-    impl RecoverMotionConfig{
+    impl RecoverMotionConfig {
         pub fn get_feedrate(&self) -> f64 {
             self.feedrate
         }
@@ -73,13 +74,13 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
-    pub struct RetractionMotionConfig{
+    pub struct RetractionMotionConfig {
         feedrate: f64,
         length: f64,
         z_lift: f64,
     }
 
-    impl RetractionMotionConfig{
+    impl RetractionMotionConfig {
         pub fn get_feedrate(&self) -> f64 {
             self.feedrate
         }
@@ -94,53 +95,53 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct EndstopPartConfig{
+    pub struct EndstopPartConfig {
         pin: String,
-        exti: String
+        exti: String,
     }
 
-    impl EndstopPartConfig{
-        pub fn get_pin(&self) -> Option<String>{
+    impl EndstopPartConfig {
+        pub fn get_pin(&self) -> Option<String> {
             get_string_value(self.pin.clone())
         }
 
-        pub fn get_exti(&self) -> Option<String>{
+        pub fn get_exti(&self) -> Option<String> {
             get_string_value(self.exti.clone())
         }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct EndstopsConfig{
+    pub struct EndstopsConfig {
         x: EndstopPartConfig,
         y: EndstopPartConfig,
         z: EndstopPartConfig,
     }
 
-    impl EndstopsConfig{
-        pub fn get_x(&self) -> EndstopPartConfig{
+    impl EndstopsConfig {
+        pub fn get_x(&self) -> EndstopPartConfig {
             self.x.clone()
         }
-        
-        pub fn get_y(&self) -> EndstopPartConfig{
+
+        pub fn get_y(&self) -> EndstopPartConfig {
             self.y.clone()
         }
 
-        pub fn get_z(&self) -> EndstopPartConfig{
+        pub fn get_z(&self) -> EndstopPartConfig {
             self.z.clone()
         }
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct MotionConfig{
+    pub struct MotionConfig {
         arc_unit_length: f64,
         feedrate: f64,
         positioning: String,
         retraction: RetractionMotionConfig,
         recover: RecoverMotionConfig,
-        endstops: EndstopsConfig
+        endstops: EndstopsConfig,
     }
 
-    impl MotionConfig{
+    impl MotionConfig {
         pub fn get_arc_unit_length(&self) -> f64 {
             self.arc_unit_length
         }
@@ -153,22 +154,21 @@ mod external {
             get_string_value(self.positioning.clone())
         }
 
-        pub fn get_retraction(&self) -> RetractionMotionConfig{
+        pub fn get_retraction(&self) -> RetractionMotionConfig {
             self.retraction
         }
 
-        pub fn get_recover(&self) -> RecoverMotionConfig{
+        pub fn get_recover(&self) -> RecoverMotionConfig {
             self.recover
         }
 
-        pub fn get_endstops(&self) -> EndstopsConfig{
+        pub fn get_endstops(&self) -> EndstopsConfig {
             self.endstops.clone()
         }
-
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
-    pub struct StepperBounds{
+    pub struct StepperBounds {
         pub min: f64,
         pub max: f64,
     }
@@ -181,7 +181,7 @@ mod external {
         distance_per_step: f64,
         steps_per_revolution: u64,
         bounds: StepperBounds,
-        positive_direction: String
+        positive_direction: String,
     }
 
     impl StepperConfig {
@@ -191,19 +191,19 @@ mod external {
         pub fn get_dir(&self) -> PinConfig {
             self.dir.clone()
         }
-        pub fn get_stepping_mode(&self) -> String{
+        pub fn get_stepping_mode(&self) -> String {
             self.stepping_mode.clone()
         }
-        pub fn get_distance_per_step(&self) -> f64{
+        pub fn get_distance_per_step(&self) -> f64 {
             self.distance_per_step
         }
-        pub fn get_steps_per_revolution(&self) -> u64{
+        pub fn get_steps_per_revolution(&self) -> u64 {
             self.steps_per_revolution
         }
-        pub fn get_bounds(&self) -> StepperBounds{
+        pub fn get_bounds(&self) -> StepperBounds {
             self.bounds
         }
-        pub fn get_positive_direction(&self) -> String{
+        pub fn get_positive_direction(&self) -> String {
             self.positive_direction.clone()
         }
     }
@@ -339,15 +339,15 @@ mod external {
             get_string_value(self.timer.clone())
         }
 
-        pub fn get_ch1(&self) -> Option<String>{
+        pub fn get_ch1(&self) -> Option<String> {
             get_string_value(self.ch1.clone())
         }
 
-        pub fn get_ch2(&self) -> Option<String>{
+        pub fn get_ch2(&self) -> Option<String> {
             get_string_value(self.ch2.clone())
         }
 
-        pub fn get_ch3(&self) -> Option<String>{
+        pub fn get_ch3(&self) -> Option<String> {
             get_string_value(self.ch3.clone())
         }
     }
@@ -497,7 +497,7 @@ mod external {
         pub heatbed: ThermistorConfig,
         pub fan: FanConfig,
         pub sdcard: SdCardConfig,
-        pub motion: MotionConfig
+        pub motion: MotionConfig,
     }
 }
 
@@ -505,10 +505,13 @@ fn main() {
     println!("cargo::rerun-if-changed=config/config.toml");
     let path = Path::new("config/config.toml");
     let conf = confy::load_path::<external::MyConfig>(path).expect("Error reading config file");
-    
+
     let motion_arc_unit_len = conf.motion.get_arc_unit_length();
     let motion_feedrate = conf.motion.get_feedrate();
-    let motion_positioning = conf.motion.get_positioning().expect("Motion positioning is missing");
+    let motion_positioning = conf
+        .motion
+        .get_positioning()
+        .expect("Motion positioning is missing");
     let motion_positioning = motion_positioning.as_str();
     let _ = Positioning::from(motion_positioning);
 
@@ -518,22 +521,52 @@ fn main() {
     let motion_recover_feedrate = conf.motion.get_recover().get_feedrate();
     let motion_recover_len = conf.motion.get_recover().get_length();
 
-    let motion_endstop_x = conf.motion.get_endstops().get_x().get_pin().expect("Endstop x axis is missing");
+    let motion_endstop_x = conf
+        .motion
+        .get_endstops()
+        .get_x()
+        .get_pin()
+        .expect("Endstop x axis is missing");
     let motion_endstop_x = Ident::new(motion_endstop_x.as_str(), Span::call_site());
 
-    let motion_endstop_x_exti = conf.motion.get_endstops().get_x().get_exti().expect("Endstop x EXTI is missing");
+    let motion_endstop_x_exti = conf
+        .motion
+        .get_endstops()
+        .get_x()
+        .get_exti()
+        .expect("Endstop x EXTI is missing");
     let motion_endstop_x_exti = Ident::new(motion_endstop_x_exti.as_str(), Span::call_site());
 
-    let motion_endstop_y = conf.motion.get_endstops().get_y().get_pin().expect("Endstop y axis is missing");
+    let motion_endstop_y = conf
+        .motion
+        .get_endstops()
+        .get_y()
+        .get_pin()
+        .expect("Endstop y axis is missing");
     let motion_endstop_y = Ident::new(motion_endstop_y.as_str(), Span::call_site());
 
-    let motion_endstop_y_exti = conf.motion.get_endstops().get_y().get_exti().expect("Endstop y EXTI is missing");
+    let motion_endstop_y_exti = conf
+        .motion
+        .get_endstops()
+        .get_y()
+        .get_exti()
+        .expect("Endstop y EXTI is missing");
     let motion_endstop_y_exti = Ident::new(motion_endstop_y_exti.as_str(), Span::call_site());
 
-    let motion_endstop_z = conf.motion.get_endstops().get_z().get_pin().expect("Endstop z axis is missing");
+    let motion_endstop_z = conf
+        .motion
+        .get_endstops()
+        .get_z()
+        .get_pin()
+        .expect("Endstop z axis is missing");
     let motion_endstop_z = Ident::new(motion_endstop_z.as_str(), Span::call_site());
 
-    let motion_endstop_z_exti = conf.motion.get_endstops().get_z().get_exti().expect("Endstop z EXTI is missing");
+    let motion_endstop_z_exti = conf
+        .motion
+        .get_endstops()
+        .get_z()
+        .get_exti()
+        .expect("Endstop z EXTI is missing");
     let motion_endstop_z_exti = Ident::new(motion_endstop_z_exti.as_str(), Span::call_site());
 
     let steppers_x_step_pin = conf
@@ -554,7 +587,7 @@ fn main() {
     let steppers_x_stepping_mode = conf.steppers.get_x().get_stepping_mode();
     let steppers_x_stepping_mode = steppers_x_stepping_mode.as_str();
     let _ = SteppingMode::from(steppers_x_stepping_mode);
-    
+
     let steppers_x_distance_per_step = conf.steppers.get_x().get_distance_per_step();
     let steppers_x_steps_per_revolution = conf.steppers.get_x().get_steps_per_revolution();
     let steppers_x_bounds = conf.steppers.get_x().get_bounds();
@@ -583,7 +616,7 @@ fn main() {
     let steppers_y_stepping_mode = conf.steppers.get_y().get_stepping_mode();
     let steppers_y_stepping_mode = steppers_y_stepping_mode.as_str();
     let _ = SteppingMode::from(steppers_y_stepping_mode);
-    
+
     let steppers_y_distance_per_step = conf.steppers.get_y().get_distance_per_step();
     let steppers_y_steps_per_revolution = conf.steppers.get_y().get_steps_per_revolution();
     let steppers_y_bounds = conf.steppers.get_y().get_bounds();
@@ -647,13 +680,13 @@ fn main() {
     let steppers_e_positive_direction = conf.steppers.get_e().get_positive_direction();
     let steppers_e_positive_direction = steppers_e_positive_direction.as_str();
     let _ = RotationDirection::from(steppers_e_positive_direction);
-    
+
     let pwm_timer = conf
         .pwm
         .get_timer()
         .expect("PWM timer peripheral is missing");
     let pwm_timer = Ident::new(pwm_timer.as_str(), Span::call_site());
-    
+
     let pwm_frequency = conf.pwm.get_frequency();
     let pwm_ch1 = conf.pwm.get_ch1().expect("PMW ch1 is missing");
     let pwm_ch1 = Ident::new(pwm_ch1.as_str(), Span::call_site());
@@ -804,13 +837,13 @@ fn main() {
         .expect("SD-Card SPI CS pin is missing");
     let sdcard_spi_cs = Ident::new(sdcard_spi_cs.as_str(), Span::call_site());
 
-    if hotend_pwm_output_channel < 1 || hotend_pwm_output_channel > 4{
+    if hotend_pwm_output_channel < 1 || hotend_pwm_output_channel > 4 {
         panic!("Hotend PWM channel must be between 1 and 4");
     }
-    if heatbed_pwm_output_channel < 1 || heatbed_pwm_output_channel > 4{
+    if heatbed_pwm_output_channel < 1 || heatbed_pwm_output_channel > 4 {
         panic!("Heatbed PWM channel must be between 1 and 4");
     }
-    if fan_pwm_output_channel < 1 || fan_pwm_output_channel > 4{
+    if fan_pwm_output_channel < 1 || fan_pwm_output_channel > 4 {
         panic!("Fan PWM channel must be between 1 and 4");
     }
 

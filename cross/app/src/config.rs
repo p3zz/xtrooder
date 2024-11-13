@@ -1,16 +1,19 @@
-use math::{common::RotationDirection, measurements::{Length, Resistance, Temperature}};
-pub use stepper::planner::MotionConfig as MotionConfig;
+use math::{
+    common::RotationDirection,
+    measurements::{Length, Resistance, Temperature},
+};
+pub use stepper::planner::MotionConfig;
 use stepper::stepper::SteppingMode;
 
-pub struct EndstopPartConfig<P,E>{
+pub struct EndstopPartConfig<P, E> {
     pub pin: P,
-    pub exti: E
+    pub exti: E,
 }
 
-pub struct EndstopsConfig<XP,XE,YP,YE,ZP,ZE>{
-    pub x: EndstopPartConfig<XP,XE>,
-    pub y: EndstopPartConfig<YP,YE>,
-    pub z: EndstopPartConfig<ZP,ZE>,
+pub struct EndstopsConfig<XP, XE, YP, YE, ZP, ZE> {
+    pub x: EndstopPartConfig<XP, XE>,
+    pub y: EndstopPartConfig<YP, YE>,
+    pub z: EndstopPartConfig<ZP, ZE>,
 }
 
 pub struct StepperConfig<S, D> {
@@ -20,7 +23,7 @@ pub struct StepperConfig<S, D> {
     pub distance_per_step: Length,
     pub steps_per_revolution: u64,
     pub bounds: (f64, f64),
-    pub positive_direction: RotationDirection
+    pub positive_direction: RotationDirection,
 }
 
 pub struct UartPartConfig<P, D> {
@@ -43,13 +46,40 @@ pub struct SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED> {
 }
 
 pub struct PrinterConfig<
-XP, XD, YP, YD, ZP, ZD, EP, ED,
-PWMT, CH1, CH2, CH3,
-UP, RXP, RXD, TXP, TXD,
-HOP, HOI, HOD,
-HEP, HEI, HED,
-SPIP, SPIT, SPIMO, SPIMI, SPICS,
-XEP, XEE, YEP, YEE, ZEP, ZEE,
+    XP,
+    XD,
+    YP,
+    YD,
+    ZP,
+    ZD,
+    EP,
+    ED,
+    PWMT,
+    CH1,
+    CH2,
+    CH3,
+    UP,
+    RXP,
+    RXD,
+    TXP,
+    TXD,
+    HOP,
+    HOI,
+    HOD,
+    HEP,
+    HEI,
+    HED,
+    SPIP,
+    SPIT,
+    SPIMO,
+    SPIMI,
+    SPICS,
+    XEP,
+    XEE,
+    YEP,
+    YEE,
+    ZEP,
+    ZEE,
 > {
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
@@ -59,7 +89,7 @@ XEP, XEE, YEP, YEE, ZEP, ZEE,
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
     pub motion: MotionConfig,
-    pub endstops: EndstopsConfig<XEP, XEE, YEP, YEE, ZEP, ZEE>
+    pub endstops: EndstopsConfig<XEP, XEE, YEP, YEE, ZEP, ZEE>,
 }
 
 pub struct AdcConfig<P, I, D> {

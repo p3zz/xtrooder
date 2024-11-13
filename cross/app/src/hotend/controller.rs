@@ -11,7 +11,7 @@ pub struct Hotend<'l, I, P, T>
 where
     I: Instance,
     P: RxDma<I>,
-    T: GeneralInstance4Channel
+    T: GeneralInstance4Channel,
 {
     heater: Heater<T>,
     thermistor: Thermistor<'l, I, P>,
@@ -21,7 +21,7 @@ impl<'l, I, P, T> Hotend<'l, I, P, T>
 where
     I: Instance,
     P: RxDma<I>,
-    T: GeneralInstance4Channel
+    T: GeneralInstance4Channel,
 {
     pub fn new(heater: Heater<T>, thermistor: Thermistor<'l, I, P>) -> Self {
         Hotend { heater, thermistor }
@@ -31,11 +31,7 @@ where
         self.heater.set_target_temperature(temperature);
     }
 
-    pub async fn update(
-        &mut self,
-        dt: Duration,
-        pwm: &mut SimplePwm<'_, T>,
-    ) -> Result<u32, ()> {
+    pub async fn update(&mut self, dt: Duration, pwm: &mut SimplePwm<'_, T>) -> Result<u32, ()> {
         let curr_tmp = self.read_temperature().await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
         self.heater.update(curr_tmp, dt, pwm)

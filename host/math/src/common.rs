@@ -23,12 +23,12 @@ impl From<RotationDirection> for i8 {
     }
 }
 
-impl From<&str> for RotationDirection{
+impl From<&str> for RotationDirection {
     fn from(value: &str) -> Self {
-        match value{
+        match value {
             "clockwise" => RotationDirection::Clockwise,
             "counterclockwise" => RotationDirection::CounterClockwise,
-            _ => panic!("Invalid rotation direction")
+            _ => panic!("Invalid rotation direction"),
         }
     }
 }

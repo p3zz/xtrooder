@@ -5,14 +5,20 @@ use core::cell::RefCell;
 use core::fmt::Write;
 use core::str::FromStr;
 
-use app::config::{self, EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig};
+use app::config::{
+    self, EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig,
+};
 use app::ext::{
-    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral, HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopPin, XEndstopExti, XStepPin, YDirPin, YEndstopPin, YEndstopExti, YStepPin, ZDirPin, ZEndstopPin, ZEndstopExti, ZStepPin
+    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
+    HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
+    SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti,
+    XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
+    ZEndstopPin, ZStepPin,
 };
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
-use app::{init_input_pin, init_output_pin, init_stepper, timer_channel};
 use app::utils::stopwatch::Clock;
+use app::{init_input_pin, init_output_pin, init_stepper, timer_channel};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
@@ -31,10 +37,7 @@ use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, Speed as PinSpeed},
-    timer::{
-        simple_pwm::SimplePwm,
-        Channel as TimerChannel,
-    },
+    timer::{simple_pwm::SimplePwm, Channel as TimerChannel},
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
@@ -52,7 +55,9 @@ use math::{
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
-use stepper::stepper::{StatefulOutputPin, StatefulInputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode};
+use stepper::stepper::{
+    StatefulInputPin, StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode,
+};
 use stepper::TimerTrait;
 use {defmt_rtt as _, panic_probe as _};
 
@@ -105,7 +110,7 @@ struct StepperInputPin<'a> {
     pin: ExtiInput<'a>,
 }
 
-impl StatefulInputPin for StepperInputPin<'_>{
+impl StatefulInputPin for StepperInputPin<'_> {
     fn is_high(&self) -> bool {
         self.pin.is_high()
     }
@@ -117,7 +122,6 @@ impl StatefulInputPin for StepperInputPin<'_>{
         self.pin.wait_for_low()
     }
 }
-
 
 struct StepperTimer {}
 
@@ -257,7 +261,7 @@ async fn command_dispatcher_task() {
 #[embassy_executor::task]
 async fn hotend_handler(
     config: ThermistorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
-    fan_config: FanConfig
+    fan_config: FanConfig,
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
@@ -347,7 +351,7 @@ async fn hotend_handler(
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn heatbed_handler(
-    config: ThermistorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>
+    config: ThermistorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>,
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
@@ -419,10 +423,22 @@ async fn heatbed_handler(
 
 #[embassy_executor::task]
 async fn sdcard_handler(
-    config: SdCardConfig<SdCardSpiPeripheral, SdCardSpiTimer, SdCardSpiMosiPin, SdCardSpiMisoPin, SdCardSpiCsPin>
+    config: SdCardConfig<
+        SdCardSpiPeripheral,
+        SdCardSpiTimer,
+        SdCardSpiMosiPin,
+        SdCardSpiMisoPin,
+        SdCardSpiCsPin,
+    >,
 ) {
     static SPI_BUS: StaticCell<NoopMutex<RefCell<Spi<'static, Blocking>>>> = StaticCell::new();
-    let spi = spi::Spi::new_blocking(config.spi.peripheral, config.spi.clk, config.spi.mosi, config.spi.miso, Default::default());
+    let spi = spi::Spi::new_blocking(
+        config.spi.peripheral,
+        config.spi.clk,
+        config.spi.mosi,
+        config.spi.miso,
+        Default::default(),
+    );
     let spi_bus = NoopMutex::new(RefCell::new(spi));
     let spi_bus = SPI_BUS.init(spi_bus);
 
@@ -548,16 +564,24 @@ async fn sdcard_handler(
 #[embassy_executor::task]
 async fn planner_handler(
     config: SteppersConfig<
-    XStepPin,
-    XDirPin,
-    YStepPin,
-    YDirPin,
-    ZStepPin,
-    ZDirPin,
-    EStepPin,
-    EDirPin>,
+        XStepPin,
+        XDirPin,
+        YStepPin,
+        YDirPin,
+        ZStepPin,
+        ZDirPin,
+        EStepPin,
+        EDirPin,
+    >,
     motion_config: MotionConfig,
-    endstops_config: EndstopsConfig<XEndstopPin, XEndstopExti, YEndstopPin, YEndstopExti, ZEndstopPin, ZEndstopExti>
+    endstops_config: EndstopsConfig<
+        XEndstopPin,
+        XEndstopExti,
+        YEndstopPin,
+        YEndstopExti,
+        ZEndstopPin,
+        ZEndstopExti,
+    >,
 ) {
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
@@ -565,56 +589,56 @@ async fn planner_handler(
     let x_step = config.x.step_pin;
     let x_dir = config.x.dir_pin;
 
-    let x_options = StepperOptions{
+    let x_options = StepperOptions {
         steps_per_revolution: config.x.steps_per_revolution,
         stepping_mode: config.x.stepping_mode,
         bounds: Some(config.x.bounds),
-        positive_direction: config.x.positive_direction
+        positive_direction: config.x.positive_direction,
     };
-    let x_attachment = StepperAttachment{
-        distance_per_step: config.x.distance_per_step
+    let x_attachment = StepperAttachment {
+        distance_per_step: config.x.distance_per_step,
     };
 
     let x_stepper = init_stepper!(x_step, x_dir, x_options, x_attachment);
 
     let y_step = config.y.step_pin;
     let y_dir = config.y.dir_pin;
-    let y_options = StepperOptions{
+    let y_options = StepperOptions {
         steps_per_revolution: config.y.steps_per_revolution,
         stepping_mode: config.y.stepping_mode,
         bounds: Some(config.y.bounds),
-        positive_direction: config.y.positive_direction
+        positive_direction: config.y.positive_direction,
     };
-    let y_attachment = StepperAttachment{
-        distance_per_step: config.y.distance_per_step
+    let y_attachment = StepperAttachment {
+        distance_per_step: config.y.distance_per_step,
     };
 
     let y_stepper = init_stepper!(y_step, y_dir, y_options, y_attachment);
 
     let z_step = config.z.step_pin;
     let z_dir = config.z.dir_pin;
-    let z_options = StepperOptions{
+    let z_options = StepperOptions {
         steps_per_revolution: config.z.steps_per_revolution,
         stepping_mode: config.z.stepping_mode,
         bounds: Some(config.z.bounds),
-        positive_direction: config.z.positive_direction
+        positive_direction: config.z.positive_direction,
     };
-    let z_attachment = StepperAttachment{
-        distance_per_step: config.z.distance_per_step
+    let z_attachment = StepperAttachment {
+        distance_per_step: config.z.distance_per_step,
     };
 
     let z_stepper = init_stepper!(z_step, z_dir, z_options, z_attachment);
 
     let e_step = config.e.step_pin;
     let e_dir = config.e.dir_pin;
-    let e_options = StepperOptions{
+    let e_options = StepperOptions {
         steps_per_revolution: config.e.steps_per_revolution,
         stepping_mode: config.e.stepping_mode,
         bounds: Some(config.e.bounds),
-        positive_direction: config.e.positive_direction
+        positive_direction: config.e.positive_direction,
     };
-    let e_attachment = StepperAttachment{
-        distance_per_step: config.e.distance_per_step
+    let e_attachment = StepperAttachment {
+        distance_per_step: config.e.distance_per_step,
     };
 
     let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
@@ -630,9 +654,15 @@ async fn planner_handler(
 
     let endstops = (Some(x_endstop), Some(y_endstop), Some(z_endstop), None);
 
-    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin> =
-        Planner::new(x_stepper, y_stepper, z_stepper, e_stepper, motion_config, endstops);
-    
+    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin> = Planner::new(
+        x_stepper,
+        y_stepper,
+        z_stepper,
+        e_stepper,
+        motion_config,
+        endstops,
+    );
+
     let dt = Duration::from_millis(500);
 
     loop {
@@ -787,9 +817,7 @@ async fn main(spawner: Spawner) {
     spawner.spawn(command_dispatcher_task()).unwrap();
 
     spawner
-        .spawn(heatbed_handler(
-            printer_config.heatbed
-        ))
+        .spawn(heatbed_handler(printer_config.heatbed))
         .unwrap();
 
     // FIXME the error is weird, we probably need to check the pins compatibility
@@ -801,16 +829,13 @@ async fn main(spawner: Spawner) {
         .spawn(planner_handler(
             printer_config.steppers,
             printer_config.motion,
-            printer_config.endstops
+            printer_config.endstops,
         ))
         .unwrap();
 
     spawner
-        .spawn(sdcard_handler(
-            printer_config.sdcard
-        ))
+        .spawn(sdcard_handler(printer_config.sdcard))
         .unwrap();
-    
 
     loop {
         info!("[MAIN LOOP] alive");

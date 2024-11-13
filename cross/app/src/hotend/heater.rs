@@ -12,7 +12,7 @@ pub struct Heater<T: GeneralInstance4Channel> {
     ch: Channel,
     pid: Controller,
     target_temperature: Option<Temperature>,
-    phantom: PhantomData<T>
+    phantom: PhantomData<T>,
 }
 
 impl<T: GeneralInstance4Channel> Heater<T> {
@@ -27,7 +27,7 @@ impl<T: GeneralInstance4Channel> Heater<T> {
             ch,
             pid,
             target_temperature: None,
-            phantom: PhantomData
+            phantom: PhantomData,
         }
     }
 

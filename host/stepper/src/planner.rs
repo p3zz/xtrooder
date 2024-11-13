@@ -1,3 +1,8 @@
+use super::motion::{
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
+    linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
+};
+use super::stepper::{Attached, StatefulInputPin, StatefulOutputPin, Stepper, StepperError};
 use core::marker::PhantomData;
 use core::pin::pin;
 use core::time::Duration;
@@ -7,30 +12,23 @@ use math::common::RotationDirection;
 use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
-use super::motion::{
-    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
-    linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
-};
-use super::stepper::{
-    Attached, StatefulOutputPin, Stepper, StepperError, StatefulInputPin
-};
 
 use super::TimerTrait;
 
 #[derive(Clone, Copy)]
-pub struct RecoverMotionConfig{
+pub struct RecoverMotionConfig {
     pub feedrate: Speed,
     pub length: Length,
 }
 
 #[derive(Clone, Copy)]
-pub struct RetractionMotionConfig{
+pub struct RetractionMotionConfig {
     pub feedrate: Speed,
     pub length: Length,
     pub z_lift: Length,
 }
 
-pub struct MotionConfig{
+pub struct MotionConfig {
     pub arc_unit_length: Length,
     pub feedrate: Speed,
     pub positioning: Positioning,
@@ -45,7 +43,7 @@ pub struct Planner<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> {
     e_stepper: Stepper<P, Attached>,
     config: MotionConfig,
     _timer: PhantomData<T>,
-    endstops: (Option<I>, Option<I>, Option<I>, Option<I>)
+    endstops: (Option<I>, Option<I>, Option<I>, Option<I>),
 }
 
 impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> {
@@ -55,7 +53,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         z_stepper: Stepper<P, Attached>,
         e_stepper: Stepper<P, Attached>,
         config: MotionConfig,
-        endstops: (Option<I>, Option<I>, Option<I>, Option<I>)
+        endstops: (Option<I>, Option<I>, Option<I>, Option<I>),
     ) -> Self {
         Planner {
             x_stepper,
@@ -64,7 +62,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             e_stepper,
             _timer: PhantomData,
             config,
-            endstops
+            endstops,
         }
     }
 
@@ -150,7 +148,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 self.m207(f, s, z);
                 Ok(None)
             }
-            GCommand::M208 { f, s} => {
+            GCommand::M208 { f, s } => {
                 self.m208(f, s);
                 Ok(None)
             }
@@ -223,7 +221,11 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             dst,
             self.config.feedrate,
             self.config.positioning,
-            (&mut self.endstops.0, &mut self.endstops.1, &mut self.endstops.2)
+            (
+                &mut self.endstops.0,
+                &mut self.endstops.1,
+                &mut self.endstops.2,
+            ),
         )
         .await
     }
@@ -270,7 +272,12 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             self.config.feedrate,
             e,
             self.config.positioning,
-            (&mut self.endstops.0, &mut self.endstops.1, &mut self.endstops.2, &mut self.endstops.3)
+            (
+                &mut self.endstops.0,
+                &mut self.endstops.1,
+                &mut self.endstops.2,
+                &mut self.endstops.3,
+            ),
         )
         .await
     }
@@ -357,7 +364,12 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 d,
                 e,
                 self.config.arc_unit_length,
-            (&mut self.endstops.0, &mut self.endstops.1, &mut self.endstops.2, &mut self.endstops.3)
+                (
+                    &mut self.endstops.0,
+                    &mut self.endstops.1,
+                    &mut self.endstops.2,
+                    &mut self.endstops.3,
+                ),
             )
             .await;
         }
@@ -392,7 +404,12 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 d,
                 e,
                 self.config.arc_unit_length,
-            (&mut self.endstops.0, &mut self.endstops.1, &mut self.endstops.2, &mut self.endstops.3)
+                (
+                    &mut self.endstops.0,
+                    &mut self.endstops.1,
+                    &mut self.endstops.2,
+                    &mut self.endstops.3,
+                ),
             )
             .await;
         }
@@ -438,7 +455,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             self.config.retraction.feedrate,
             self.config.retraction.length,
             self.config.retraction.z_lift,
-            (&mut self.endstops.2, &mut self.endstops.3)
+            (&mut self.endstops.2, &mut self.endstops.3),
         )
         .await
     }
@@ -446,13 +463,19 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
     // recover
     async fn g11(&mut self) -> Result<core::time::Duration, StepperError> {
         let e_destination = self.e_stepper.get_position() + self.config.recover.length;
-        linear_move_to::<P, T, I>(&mut self.e_stepper, e_destination, self.config.recover.feedrate, &mut self.endstops.3).await
+        linear_move_to::<P, T, I>(
+            &mut self.e_stepper,
+            e_destination,
+            self.config.recover.feedrate,
+            &mut self.endstops.3,
+        )
+        .await
     }
 
     // auto home
     async fn g28(
         &mut self,
-        endstops: (&mut I,&mut I,&mut I)
+        endstops: (&mut I, &mut I, &mut I),
     ) -> Result<core::time::Duration, StepperError> {
         auto_home_3d::<I, P, T, Attached>(
             &mut self.x_stepper,

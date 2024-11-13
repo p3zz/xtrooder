@@ -79,12 +79,15 @@ async fn main(_spawner: Spawner) {
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
-    let heater = Heater::new(Channel::Ch4, PidConfig{
-        k_p: 2.0,
-        k_i: 2.0,
-        k_d: 2.0,
-    });
-    
+    let heater = Heater::new(
+        Channel::Ch4,
+        PidConfig {
+            k_p: 2.0,
+            k_i: 2.0,
+            k_d: 2.0,
+        },
+    );
+
     let mut hotend = Hotend::new(heater, thermistor);
 
     hotend.set_temperature(Temperature::from_celsius(100f64));

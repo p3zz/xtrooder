@@ -1,3 +1,4 @@
+use super::TimerTrait;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -7,7 +8,6 @@ use math::common::{
     speed_from_angular_velocity,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
-use super::TimerTrait;
 
 pub trait StatefulOutputPin {
     fn set_high(&mut self);
@@ -83,15 +83,15 @@ impl From<SteppingMode> for u8 {
     }
 }
 
-impl From<&str> for SteppingMode{
+impl From<&str> for SteppingMode {
     fn from(value: &str) -> Self {
-        match value{
+        match value {
             "full" => SteppingMode::FullStep,
             "half" => SteppingMode::HalfStep,
             "quarter" => SteppingMode::QuarterStep,
             "eighth" => SteppingMode::EighthStep,
             "sixteenth" => SteppingMode::SixteenthStep,
-            _ => panic!("Invalid stepping mode")
+            _ => panic!("Invalid stepping mode"),
         }
     }
 }
