@@ -1191,7 +1191,7 @@ mod tests {
         )
         .await;
         assert!(result.is_err());
-        assert_eq!(StepperError::MoveOutOfBounds, result.err().unwrap());
+        assert_eq!(StepperError::MoveNotValid, result.err().unwrap());
     }
 
     #[tokio::test]

@@ -374,7 +374,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             .await;
         }
 
-        if r.is_some() {
+        if let Some(r) = r {
             if x.is_none() && y.is_none() {
                 return Err(StepperError::MoveNotValid);
             }
@@ -390,8 +390,6 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             };
 
             let dst = Vector3D::new(x, y, z);
-
-            let r = r.unwrap();
 
             return arc_move_3d_e_radius::<P, T, I>(
                 &mut self.x_stepper,

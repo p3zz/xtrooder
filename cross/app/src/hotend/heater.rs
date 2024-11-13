@@ -49,6 +49,7 @@ impl<T: GeneralInstance4Channel> Heater<T> {
 
     pub fn set_target_temperature(&mut self, temperature: Temperature) {
         self.target_temperature.replace(temperature);
+        // SAFETY: unwrap target temperature because it has been set the previous line
         self.pid
             .set_target(self.target_temperature.unwrap().as_celsius());
     }

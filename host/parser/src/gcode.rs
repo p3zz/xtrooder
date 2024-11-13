@@ -382,7 +382,7 @@ impl GCodeParser {
 
     pub fn parse(&mut self, data: &str) -> Option<GCommand> {
         let mut state = ParserState::ReadingCommand;
-        let mut data_buffer: String<32> = String::new();
+        let mut data_buffer: String<64> = String::new();
         for b in data.chars() {
             if b == '\n' {
                 break;
@@ -391,7 +391,7 @@ impl GCodeParser {
                 ParserState::ReadingCommand => match b {
                     ';' | '(' => state = ParserState::ReadingComment,
                     // todo check buffer overflow
-                    _ => data_buffer.push(b).unwrap(),
+                    _ => data_buffer.push(b).ok()?,
                 },
                 ParserState::ReadingComment => {
                     if b == ')' {
@@ -437,7 +437,7 @@ impl GCodeParser {
         for t in &tokens {
             let key = t.get(0..1)?;
             let v = t.get(1..).unwrap_or("");
-            args.insert(key, v).unwrap();
+            args.insert(key, v).ok()?;
         }
 
         match (prefix, code) {
@@ -515,8 +515,7 @@ impl GCodeParser {
                     return None;
                 }
                 let filename = tokens.first()?;
-                let filename = String::from_str(filename).unwrap();
-                // let filename: String<12> = String::from_str(&filename).unwrap();
+                let filename: String<12> = String::from_str(filename).ok()?;
                 Some(GCommand::M23 { filename })
             }
             // FIXME use real params for M24

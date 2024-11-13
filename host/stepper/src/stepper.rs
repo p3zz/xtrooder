@@ -295,6 +295,7 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
     }
 
     pub fn set_speed_from_attachment(&mut self, speed: Speed) {
+        // SAFETY - unwrap attachment because the Attached variant has always the attachment
         let attachment = self.attachment.unwrap();
         let angular_velocity = angular_velocity_from_speed(
             speed,
@@ -305,6 +306,7 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
     }
 
     fn move_for_distance_inner(&mut self, distance: Distance) -> u64 {
+        // SAFETY - unwrap attachment because the Attached variant has always the attachment
         let attachment = self.attachment.unwrap();
 
         let steps_n = abs(distance / attachment.distance_per_step);
@@ -351,12 +353,14 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
     }
 
     pub fn get_position(&self) -> Distance {
+        // SAFETY - unwrap attachment because the Attached variant has always the attachment
         let attachment = self.attachment.unwrap();
         let steps = self.get_steps();
         steps * attachment.distance_per_step
     }
 
     pub fn get_speed_from_attachment(&self) -> Speed {
+        // SAFETY - unwrap attachment because the Attached variant has always the attachment
         let attachment = self.attachment.unwrap();
         let rev_per_second = self.get_speed() / f64::from(u8::from(self.options.stepping_mode));
         speed_from_angular_velocity(

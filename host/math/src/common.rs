@@ -200,24 +200,6 @@ pub fn compute_arc_destination(
     Vector2D::new(x, y)
 }
 
-pub fn approximate_arc(
-    source: Vector2D<Distance>,
-    center: Vector2D<Distance>,
-    arc_length: Distance,
-    direction: RotationDirection,
-    unit_length: Distance,
-) -> Vec<Vector2D<Distance>, 1024> {
-    let mut points: Vec<Vector2D<Distance>, 1024> = Vec::new();
-    let arcs_n = ((arc_length / unit_length) as f32).floor() as u64;
-    for i in 0..(arcs_n + 1) {
-        let arc_length_curr = Distance::from_millimeters(unit_length.as_millimeters() * i as f64);
-        let arc_dst = compute_arc_destination(source, center, arc_length_curr, direction);
-        // FIXME
-        points.push(arc_dst);
-    }
-    points
-}
-
 #[cfg(test)]
 mod tests {
     use approx::assert_abs_diff_eq;
@@ -232,7 +214,7 @@ mod tests {
     };
     use measurements::{AngularVelocity, Distance, Speed};
 
-    use super::{angular_velocity_from_speed, approximate_arc, compute_arc_destination};
+    use super::{angular_velocity_from_speed, compute_arc_destination};
 
     #[test]
     fn test_speed_from_angular_velocity() {
@@ -559,104 +541,6 @@ mod tests {
         assert_abs_diff_eq!(l.as_millimeters(), 2.0 * PI, epsilon = 0.000001);
     }
 
-    #[test]
-    fn test_approximate_arc() {
-        let arc_length = Distance::from_millimeters(20.0);
-        let start = Vector2D::new(
-            Distance::from_millimeters(0.0),
-            Distance::from_millimeters(0.0),
-        );
-        let center = Vector2D::new(
-            Distance::from_millimeters(10.0),
-            Distance::from_millimeters(10.0),
-        );
-        let direction = RotationDirection::Clockwise;
-        let unit_length = Distance::from_millimeters(1.0);
-        let points = approximate_arc(start, center, arc_length, direction, unit_length);
-        assert_eq!(points.len(), 21);
-        assert_abs_diff_eq!(
-            points.first().unwrap().get_x().as_millimeters(),
-            0.0,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.first().unwrap().get_y().as_millimeters(),
-            0.0,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(1).unwrap().get_x().as_millimeters(),
-            -0.681527,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(1).unwrap().get_y().as_millimeters(),
-            0.731507,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(10).unwrap().get_x().as_millimeters(),
-            -4.098815,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(10).unwrap().get_y().as_millimeters(),
-            8.893923,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(20).unwrap().get_x().as_millimeters(),
-            -1.437096,
-            epsilon = 0.00001
-        );
-        assert_abs_diff_eq!(
-            points.get(20).unwrap().get_y().as_millimeters(),
-            18.318222,
-            epsilon = 0.00001
-        );
-    }
-
-    #[test]
-    fn test_approximate_arc_2() {
-        let start = Vector2D::new(
-            Distance::from_millimeters(0.0),
-            Distance::from_millimeters(0.0),
-        );
-        let end = Vector2D::new(
-            Distance::from_millimeters(20.0),
-            Distance::from_millimeters(20.0),
-        );
-        let center = Vector2D::new(
-            Distance::from_millimeters(10.0),
-            Distance::from_millimeters(10.0),
-        );
-        let direction = RotationDirection::Clockwise;
-        let arc_length = compute_arc_length(start, center, end, direction, false);
-        assert_abs_diff_eq!(arc_length.as_millimeters(), 44.428828, epsilon = 0.00001);
-        let unit_length = Distance::from_millimeters(1.0);
-        let points = approximate_arc(start, center, arc_length, direction, unit_length);
-        assert_eq!(points.len(), 45);
-        assert_abs_diff_eq!(
-            points.first().unwrap().get_x().as_millimeters(),
-            0.0,
-            epsilon = 0.000001
-        );
-        assert_abs_diff_eq!(
-            points.first().unwrap().get_y().as_millimeters(),
-            0.0,
-            epsilon = 0.000001
-        );
-        assert_abs_diff_eq!(
-            points.get(44).unwrap().get_x().as_millimeters(),
-            19.692222,
-            epsilon = 0.000001
-        );
-        assert_abs_diff_eq!(
-            points.get(44).unwrap().get_y().as_millimeters(),
-            20.298583,
-            epsilon = 0.000001
-        );
-    }
 }
 
 // pub struct StopWatch {

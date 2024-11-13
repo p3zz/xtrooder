@@ -152,8 +152,10 @@ async fn input_handler() {
                     info!("[INPUT_HANDLER] {}", msg.as_str());
                     msg.clear();
                 } else {
-                    // TODO handle buffer overflow
-                    msg.push(tmp[b].into()).unwrap();
+                    if let Err(_) = msg.push(tmp[b].into()){
+                        msg.clear();
+                        error!("Message too long");
+                    }
                 }
             }
             tmp.fill(0u8);
@@ -178,17 +180,20 @@ async fn output_handler() {
         // retrieve the channel content and copy the message inside the shared memory of DMA to send t
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
-        core::write!(&mut report, "[{}] {}", clock.measure(), &msg).unwrap();
-        let mut len = 0;
-        for (i, b) in msg.into_bytes().iter().enumerate() {
-            tmp[i] = *b;
-            len += 1;
+        if let Err(_) = core::write!(&mut report, "[{}] {}", clock.measure(), &msg){
+            error!("Message too long");
         }
-        match tx.write(&tmp[0..len]).await {
-            Ok(_) => (),
-            Err(_) => error!("Cannot write to UART"),
-        };
-
+        else{
+            let mut len = 0;
+            for (i, b) in msg.into_bytes().iter().enumerate() {
+                tmp[i] = *b;
+                len += 1;
+            }
+            match tx.write(&tmp[0..len]).await {
+                Ok(_) => (),
+                Err(_) => error!("Cannot write to UART"),
+            };
+        }
         Timer::after(dt).await;
     }
 }
@@ -302,7 +307,9 @@ async fn hotend_handler(
             hotend.read_temperature().await
         });
 
+        // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.max_temperature_limit{
+            // SAFETY - unwrap last_temperature because it's set on the previous line
             let e = PrinterError::HotendOverheating(last_temperature.unwrap());
             error_channel_publisher.publish(e).await;
             report.clear();
@@ -331,6 +338,7 @@ async fn hotend_handler(
         }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
+            // SAFETY - unwrap temperature_report_dt because it's set on the previous line
             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
         {
             report.clear();
@@ -930,7 +938,6 @@ async fn main(spawner: Spawner) {
         .spawn(heatbed_handler(printer_config.heatbed))
         .unwrap();
 
-    // FIXME the error is weird, we probably need to check the pins compatibility
     spawner
         .spawn(hotend_handler(printer_config.hotend, printer_config.fan))
         .unwrap();
