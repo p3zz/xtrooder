@@ -56,7 +56,7 @@ pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait, I: StatefulInpu
         pin_mut!(f1, f2);
         match select(f1, f2).await {
             futures::future::Either::Left(r) => r.0,
-            futures::future::Either::Right(_) => Err(StepperError::MoveOutOfBounds),
+            futures::future::Either::Right(_) => Err(StepperError::EndstopHit),
         }
     } else {
         f1.await
@@ -503,13 +503,13 @@ pub async fn auto_home<
 
     // calibrate x
     while !trigger.is_high() {
-        stepper.step().unwrap();
+        stepper.step()?;
         T::after(stepper.get_step_duration()).await;
     }
     let bounds = stepper
         .get_options()
         .bounds
-        .ok_or(StepperError::MoveOutOfBounds)?;
+        .ok_or(StepperError::MoveNotValid)?;
     // set the current steps to the positive bound so we can safely home performing the correct number of steps
     stepper.set_steps(bounds.1);
     stepper.home::<T>().await

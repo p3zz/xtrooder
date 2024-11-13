@@ -1,18 +1,30 @@
 #![no_std]
 #![no_main]
 
+use math::measurements::{Distance, Temperature};
+
 pub mod config;
 pub mod ext;
 pub mod fan;
 pub mod hotend;
 pub mod utils;
 
+#[derive(Clone, Copy, Debug)]
+pub enum EndstopType{
+    X,
+    Y,
+    Z,
+    E
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum PrinterError {
-    HotendOverheating,
-    HotendUnderheating,
-    HeatbedOverheating,
-    EndstopHit,
-    MoveOutOfBounds,
+    HotendOverheating(Temperature),
+    HotendUnderheating(Temperature),
+    HeatbedOverheating(Temperature),
+    HeatbedUnderheating(Temperature),
+    EndstopHit(EndstopType),
+    MoveOutOfBounds(Distance),
 }
 
 #[macro_export]

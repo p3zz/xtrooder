@@ -426,6 +426,8 @@ mod external {
         r0: f64,
         b: f64,
         pid: PidConfig,
+        max_temperature_limit: f64,
+        min_temperature_limit: f64,
     }
 
     impl HeaterConfig {
@@ -442,6 +444,12 @@ mod external {
         }
         pub fn get_pid(&self) -> PidConfig {
             self.pid
+        }
+        pub fn get_max_temperature_limit(&self) -> f64{
+            self.max_temperature_limit
+        }
+        pub fn get_min_temperature_limit(&self) -> f64{
+            self.min_temperature_limit
         }
     }
 
@@ -763,6 +771,8 @@ fn main() {
     let hotend_heater_pid_kp = hotend_heater_pid.get_k_p();
     let hotend_heater_pid_ki = hotend_heater_pid.get_k_i();
     let hotend_heater_pid_kd = hotend_heater_pid.get_k_d();
+    let hotend_heater_min_temp = conf.hotend.get_heater().get_min_temperature_limit();
+    let hotend_heater_max_temp = conf.hotend.get_heater().get_max_temperature_limit();
 
     let heatbed_adc_peripheral = conf
         .heatbed
@@ -795,6 +805,8 @@ fn main() {
     let heatbed_heater_pid_kp = heatbed_heater_pid.get_k_p();
     let heatbed_heater_pid_ki = heatbed_heater_pid.get_k_i();
     let heatbed_heater_pid_kd = heatbed_heater_pid.get_k_d();
+    let heatbed_heater_min_temp = conf.heatbed.get_heater().get_min_temperature_limit();
+    let heatbed_heater_max_temp = conf.heatbed.get_heater().get_max_temperature_limit();
 
     let fan_pwm_output_channel = conf.fan.get_pwm().get_channel();
 
@@ -1031,7 +1043,9 @@ fn main() {
                             k_p: #hotend_heater_pid_kp,
                             k_i: #hotend_heater_pid_ki,
                             k_d: #hotend_heater_pid_kd,
-                        }
+                        },
+                        max_temperature_limit: Temperature::from_celsius(#hotend_heater_max_temp),
+                        min_temperature_limit: Temperature::from_celsius(#hotend_heater_min_temp),
                     },
                 },
                 heatbed: ThermistorConfig{
@@ -1051,7 +1065,9 @@ fn main() {
                             k_p: #heatbed_heater_pid_kp,
                             k_i: #heatbed_heater_pid_ki,
                             k_d: #heatbed_heater_pid_kd,
-                        }
+                        },
+                        max_temperature_limit: Temperature::from_celsius(#heatbed_heater_max_temp),
+                        min_temperature_limit: Temperature::from_celsius(#heatbed_heater_min_temp),
                     },
                 },
                 fan: FanConfig{

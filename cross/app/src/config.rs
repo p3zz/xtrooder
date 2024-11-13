@@ -128,6 +128,8 @@ pub struct HeaterConfig {
     pub r0: Resistance,
     pub b: Temperature,
     pub pid: PidConfig,
+    pub max_temperature_limit: Temperature,
+    pub min_temperature_limit: Temperature,
 }
 
 pub struct ThermistorConfig<ADCP, ADCI, ADCD> {

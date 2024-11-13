@@ -18,7 +18,7 @@ use app::ext::{
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
-use app::{init_input_pin, init_output_pin, init_stepper, timer_channel};
+use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterError};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
@@ -41,6 +41,8 @@ use embassy_stm32::{
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
+use embassy_sync::pubsub::PubSubChannel;
+use embassy_sync::watch::Watch;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_hal::digital::InputPin;
@@ -74,6 +76,7 @@ static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8>
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwm<'_, PwmTimer>>> = Mutex::new(None);
+static ERROR_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterError, 8, 8, 8> = PubSubChannel::new();
 
 #[link_section = ".ram_d3"]
 static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
@@ -290,15 +293,39 @@ async fn hotend_handler(
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let mut error_channel_subscriber = ERROR_CHANNEL.dyn_subscriber().expect("Cannot retrieve error subscriber");
+    let error_channel_publisher = ERROR_CHANNEL.dyn_publisher().expect("Cannot retrieve error subscriber");
+    let mut last_temperature: Option<Temperature> = None;
 
     loop {
+        last_temperature.replace({
+            hotend.read_temperature().await
+        });
+
+        if last_temperature.unwrap() > config.heater.max_temperature_limit{
+            error_channel_publisher.publish(PrinterError::HotendOverheating(last_temperature.unwrap())).await;
+        }
+        
+        if let Some(e) = error_channel_subscriber.try_next_message_pure(){
+            match e{
+                PrinterError::HotendOverheating(_) |
+                PrinterError::HotendUnderheating(_) |
+                PrinterError::HeatbedUnderheating(_) |
+                PrinterError::HeatbedOverheating(_) => {
+                    let mut pwm = PMW.lock().await;
+                    let pwm = pwm.as_mut().expect("PWM not initialized");
+                    hotend.disable(pwm);
+                },
+                PrinterError::EndstopHit(_) => todo!(),
+                PrinterError::MoveOutOfBounds(_) => todo!(),
+            }
+        }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
         {
-            let temp = hotend.read_temperature().await;
             report.clear();
-            core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
+            core::write!(&mut report, "Hotend temperature: {}", last_temperature.unwrap()).unwrap(); // SAFETY: last temperature is set before this instruction
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
@@ -309,9 +336,8 @@ async fn hotend_handler(
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
-                    let temp = hotend.read_temperature().await;
                     report.clear();
-                    core::write!(&mut report, "Hotend temperature: {}", temp).unwrap();
+                    core::write!(&mut report, "Hotend temperature: {}", last_temperature.unwrap()).unwrap(); // SAFETY: last temperature is set before this instruction
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M106 { s } => {
@@ -376,8 +402,34 @@ async fn heatbed_handler(
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let mut error_channel_subscriber = ERROR_CHANNEL.dyn_subscriber().expect("Cannot retrieve error subscriber");
+    let error_channel_publisher = ERROR_CHANNEL.dyn_publisher().expect("Cannot retrieve error subscriber");
+    let mut last_temperature: Option<Temperature> = None;
+
 
     loop {
+        last_temperature.replace({
+            heatbed.read_temperature().await
+        });
+
+        if last_temperature.unwrap() > config.heater.max_temperature_limit{
+            error_channel_publisher.publish(PrinterError::HeatbedOverheating(last_temperature.unwrap())).await;
+        }
+        
+        if let Some(e) = error_channel_subscriber.try_next_message_pure(){
+            match e{
+                PrinterError::HotendOverheating(_) |
+                PrinterError::HotendUnderheating(_) |
+                PrinterError::HeatbedUnderheating(_) |
+                PrinterError::HeatbedOverheating(_) => {
+                    let mut pwm = PMW.lock().await;
+                    let pwm = pwm.as_mut().expect("PWM not initialized");
+                    heatbed.disable(pwm);
+                },
+                PrinterError::EndstopHit(_) => todo!(),
+                PrinterError::MoveOutOfBounds(_) => todo!(),
+            }
+        }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0

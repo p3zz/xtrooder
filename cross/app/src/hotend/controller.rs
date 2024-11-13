@@ -27,6 +27,14 @@ where
         Hotend { heater, thermistor }
     }
 
+    pub fn enable(&mut self, pwm: &mut SimplePwm<'_, T>){
+        self.heater.enable(pwm);
+    }
+
+    pub fn disable(&mut self, pwm: &mut SimplePwm<'_, T>){
+        self.heater.disable(pwm);
+    }
+
     pub fn set_temperature(&mut self, temperature: Temperature) {
         self.heater.set_target_temperature(temperature);
     }

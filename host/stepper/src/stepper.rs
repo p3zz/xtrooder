@@ -58,8 +58,8 @@ pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
     MoveNotValid,
-    MissingAttachment,
     NotSupported,
+    EndstopHit
 }
 
 #[derive(Clone, Copy)]
