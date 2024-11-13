@@ -1,11 +1,11 @@
 #![cfg_attr(not(test), no_std)]
 
-use core::time::Duration;
+use core::{future::Future, time::Duration};
 
 pub mod motion;
 pub mod stepper;
 pub mod planner;
 
 pub trait TimerTrait {
-    async fn after(duration: Duration);
+    fn after(duration: Duration) -> impl Future<Output=()>;
 }

@@ -1,3 +1,4 @@
+use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
 use math::common::{abs, floor, RotationDirection};
@@ -16,6 +17,8 @@ pub trait StatefulOutputPin {
 
 pub trait StatefulInputPin {
     fn is_high(&self) -> bool;
+    fn wait_for_high(&mut self) -> impl Future<Output = ()>;
+    fn wait_for_low(&mut self) -> impl Future<Output = ()>;
 }
 
 #[derive(Clone, Copy)]

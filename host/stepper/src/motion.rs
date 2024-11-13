@@ -497,18 +497,19 @@ mod tests {
     struct StepperTimer {}
 
     impl TimerTrait for StepperTimer {
-        async fn after(duration: core::time::Duration) {
-            sleep(duration).await
+        fn after(duration: Duration) -> impl core::future::Future<Output=()> {
+            sleep(duration)
         }
     }
 
     struct InputPinMock {
         state: bool,
+        delay: Duration
     }
 
     impl InputPinMock {
-        fn new() -> Self {
-            Self { state: false }
+        fn new(delay: Duration) -> Self {
+            Self { state: false, delay }
         }
 
         fn set_high(&mut self) {
@@ -522,6 +523,14 @@ mod tests {
     impl StatefulInputPin for InputPinMock {
         fn is_high(&self) -> bool {
             self.state
+        }
+        
+        fn wait_for_high(&mut self) -> impl core::future::Future<Output = ()> {
+            sleep(self.delay)
+        }
+        
+        fn wait_for_low(&mut self) -> impl core::future::Future<Output = ()> {
+            sleep(self.delay)
         }
     }
 
@@ -1012,7 +1021,7 @@ mod tests {
             StatefulOutputPinMock::new(),
             StepperOptions::default(),
         );
-        let mut trigger: InputPinMock = InputPinMock::new();
+        let mut trigger: InputPinMock = InputPinMock::new(Duration::from_millis(0));
         trigger.set_high();
 
         let result = auto_home::<InputPinMock, StatefulOutputPinMock, StepperTimer, NotAttached>(
@@ -1036,7 +1045,7 @@ mod tests {
                 positive_direction: RotationDirection::Clockwise,
             },
         );
-        let mut trigger: InputPinMock = InputPinMock::new();
+        let mut trigger: InputPinMock = InputPinMock::new(Duration::from_millis(0));
         // simulate collision with the trigger switch
         trigger.set_high();
 
