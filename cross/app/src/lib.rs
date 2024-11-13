@@ -3,7 +3,7 @@
 
 use core::fmt::Display;
 
-use math::measurements::{Distance, Temperature};
+use math::measurements::Temperature;
 use stepper::stepper::StepperError;
 
 pub mod config;
@@ -13,11 +13,11 @@ pub mod hotend;
 pub mod utils;
 
 #[derive(Clone, Copy, Debug)]
-pub enum EndstopType{
+pub enum EndstopType {
     X,
     Y,
     Z,
-    E
+    E,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -26,17 +26,27 @@ pub enum PrinterError {
     HotendUnderheating(Temperature),
     HeatbedOverheating(Temperature),
     HeatbedUnderheating(Temperature),
-    Stepper(StepperError)
+    Stepper(StepperError),
 }
 
-impl Display for PrinterError{
+impl Display for PrinterError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self{
-            PrinterError::HotendOverheating(temperature) => core::write!(f, "Hotend overheating: {}C", temperature.as_celsius()),
-            PrinterError::HotendUnderheating(temperature) => core::write!(f, "Hotend underheating: {}C", temperature.as_celsius()),
-            PrinterError::HeatbedOverheating(temperature) => core::write!(f, "Heatbed overheating: {}C", temperature.as_celsius()),
-            PrinterError::HeatbedUnderheating(temperature) => core::write!(f, "Heatbed underheating: {}C", temperature.as_celsius()),
-            PrinterError::Stepper(stepper_error) => core::write!(f, "Stepper error: {}", stepper_error),
+        match &self {
+            PrinterError::HotendOverheating(temperature) => {
+                core::write!(f, "Hotend overheating: {}C", temperature.as_celsius())
+            }
+            PrinterError::HotendUnderheating(temperature) => {
+                core::write!(f, "Hotend underheating: {}C", temperature.as_celsius())
+            }
+            PrinterError::HeatbedOverheating(temperature) => {
+                core::write!(f, "Heatbed overheating: {}C", temperature.as_celsius())
+            }
+            PrinterError::HeatbedUnderheating(temperature) => {
+                core::write!(f, "Heatbed underheating: {}C", temperature.as_celsius())
+            }
+            PrinterError::Stepper(stepper_error) => {
+                core::write!(f, "Stepper error: {}", stepper_error)
+            }
         }
     }
 }

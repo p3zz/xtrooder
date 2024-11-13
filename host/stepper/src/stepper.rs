@@ -60,12 +60,12 @@ pub enum StepperError {
     MoveOutOfBounds,
     MoveNotValid,
     NotSupported,
-    EndstopHit
+    EndstopHit,
 }
 
-impl Display for StepperError{
+impl Display for StepperError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match &self{
+        match &self {
             StepperError::MoveTooShort => core::write!(f, "Move too short"),
             StepperError::MoveOutOfBounds => core::write!(f, "Move out of bounds"),
             StepperError::MoveNotValid => core::write!(f, "Move not valid"),

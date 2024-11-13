@@ -109,7 +109,11 @@ pub async fn linear_move_to_2d<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
 pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Speed,
     positioning: Positioning,
@@ -117,18 +121,20 @@ pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInpu
 ) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
-            linear_move_for_3d::<P, T, I>(steppers, dest, speed, endstops)
-                .await
+            linear_move_for_3d::<P, T, I>(steppers, dest, speed, endstops).await
         }
         Positioning::Absolute => {
-            linear_move_to_3d::<P, T, I>(steppers, dest, speed, endstops)
-                .await
+            linear_move_to_3d::<P, T, I>(steppers, dest, speed, endstops).await
         }
     }
 }
 
 async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Vector3D<Speed>,
     endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>),
@@ -147,7 +153,11 @@ async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
 }
 
 pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Speed,
 ) -> Result<Vector3D<Speed>, StepperError> {
@@ -167,17 +177,26 @@ pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
 }
 
 pub async fn linear_move_to_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Speed,
     endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>),
 ) -> Result<Duration, StepperError> {
     let speed = linear_move_to_3d_inner::<P>((steppers.0, steppers.1, steppers.2), dest, speed)?;
-    linear_move_to_3d_raw::<P, T, I>((steppers.0, steppers.1, steppers.2), dest, speed, endstops).await
+    linear_move_to_3d_raw::<P, T, I>((steppers.0, steppers.1, steppers.2), dest, speed, endstops)
+        .await
 }
 
 pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     distance: Vector3D<Distance>,
     speed: Speed,
     endstops: (&mut Option<I>, &mut Option<I>, &mut Option<I>),
@@ -192,7 +211,12 @@ pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait, I: Stateful
 }
 
 pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Speed,
     e_dest: Distance,
@@ -206,22 +230,21 @@ pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulIn
 ) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
-            linear_move_for_3d_e::<P, T, I>(
-                steppers, dest, speed, e_dest, endstops,
-            )
-            .await
+            linear_move_for_3d_e::<P, T, I>(steppers, dest, speed, e_dest, endstops).await
         }
         Positioning::Absolute => {
-            linear_move_to_3d_e::<P, T, I>(
-                steppers, dest, speed, e_dest, endstops,
-            )
-            .await
+            linear_move_to_3d_e::<P, T, I>(steppers, dest, speed, e_dest, endstops).await
         }
     }
 }
 
 pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     speed: Speed,
     e_dest: Distance,
@@ -261,7 +284,12 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait, I: Statefu
 }
 
 pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     distance: Vector3D<Distance>,
     speed: Speed,
     e_distance: Distance,
@@ -280,14 +308,7 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait, I: Statef
     let abc_destination = src + distance;
     let e_destination = steppers.3.get_position() + e_distance;
 
-    linear_move_to_3d_e::<P, T, I>(
-        steppers,
-        abc_destination,
-        speed,
-        e_destination,
-        endstops,
-    )
-    .await
+    linear_move_to_3d_e::<P, T, I>(steppers, abc_destination, speed, e_destination, endstops).await
 }
 
 // ---------------------------- ARC MOVE 2D ----------------------------
@@ -322,7 +343,12 @@ pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait, I: Stat
 }
 
 pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     center: Vector2D<Distance>,
     speed: Speed,
@@ -374,7 +400,12 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait, I: Statef
 }
 
 pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     radius: Distance,
     speed: Speed,
@@ -412,7 +443,12 @@ pub async fn arc_move_3d_e_offset_from_center<
     T: TimerTrait,
     I: StatefulInputPin,
 >(
-    steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
+    steppers: (
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+        &mut Stepper<P, Attached>,
+    ),
     dest: Vector3D<Distance>,
     offset: Vector2D<Distance>,
     speed: Speed,
@@ -478,7 +514,7 @@ pub async fn auto_home_3d<
     M: AttachmentMode,
 >(
     steppers: (&mut Stepper<O, M>, &mut Stepper<O, M>, &mut Stepper<O, M>),
-    triggers: (&I, &I, &I)
+    triggers: (&I, &I, &I),
 ) -> Result<Duration, StepperError> {
     let mut duration = Duration::from_millis(0);
     duration.add_assign(auto_home::<I, O, T, M>(steppers.0, triggers.0).await?);

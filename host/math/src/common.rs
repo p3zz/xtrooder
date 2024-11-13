@@ -539,7 +539,6 @@ mod tests {
         let l = compute_arc_length(start, center, end, RotationDirection::Clockwise, true);
         assert_abs_diff_eq!(l.as_millimeters(), 2.0 * PI, epsilon = 0.000001);
     }
-
 }
 
 // pub struct StopWatch {

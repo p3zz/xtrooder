@@ -3,10 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use math::{
-    common::RotationDirection,
-    measurements::{Distance, Length, Resistance, Speed},
-};
+use math::common::RotationDirection;
 use proc_macro2::Span;
 use quote::quote;
 use stepper::{motion::Positioning, stepper::SteppingMode};
@@ -445,10 +442,10 @@ mod external {
         pub fn get_pid(&self) -> PidConfig {
             self.pid
         }
-        pub fn get_max_temperature_limit(&self) -> f64{
+        pub fn get_max_temperature_limit(&self) -> f64 {
             self.max_temperature_limit
         }
-        pub fn get_min_temperature_limit(&self) -> f64{
+        pub fn get_min_temperature_limit(&self) -> f64 {
             self.min_temperature_limit
         }
     }
@@ -849,13 +846,13 @@ fn main() {
         .expect("SD-Card SPI CS pin is missing");
     let sdcard_spi_cs = Ident::new(sdcard_spi_cs.as_str(), Span::call_site());
 
-    if hotend_pwm_output_channel < 1 || hotend_pwm_output_channel > 4 {
+    if !(1..=4).contains(&hotend_pwm_output_channel) {
         panic!("Hotend PWM channel must be between 1 and 4");
     }
-    if heatbed_pwm_output_channel < 1 || heatbed_pwm_output_channel > 4 {
+    if !(1..=4).contains(&heatbed_pwm_output_channel) {
         panic!("Heatbed PWM channel must be between 1 and 4");
     }
-    if fan_pwm_output_channel < 1 || fan_pwm_output_channel > 4 {
+    if !(1..=4).contains(&fan_pwm_output_channel) {
         panic!("Fan PWM channel must be between 1 and 4");
     }
 

@@ -27,11 +27,11 @@ where
         Hotend { heater, thermistor }
     }
 
-    pub fn enable(&mut self, pwm: &mut SimplePwm<'_, T>){
+    pub fn enable(&mut self, pwm: &mut SimplePwm<'_, T>) {
         self.heater.enable(pwm);
     }
 
-    pub fn disable(&mut self, pwm: &mut SimplePwm<'_, T>){
+    pub fn disable(&mut self, pwm: &mut SimplePwm<'_, T>) {
         self.heater.disable(pwm);
     }
 
