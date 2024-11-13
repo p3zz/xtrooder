@@ -4,10 +4,7 @@ use super::motion::{
 };
 use super::stepper::{Attached, StatefulInputPin, StatefulOutputPin, Stepper, StepperError};
 use core::marker::PhantomData;
-use core::pin::pin;
 use core::time::Duration;
-use futures::future::{select, Either};
-use futures::{pin_mut, FutureExt};
 use math::common::RotationDirection;
 use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
@@ -215,9 +212,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         let dst = Vector3D::new(x, y, z);
 
         linear_move_3d::<P, T, I>(
-            &mut self.x_stepper,
-            &mut self.y_stepper,
-            &mut self.z_stepper,
+            (&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper),
             dst,
             self.config.feedrate,
             self.config.positioning,
@@ -264,10 +259,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         let dst = Vector3D::new(x, y, z);
 
         linear_move_3d_e::<P, T, I>(
-            &mut self.x_stepper,
-            &mut self.y_stepper,
-            &mut self.z_stepper,
-            &mut self.e_stepper,
+            (&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper),
             dst,
             self.config.feedrate,
             e,
@@ -354,10 +346,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
 
             let offset_from_center = Vector2D::new(i, j);
             return arc_move_3d_e_offset_from_center::<P, T, I>(
-                &mut self.x_stepper,
-                &mut self.y_stepper,
-                &mut self.z_stepper,
-                &mut self.e_stepper,
+            (&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper),
                 dst,
                 offset_from_center,
                 self.config.feedrate,
@@ -392,10 +381,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
             let dst = Vector3D::new(x, y, z);
 
             return arc_move_3d_e_radius::<P, T, I>(
-                &mut self.x_stepper,
-                &mut self.y_stepper,
-                &mut self.z_stepper,
-                &mut self.e_stepper,
+            (&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper, &mut self.e_stepper),
                 dst,
                 r,
                 self.config.feedrate,
@@ -476,12 +462,8 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         endstops: (&mut I, &mut I, &mut I),
     ) -> Result<core::time::Duration, StepperError> {
         auto_home_3d::<I, P, T, Attached>(
-            &mut self.x_stepper,
-            &mut self.y_stepper,
-            &mut self.z_stepper,
-            endstops.0,
-            endstops.1,
-            endstops.2,
+            (&mut self.x_stepper, &mut self.y_stepper, &mut self.z_stepper),
+            (endstops.0, endstops.1, endstops.2)
         )
         .await
     }

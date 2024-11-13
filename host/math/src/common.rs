@@ -1,5 +1,4 @@
 use core::{f64::consts::PI, time::Duration};
-use heapless::Vec;
 use measurements::{AngularVelocity, Distance, Speed};
 use micromath::F32Ext;
 
