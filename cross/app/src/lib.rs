@@ -1,7 +1,10 @@
 #![no_std]
 #![no_main]
 
+use core::fmt::Display;
+
 use math::measurements::{Distance, Temperature};
+use stepper::stepper::StepperError;
 
 pub mod config;
 pub mod ext;
@@ -23,8 +26,19 @@ pub enum PrinterError {
     HotendUnderheating(Temperature),
     HeatbedOverheating(Temperature),
     HeatbedUnderheating(Temperature),
-    EndstopHit(EndstopType),
-    MoveOutOfBounds(Distance),
+    Stepper(StepperError)
+}
+
+impl Display for PrinterError{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self{
+            PrinterError::HotendOverheating(temperature) => core::write!(f, "Hotend overheating: {}C", temperature.as_celsius()),
+            PrinterError::HotendUnderheating(temperature) => core::write!(f, "Hotend underheating: {}C", temperature.as_celsius()),
+            PrinterError::HeatbedOverheating(temperature) => core::write!(f, "Heatbed overheating: {}C", temperature.as_celsius()),
+            PrinterError::HeatbedUnderheating(temperature) => core::write!(f, "Heatbed underheating: {}C", temperature.as_celsius()),
+            PrinterError::Stepper(stepper_error) => core::write!(f, "Stepper error: {}", stepper_error),
+        }
+    }
 }
 
 #[macro_export]

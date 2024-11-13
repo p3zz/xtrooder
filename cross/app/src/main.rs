@@ -303,7 +303,16 @@ async fn hotend_handler(
         });
 
         if last_temperature.unwrap() > config.heater.max_temperature_limit{
-            error_channel_publisher.publish(PrinterError::HotendOverheating(last_temperature.unwrap())).await;
+            let e = PrinterError::HotendOverheating(last_temperature.unwrap());
+            error_channel_publisher.publish(e).await;
+            report.clear();
+            write!(
+                &mut report,
+                "[HOTEND] {}",
+                e
+            )
+            .unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
         
         if let Some(e) = error_channel_subscriber.try_next_message_pure(){
@@ -316,9 +325,9 @@ async fn hotend_handler(
                     let pwm = pwm.as_mut().expect("PWM not initialized");
                     hotend.disable(pwm);
                 },
-                PrinterError::EndstopHit(_) => todo!(),
-                PrinterError::MoveOutOfBounds(_) => todo!(),
+                PrinterError::Stepper(_) => todo!(),
             }
+            HOTEND_CHANNEL.clear();
         }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
@@ -413,7 +422,16 @@ async fn heatbed_handler(
         });
 
         if last_temperature.unwrap() > config.heater.max_temperature_limit{
-            error_channel_publisher.publish(PrinterError::HeatbedOverheating(last_temperature.unwrap())).await;
+            let e = PrinterError::HeatbedOverheating(last_temperature.unwrap());
+            error_channel_publisher.publish(e).await;
+            report.clear();
+            write!(
+                &mut report,
+                "[HEATBED] {}",
+                e
+            )
+            .unwrap();
+            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
         
         if let Some(e) = error_channel_subscriber.try_next_message_pure(){
@@ -426,9 +444,9 @@ async fn heatbed_handler(
                     let pwm = pwm.as_mut().expect("PWM not initialized");
                     heatbed.disable(pwm);
                 },
-                PrinterError::EndstopHit(_) => todo!(),
-                PrinterError::MoveOutOfBounds(_) => todo!(),
+                PrinterError::Stepper(_) => todo!(),
             }
+            HEATBED_CHANNEL.clear();
         }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
@@ -509,9 +527,30 @@ async fn sdcard_handler(
     let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
+    let mut error_channel_subscriber = ERROR_CHANNEL.dyn_subscriber().expect("Cannot retrieve error subscriber");
+    let error_channel_publisher = ERROR_CHANNEL.dyn_publisher().expect("Cannot retrieve error subscriber");
 
     let dt = Duration::from_millis(500);
     loop {
+        if error_channel_subscriber.try_next_message_pure().is_some(){
+            if let Some(wf) = working_file {
+                volume_manager.close_file(wf).unwrap();
+                info!("File closed");
+            }
+            if let Some(wd) = working_dir {
+                volume_manager.close_dir(wd).unwrap();
+                info!("Directory closed");
+            }
+            if let Some(wv) = working_volume {
+                volume_manager
+                    .close_volume(wv)
+                    .unwrap();
+                info!("Volume closed");
+            }
+            running = false;
+            SD_CARD_CHANNEL.clear();
+        }
+
         if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
             // info!("[SDCARD] command received: {}", cmd);
             match cmd {
@@ -716,8 +755,13 @@ async fn planner_handler(
     );
 
     let dt = Duration::from_millis(500);
+    let mut error_channel_subscriber = ERROR_CHANNEL.dyn_subscriber().expect("Cannot retrieve error subscriber");
+    let error_channel_publisher = ERROR_CHANNEL.dyn_publisher().expect("Cannot retrieve error subscriber");
 
     loop {
+        if error_channel_subscriber.try_next_message_pure().is_some(){
+            PLANNER_CHANNEL.clear();
+        }
         let cmd = PLANNER_CHANNEL.receive().await;
         // info!("[PLANNER HANDLER] {}", cmd);
         match cmd {
@@ -733,32 +777,46 @@ async fn planner_handler(
             | GCommand::G91
             | GCommand::M207 { .. }
             | GCommand::M208 { .. } => {
-                let duration = planner.execute(cmd.clone()).await.expect("Planner error");
-                if debug {
-                    match cmd {
-                        GCommand::G0 { .. } => {
-                            let x = planner.get_x_position();
-                            let y = planner.get_x_position();
-                            let z = planner.get_x_position();
-                            let t = duration.unwrap();
-                            let res = GCommand::D0 { x, y, z, t };
-                            report.clear();
-                            write!(&mut report, "{}", &res).unwrap();
-                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                match planner.execute(cmd.clone()).await{
+                    Ok(duration) => {
+                        if debug && duration.is_some(){
+                            match cmd {
+                                GCommand::G0 { .. } => {
+                                    let x = planner.get_x_position();
+                                    let y = planner.get_x_position();
+                                    let z = planner.get_x_position();
+                                    let t = duration.unwrap();
+                                    let res = GCommand::D0 { x, y, z, t };
+                                    report.clear();
+                                    write!(&mut report, "{}", &res).unwrap();
+                                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                                }
+                                GCommand::G1 { .. } => {
+                                    let x = planner.get_x_position();
+                                    let y = planner.get_x_position();
+                                    let z = planner.get_x_position();
+                                    let e = planner.get_e_position();
+                                    let t = duration.unwrap();
+                                    let res = GCommand::D1 { x, y, z, e, t };
+                                    report.clear();
+                                    write!(&mut report, "{}", &res).unwrap();
+                                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                                }
+                                _ => todo!(),
+                            }
                         }
-                        GCommand::G1 { .. } => {
-                            let x = planner.get_x_position();
-                            let y = planner.get_x_position();
-                            let z = planner.get_x_position();
-                            let e = planner.get_e_position();
-                            let t = duration.unwrap();
-                            let res = GCommand::D1 { x, y, z, e, t };
-                            report.clear();
-                            write!(&mut report, "{}", &res).unwrap();
-                            FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                        }
-                        _ => todo!(),
-                    }
+                    },
+                    Err(e) => {
+                        error_channel_publisher.publish(PrinterError::Stepper(e)).await;
+                        report.clear();
+                        write!(
+                            &mut report,
+                            "[PLANNER] {}",
+                            e
+                        )
+                        .unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                    },
                 }
             }
             GCommand::M114 => {

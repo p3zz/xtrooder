@@ -1,4 +1,5 @@
 use super::TimerTrait;
+use core::fmt::Display;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -53,7 +54,7 @@ impl Default for StepperOptions {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum StepperError {
     MoveTooShort,
     MoveOutOfBounds,
@@ -62,7 +63,19 @@ pub enum StepperError {
     EndstopHit
 }
 
-#[derive(Clone, Copy)]
+impl Display for StepperError{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match &self{
+            StepperError::MoveTooShort => core::write!(f, "Move too short"),
+            StepperError::MoveOutOfBounds => core::write!(f, "Move out of bounds"),
+            StepperError::MoveNotValid => core::write!(f, "Move not valid"),
+            StepperError::NotSupported => core::write!(f, "Move not supported"),
+            StepperError::EndstopHit => core::write!(f, "Endstop hit"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SteppingMode {
     FullStep,
     HalfStep,
