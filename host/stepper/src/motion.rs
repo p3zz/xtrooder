@@ -488,14 +488,16 @@ pub async fn auto_home<
     trigger: &I,
 ) -> Result<Duration, StepperError> {
     // set the rotation direction to positive
+    let mut duration = Duration::ZERO;
     let direction = stepper.get_options().positive_direction;
     stepper.set_direction(direction);
     stepper.set_speed(AngularVelocity::from_rpm(60.0));
-
+    let step_duration = stepper.get_step_duration();
     // calibrate x
     while !trigger.is_high() {
         stepper.step()?;
-        T::after(stepper.get_step_duration()).await;
+        T::after(step_duration).await;
+        duration += step_duration;
     }
     let bounds = stepper
         .get_options()
@@ -503,23 +505,7 @@ pub async fn auto_home<
         .ok_or(StepperError::MoveNotValid)?;
     // set the current steps to the positive bound so we can safely home performing the correct number of steps
     stepper.set_steps(bounds.1);
-    stepper.home::<T>().await
-}
-
-// perform one calibration at a time
-pub async fn auto_home_3d<
-    I: StatefulInputPin,
-    O: StatefulOutputPin,
-    T: TimerTrait,
-    M: AttachmentMode,
->(
-    steppers: (&mut Stepper<O, M>, &mut Stepper<O, M>, &mut Stepper<O, M>),
-    triggers: (&I, &I, &I),
-) -> Result<Duration, StepperError> {
-    let mut duration = Duration::from_millis(0);
-    duration.add_assign(auto_home::<I, O, T, M>(steppers.0, triggers.0).await?);
-    duration.add_assign(auto_home::<I, O, T, M>(steppers.1, triggers.1).await?);
-    duration.add_assign(auto_home::<I, O, T, M>(steppers.2, triggers.2).await?);
+    duration += stepper.home::<T>().await?;
     Ok(duration)
 }
 
@@ -611,9 +597,6 @@ mod tests {
         fn set_high(&mut self) {
             self.state = true;
         }
-        fn set_low(&mut self) {
-            self.state = false;
-        }
     }
 
     impl StatefulInputPin for InputPinMock {
@@ -694,7 +677,6 @@ mod tests {
         let destination = Distance::from_millimeters(-10.0);
         let speed = Speed::from_meters_per_second(0.01);
         let mut endstop = None;
-        let inp = InputPinMock::new(Duration::from_micros(1));
         let res = linear_move_to::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
             &mut s,
             destination,

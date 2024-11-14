@@ -41,7 +41,6 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::pubsub::PubSubChannel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
-use embedded_hal::digital::InputPin;
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
 use math::{measurements::Temperature, DistanceUnit};
@@ -296,7 +295,7 @@ async fn hotend_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace({ hotend.read_temperature().await });
+        last_temperature.replace( hotend.read_temperature().await );
 
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.max_temperature_limit {
@@ -424,7 +423,7 @@ async fn heatbed_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace({ heatbed.read_temperature().await });
+        last_temperature.replace( heatbed.read_temperature().await );
 
         if last_temperature.unwrap() > config.heater.max_temperature_limit {
             let e = PrinterError::HeatbedOverheating(last_temperature.unwrap());

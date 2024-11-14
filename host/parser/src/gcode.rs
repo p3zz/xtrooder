@@ -62,7 +62,11 @@ pub enum GCommand {
     // set distance unit to millimeters
     G21,
     // auto home
-    G28,
+    G28{
+        x: bool,
+        y: bool,
+        z: bool,
+    },
     // set positioning as absolute
     G90,
     // set positioning as relative
@@ -505,9 +509,32 @@ impl GCodeParser {
             (GCommandType::G, 11) => Some(GCommand::G11),
             (GCommandType::G, 20) => Some(GCommand::G20),
             (GCommandType::G, 21) => Some(GCommand::G21),
-            (GCommandType::G, 28) => Some(GCommand::G28),
+            (GCommandType::G, 28) => {
+                let (mut x, mut y, mut z) = (false, false, false);
+                if tokens.is_empty(){
+                    (x,y,z) = (true, true, true)
+                }
+                else{
+                    for t in &tokens{
+                        match *t{
+                            "X" => {
+                                x = true
+                            }
+                            "Y" => {
+                                y = true
+                            }
+                            "Z" => {
+                                z = true
+                            }
+                            _ => ()
+                        };
+                    }
+                }
+                Some(GCommand::G28 { x, y, z })
+            },
             (GCommandType::G, 90) => Some(GCommand::G90),
             (GCommandType::G, 91) => Some(GCommand::G91),
+            (GCommandType::M, 20) => Some(GCommand::M20),
             (GCommandType::M, 21) => Some(GCommand::M21),
             (GCommandType::M, 22) => Some(GCommand::M22),
             (GCommandType::M, 23) => {
@@ -524,10 +551,12 @@ impl GCodeParser {
                 t: Duration::from_secs(0),
             }),
             (GCommandType::M, 25) => Some(GCommand::M25),
+            (GCommandType::M, 31) => Some(GCommand::M31),
             (GCommandType::M, 104) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit)?;
                 Some(GCommand::M104 { s })
             }
+            (GCommandType::M, 105) => Some(GCommand::M105),
             (GCommandType::M, 106) => {
                 let s = extract_token_as_number(&args, "S")?;
                 if (0f64..255f64).contains(&s) {
@@ -574,6 +603,20 @@ impl GCodeParser {
                 let s = extract_distance(&args, "S", self.distance_unit)?;
                 Some(GCommand::M208 { f, s })
             }
+            // set feedrate multiplier
+            (GCommandType::M, 220) => {
+                let s = extract_token_as_number(&args, "S")? as u64;
+                Some(GCommand::M220 {
+                    s
+                })
+            },
+            (GCommandType::M, 221) => {
+                let s = extract_token_as_number(&args, "S")? as u64;
+                Some(GCommand::M221 {
+                    s
+                })
+            } 
+            (GCommandType::M, 524) => Some(GCommand::M524),
             _ => None,
         }
     }
@@ -653,6 +696,38 @@ mod tests {
                     z: Some(Distance::from_millimeters(1.0)),
                     e: Some(Distance::from_millimeters(2.0)),
                     f: Some(Speed::from_meters_per_second(1.20))
+                }
+        );
+    }
+
+    #[test]
+    fn test_parse_line_g28_y() {
+        let parser = GCodeParser::new();
+        let line = "G28 Y";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G28 {
+                    x: false,
+                    y: true,
+                    z: false
+                }
+        );
+    }
+
+    #[test]
+    fn test_parse_line_g28_all() {
+        let parser = GCodeParser::new();
+        let line = "G28";
+        let command = parser.parse_line(line);
+        assert!(command.is_some());
+        assert!(
+            command.unwrap()
+                == GCommand::G28 {
+                    x: true,
+                    y: true,
+                    z: true
                 }
         );
     }

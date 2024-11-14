@@ -1,5 +1,7 @@
+use crate::motion::auto_home;
+
 use super::motion::{
-    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, auto_home_3d, linear_move_3d,
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d,
     linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
 };
 use super::stepper::{Attached, StatefulInputPin, StatefulOutputPin, Stepper, StepperError};
@@ -100,7 +102,6 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 r,
             } => {
                 let duration = self.g2(x, y, z, e, f, i, j, r).await?;
-                let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
             }
             GCommand::G3 {
@@ -114,7 +115,6 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 r,
             } => {
                 let duration = self.g3(x, y, z, e, f, i, j, r).await?;
-                let duration = Duration::from_millis(duration.as_millis() as u64);
                 Ok(Some(duration))
             }
             GCommand::G90 => {
@@ -137,9 +137,9 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 self.g11().await?;
                 Ok(None)
             }
-            GCommand::G28 => {
-                todo!()
-                // self.g28(x_button, y_button, z_button)
+            GCommand::G28{x,y, z} => {
+                let duration = self.g28((x, y, z)).await?;
+                Ok(Some(duration))
             }
             GCommand::M207 { f, s, z } => {
                 self.m207(f, s, z);
@@ -478,16 +478,21 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
     // auto home
     async fn g28(
         &mut self,
-        endstops: (&mut I, &mut I, &mut I),
+        enabled: (bool, bool, bool)
     ) -> Result<core::time::Duration, StepperError> {
-        auto_home_3d::<I, P, T, Attached>(
-            (
-                &mut self.x_stepper,
-                &mut self.y_stepper,
-                &mut self.z_stepper,
-            ),
-            (endstops.0, endstops.1, endstops.2),
-        )
-        .await
+        let mut duration = Duration::ZERO;
+        if enabled.0{
+            let e = self.endstops.0.as_ref().ok_or(StepperError::MoveNotValid)?;
+            duration += auto_home::<_,_,T,_>(&mut self.x_stepper, e).await?;
+        }
+        if enabled.1{
+            let e = self.endstops.1.as_ref().ok_or(StepperError::MoveNotValid)?;
+            duration += auto_home::<_,_,T,_>(&mut self.y_stepper, e).await?;
+        }
+        if enabled.2{
+            let e = self.endstops.2.as_ref().ok_or(StepperError::MoveNotValid)?;
+            duration += auto_home::<_,_,T,_>(&mut self.z_stepper, e).await?;
+        }
+        Ok(duration)
     }
 }
