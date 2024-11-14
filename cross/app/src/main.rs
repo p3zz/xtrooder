@@ -18,7 +18,7 @@ use app::ext::{
 use app::fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
-use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterError};
+use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
@@ -66,7 +66,7 @@ static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8>
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwm<'_, PwmTimer>>> = Mutex::new(None);
-static ERROR_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterError, 8, 8, 8> =
+static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, 8, 8, 8> =
     PubSubChannel::new();
 
 #[link_section = ".ram_d3"]
@@ -292,10 +292,10 @@ async fn hotend_handler(
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
-    let mut error_channel_subscriber = ERROR_CHANNEL
+    let mut event_channel_subscriber = EVENT_CHANNEL
         .dyn_subscriber()
         .expect("Cannot retrieve error subscriber");
-    let error_channel_publisher = ERROR_CHANNEL
+    let event_channel_publisher = EVENT_CHANNEL
         .dyn_publisher()
         .expect("Cannot retrieve error subscriber");
     let mut last_temperature: Option<Temperature> = None;
@@ -306,24 +306,26 @@ async fn hotend_handler(
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.max_temperature_limit {
             // SAFETY - unwrap last_temperature because it's set on the previous line
-            let e = PrinterError::HotendOverheating(last_temperature.unwrap());
-            error_channel_publisher.publish(e).await;
+            let e = PrinterEvent::HotendOverheating(last_temperature.unwrap());
+            event_channel_publisher.publish(e).await;
             report.clear();
             write!(&mut report, "[HOTEND] {}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
-        if let Some(e) = error_channel_subscriber.try_next_message_pure() {
+        if let Some(e) = event_channel_subscriber.try_next_message_pure() {
             match e {
-                PrinterError::HotendOverheating(_)
-                | PrinterError::HotendUnderheating(_)
-                | PrinterError::HeatbedUnderheating(_)
-                | PrinterError::HeatbedOverheating(_) => {
+                PrinterEvent::HotendOverheating(_)
+                | PrinterEvent::HotendUnderheating(_)
+                | PrinterEvent::HeatbedUnderheating(_)
+                | PrinterEvent::HeatbedOverheating(_)
+                | PrinterEvent::Stepper(_) 
+                | PrinterEvent::PrintCompleted => {
                     let mut pwm = PMW.lock().await;
                     let pwm = pwm.as_mut().expect("PWM not initialized");
                     hotend.disable(pwm);
                 }
-                PrinterError::Stepper(_) => todo!(),
+                _ => (),
             }
             HOTEND_CHANNEL.clear();
         }
@@ -420,10 +422,10 @@ async fn heatbed_handler(
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
-    let mut error_channel_subscriber = ERROR_CHANNEL
+    let mut event_channel_subscriber = EVENT_CHANNEL
         .dyn_subscriber()
         .expect("Cannot retrieve error subscriber");
-    let error_channel_publisher = ERROR_CHANNEL
+    let event_channel_publisher = EVENT_CHANNEL
         .dyn_publisher()
         .expect("Cannot retrieve error subscriber");
     let mut last_temperature: Option<Temperature> = None;
@@ -432,24 +434,26 @@ async fn heatbed_handler(
         last_temperature.replace( heatbed.read_temperature().await );
 
         if last_temperature.unwrap() > config.heater.max_temperature_limit {
-            let e = PrinterError::HeatbedOverheating(last_temperature.unwrap());
-            error_channel_publisher.publish(e).await;
+            let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
+            event_channel_publisher.publish(e).await;
             report.clear();
             write!(&mut report, "[HEATBED] {}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
-        if let Some(e) = error_channel_subscriber.try_next_message_pure() {
+        if let Some(e) = event_channel_subscriber.try_next_message_pure() {
             match e {
-                PrinterError::HotendOverheating(_)
-                | PrinterError::HotendUnderheating(_)
-                | PrinterError::HeatbedUnderheating(_)
-                | PrinterError::HeatbedOverheating(_) => {
+                PrinterEvent::HotendOverheating(_)
+                | PrinterEvent::HotendUnderheating(_)
+                | PrinterEvent::HeatbedUnderheating(_)
+                | PrinterEvent::HeatbedOverheating(_)
+                | PrinterEvent::Stepper(_)
+                | PrinterEvent::PrintCompleted =>{
                     let mut pwm = PMW.lock().await;
                     let pwm = pwm.as_mut().expect("PWM not initialized");
                     heatbed.disable(pwm);
                 }
-                PrinterError::Stepper(_) => todo!(),
+                _ => ()
             }
             HEATBED_CHANNEL.clear();
         }
@@ -532,16 +536,16 @@ async fn sdcard_handler(
     let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
-    let mut error_channel_subscriber = ERROR_CHANNEL
+    let mut event_channel_subscriber = EVENT_CHANNEL
         .dyn_subscriber()
         .expect("Cannot retrieve error subscriber");
-    let error_channel_publisher = ERROR_CHANNEL
+    let event_channel_publisher = EVENT_CHANNEL
         .dyn_publisher()
         .expect("Cannot retrieve error subscriber");
 
     let dt = Duration::from_millis(500);
     loop {
-        if error_channel_subscriber.try_next_message_pure().is_some() {
+        if event_channel_subscriber.try_next_message_pure().is_some() {
             if let Some(wf) = working_file {
                 volume_manager.close_file(wf).unwrap();
                 info!("File closed");
@@ -652,7 +656,7 @@ async fn sdcard_handler(
                 }
                 tmp.fill(0u8);
             } else {
-                error!("Cannot read from SD-card");
+                event_channel_publisher.publish(PrinterEvent::EOF).await;
             }
         }
         Timer::after(dt).await;
@@ -762,17 +766,32 @@ async fn planner_handler(
     );
 
     let dt = Duration::from_millis(500);
-    let mut error_channel_subscriber = ERROR_CHANNEL
+    let mut event_channel_subscriber = EVENT_CHANNEL
         .dyn_subscriber()
         .expect("Cannot retrieve error subscriber");
-    let error_channel_publisher = ERROR_CHANNEL
+    let event_channel_publisher = EVENT_CHANNEL
         .dyn_publisher()
         .expect("Cannot retrieve error subscriber");
 
+    let mut is_eof = false;
+
     loop {
-        if error_channel_subscriber.try_next_message_pure().is_some() {
-            PLANNER_CHANNEL.clear();
+        if let Some(e) = event_channel_subscriber.try_next_message_pure() {
+            match e{
+                PrinterEvent::EOF => {
+                    is_eof = true;
+                },
+                _ => {
+                    PLANNER_CHANNEL.clear();
+                }
+            }
         }
+
+        if is_eof && PLANNER_CHANNEL.is_empty(){
+            is_eof = false;
+            event_channel_publisher.publish(PrinterEvent::PrintCompleted).await;
+        }
+
         let cmd = PLANNER_CHANNEL.receive().await;
         // info!("[PLANNER HANDLER] {}", cmd);
         match cmd {
@@ -817,8 +836,8 @@ async fn planner_handler(
                     }
                 }
                 Err(e) => {
-                    error_channel_publisher
-                        .publish(PrinterError::Stepper(e))
+                    event_channel_publisher
+                        .publish(PrinterEvent::Stepper(e))
                         .await;
                     report.clear();
                     write!(&mut report, "[PLANNER] {}", e).unwrap();
@@ -956,4 +975,5 @@ async fn main(spawner: Spawner) {
         info!("[MAIN LOOP] alive");
         Timer::after(Duration::from_secs(1)).await;
     }
+
 }

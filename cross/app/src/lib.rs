@@ -13,31 +13,39 @@ pub mod hotend;
 pub mod utils;
 
 #[derive(Clone, Copy, Debug)]
-pub enum PrinterError {
+pub enum PrinterEvent {
     HotendOverheating(Temperature),
     HotendUnderheating(Temperature),
     HeatbedOverheating(Temperature),
     HeatbedUnderheating(Temperature),
     Stepper(StepperError),
+    EOF,
+    PrintCompleted,
 }
 
-impl Display for PrinterError {
+impl Display for PrinterEvent {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match &self {
-            PrinterError::HotendOverheating(temperature) => {
+            PrinterEvent::HotendOverheating(temperature) => {
                 core::write!(f, "Hotend overheating: {}C", temperature.as_celsius())
             }
-            PrinterError::HotendUnderheating(temperature) => {
+            PrinterEvent::HotendUnderheating(temperature) => {
                 core::write!(f, "Hotend underheating: {}C", temperature.as_celsius())
             }
-            PrinterError::HeatbedOverheating(temperature) => {
+            PrinterEvent::HeatbedOverheating(temperature) => {
                 core::write!(f, "Heatbed overheating: {}C", temperature.as_celsius())
             }
-            PrinterError::HeatbedUnderheating(temperature) => {
+            PrinterEvent::HeatbedUnderheating(temperature) => {
                 core::write!(f, "Heatbed underheating: {}C", temperature.as_celsius())
             }
-            PrinterError::Stepper(stepper_error) => {
+            PrinterEvent::Stepper(stepper_error) => {
                 core::write!(f, "Stepper error: {}", stepper_error)
+            }
+            PrinterEvent::EOF => {
+                core::write!(f, "SD-card EOF")
+            },
+            PrinterEvent::PrintCompleted => {
+                core::write!(f, "Print completed")
             }
         }
     }
