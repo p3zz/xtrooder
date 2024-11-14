@@ -160,6 +160,9 @@ channel = 2
 
 # ------------- fan ---------------
 
+[fan]
+max_speed = 10000
+
 [fan.pwm]
 channel = 3
 

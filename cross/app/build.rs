@@ -473,12 +473,16 @@ mod external {
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct FanConfig {
-        pub pwm: PwmOutputConfig,
+        max_speed: f64,
+        pwm: PwmOutputConfig,
     }
 
     impl FanConfig {
         pub fn get_pwm(&self) -> PwmOutputConfig {
             self.pwm.clone()
+        }
+        pub fn get_max_speed(&self) -> f64 {
+            self.max_speed
         }
     }
 
@@ -806,6 +810,7 @@ fn main() {
     let heatbed_heater_max_temp = conf.heatbed.get_heater().get_max_temperature_limit();
 
     let fan_pwm_output_channel = conf.fan.get_pwm().get_channel();
+    let fan_max_speed = conf.fan.get_max_speed();
 
     let sdcard_spi_peripheral = conf
         .sdcard
@@ -859,7 +864,7 @@ fn main() {
     let tokens = quote! {
         use embassy_stm32::Peripherals;
         use embassy_stm32::peripherals::*;
-        use math::measurements::{Speed, Length, Distance, Resistance, Temperature};
+        use math::measurements::{Speed, Length, Distance, Resistance, Temperature, AngularVelocity};
         use math::common::RotationDirection;
         use stepper::motion::Positioning;
         use stepper::stepper::SteppingMode;
@@ -1068,6 +1073,7 @@ fn main() {
                     },
                 },
                 fan: FanConfig{
+                    max_speed: AngularVelocity::from_rpm(#fan_max_speed),
                     pwm: PwmOutputConfig {
                         channel: #fan_pwm_output_channel,
                     }

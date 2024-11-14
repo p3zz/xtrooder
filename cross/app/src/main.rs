@@ -190,15 +190,15 @@ async fn output_handler() {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
-    let mut response: String<MAX_MESSAGE_LEN> = String::new();
+    // let mut response: String<MAX_MESSAGE_LEN> = String::new();
     info!("Starting command dispatcher loop");
 
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
-        info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
-        core::write!(&mut response, "Hello DMA World {}!\r\n", msg.as_str()).unwrap();
-        FEEDBACK_CHANNEL.send(response.clone()).await;
-        response.clear();
+        // info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
+        // core::write!(&mut response, "Hello DMA World {}!\r\n", msg.as_str()).unwrap();
+        // FEEDBACK_CHANNEL.send(response.clone()).await;
+        // response.clear();
         if let Some(cmd) = parser.parse(msg.as_str()) {
             // info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
@@ -276,7 +276,7 @@ async fn hotend_handler(
 
     let channel = fan_config.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
-    let mut fan_controller = FanController::new(channel, 10f64);
+    let mut fan_controller = FanController::new(channel, fan_config.max_speed);
 
     let channel = config.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
@@ -359,7 +359,7 @@ async fn hotend_handler(
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
-                        info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed);
+                        info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed.as_rpm());
                     }
                 }
                 GCommand::M155 { s } => {
@@ -777,7 +777,7 @@ async fn planner_handler(
             | GCommand::G4 { .. }
             | GCommand::G10
             | GCommand::G11
-            | GCommand::G28
+            | GCommand::G28{ .. }
             | GCommand::G90
             | GCommand::G91
             | GCommand::M207 { .. }

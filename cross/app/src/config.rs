@@ -1,6 +1,6 @@
 use math::{
     common::RotationDirection,
-    measurements::{Length, Resistance, Temperature},
+    measurements::{AngularVelocity, Length, Resistance, Temperature},
 };
 pub use stepper::planner::MotionConfig;
 use stepper::stepper::SteppingMode;
@@ -139,6 +139,7 @@ pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
 }
 
 pub struct FanConfig {
+    pub max_speed: AngularVelocity,
     pub pwm: PwmOutputConfig,
 }
 

@@ -1,13 +1,14 @@
 use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel};
+use math::measurements::AngularVelocity;
 use micromath::F32Ext;
 
 pub struct FanController {
     ch: Channel,
-    max_speed: f64,
+    max_speed: AngularVelocity,
 }
 
 impl FanController {
-    pub fn new(ch: Channel, max_speed: f64) -> Self {
+    pub fn new(ch: Channel, max_speed: AngularVelocity) -> Self {
         Self { ch, max_speed }
     }
 
@@ -21,17 +22,18 @@ impl FanController {
 
     pub fn set_speed<T: GeneralInstance4Channel>(
         &mut self,
-        revolutions_per_second: f64,
+        rpm: AngularVelocity,
         pwm: &mut SimplePwm<'_, T>,
     ) {
-        let revolutions_per_second = revolutions_per_second.max(0f64).min(self.max_speed);
+        let rpm = rpm.as_rpm().max(0f64).min(self.max_speed.as_rpm());
 
-        let multiplier = self.max_speed / revolutions_per_second;
+        let multiplier = self.max_speed.as_rpm() / rpm;
         let duty_cycle = ((f64::from(pwm.get_max_duty()) * multiplier) as f32).trunc() as u32;
         pwm.set_duty(self.ch, duty_cycle);
     }
 
-    pub fn get_max_speed(&self) -> f64 {
+    pub fn get_max_speed(&self) -> AngularVelocity {
         self.max_speed
     }
+
 }

@@ -117,16 +117,16 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 let duration = self.g3(x, y, z, e, f, i, j, r).await?;
                 Ok(Some(duration))
             }
+            GCommand::G4 { p, s } => {
+                self.g4(p, s).await;
+                Ok(None)
+            }
             GCommand::G90 => {
                 self.g90();
                 Ok(None)
             }
             GCommand::G91 => {
                 self.g91();
-                Ok(None)
-            }
-            GCommand::G4 { p, s } => {
-                self.g4(p, s).await;
                 Ok(None)
             }
             GCommand::G10 => {

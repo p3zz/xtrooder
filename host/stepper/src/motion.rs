@@ -1,4 +1,3 @@
-use core::ops::AddAssign;
 use core::time::Duration;
 
 use futures::future::select;
