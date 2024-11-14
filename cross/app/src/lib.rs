@@ -13,14 +13,6 @@ pub mod hotend;
 pub mod utils;
 
 #[derive(Clone, Copy, Debug)]
-pub enum EndstopType {
-    X,
-    Y,
-    Z,
-    E,
-}
-
-#[derive(Clone, Copy, Debug)]
 pub enum PrinterError {
     HotendOverheating(Temperature),
     HotendUnderheating(Temperature),

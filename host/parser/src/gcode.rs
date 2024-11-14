@@ -161,11 +161,11 @@ pub enum GCommand {
     },
     // set feedrate multiplier
     M220 {
-        s: u64,
+        s: f64,
     },
     // set flow multiplier
     M221 {
-        s: u64,
+        s: f64,
     },
     // abort sd print
     M524,
@@ -605,13 +605,13 @@ impl GCodeParser {
             }
             // set feedrate multiplier
             (GCommandType::M, 220) => {
-                let s = extract_token_as_number(&args, "S")? as u64;
+                let s = extract_token_as_number(&args, "S")?;
                 Some(GCommand::M220 {
                     s
                 })
             },
             (GCommandType::M, 221) => {
-                let s = extract_token_as_number(&args, "S")? as u64;
+                let s = extract_token_as_number(&args, "S")?;
                 Some(GCommand::M221 {
                     s
                 })

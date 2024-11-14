@@ -210,6 +210,12 @@ async fn command_dispatcher_task() {
                 | GCommand::G4 { .. }
                 | GCommand::G90
                 | GCommand::G91
+                | GCommand::G10
+                | GCommand::G11
+                | GCommand::G28{..}
+                | GCommand::M207 { .. }
+                | GCommand::M208 { .. }
+                | GCommand::M220 { .. }
                 | GCommand::M114 => {
                     PLANNER_CHANNEL.send(cmd).await;
                 }

@@ -31,6 +31,7 @@ pub struct MotionConfig {
     pub arc_unit_length: Length,
     pub feedrate: Speed,
     pub positioning: Positioning,
+    pub feedrate_multiplier: f64,
     pub retraction: RetractionMotionConfig,
     pub recover: RecoverMotionConfig,
 }
@@ -149,6 +150,10 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 self.m208(f, s);
                 Ok(None)
             }
+            GCommand::M220 { s } => {
+                self.config.feedrate_multiplier = s;
+                Ok(None)
+            }
             _ => Err(StepperError::NotSupported),
         }
     }
@@ -194,6 +199,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         if let Some(feedrate) = f {
             self.config.feedrate = feedrate;
         }
+        let feedrate = self.config.feedrate * self.config.feedrate_multiplier;
         let x = match x {
             Some(v) => v,
             None => no_move(&self.x_stepper, self.config.positioning),
@@ -218,7 +224,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 &mut self.z_stepper,
             ),
             dst,
-            self.config.feedrate,
+            feedrate,
             self.config.positioning,
             (
                 &mut self.endstops.0,
@@ -240,6 +246,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         if let Some(feedrate) = f {
             self.config.feedrate = feedrate;
         }
+        let feedrate = self.config.feedrate * self.config.feedrate_multiplier;
         let x = match x {
             Some(v) => v,
             None => no_move(&self.x_stepper, self.config.positioning),
@@ -270,7 +277,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 &mut self.e_stepper,
             ),
             dst,
-            self.config.feedrate,
+            feedrate,
             e,
             self.config.positioning,
             (
@@ -319,6 +326,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
         if let Some(feedrate) = f {
             self.config.feedrate = feedrate;
         }
+        let feedrate = self.config.feedrate * self.config.feedrate_multiplier;
 
         let z = match z {
             Some(v) => v,
@@ -363,7 +371,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 ),
                 dst,
                 offset_from_center,
-                self.config.feedrate,
+                feedrate,
                 d,
                 e,
                 self.config.arc_unit_length,
@@ -403,7 +411,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 ),
                 dst,
                 r,
-                self.config.feedrate,
+                feedrate,
                 d,
                 e,
                 self.config.arc_unit_length,

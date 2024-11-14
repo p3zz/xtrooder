@@ -133,6 +133,7 @@ mod external {
         arc_unit_length: f64,
         feedrate: f64,
         positioning: String,
+        feedrate_multiplier: f64,
         retraction: RetractionMotionConfig,
         recover: RecoverMotionConfig,
         endstops: EndstopsConfig,
@@ -161,6 +162,10 @@ mod external {
 
         pub fn get_endstops(&self) -> EndstopsConfig {
             self.endstops.clone()
+        }
+
+        pub fn get_feedrate_multiplier(&self) -> f64{
+            self.feedrate_multiplier
         }
     }
 
@@ -523,6 +528,7 @@ fn main() {
         .expect("Motion positioning is missing");
     let motion_positioning = motion_positioning.as_str();
     let _ = Positioning::from(motion_positioning);
+    let motion_feedrate_multiplier = conf.motion.get_feedrate_multiplier();
 
     let motion_retraction_z_lift = conf.motion.get_retraction().get_zlift();
     let motion_retraction_feedrate = conf.motion.get_retraction().get_feedrate();
@@ -947,6 +953,7 @@ fn main() {
                     arc_unit_length: Length::from_millimeters(#motion_arc_unit_len),
                     feedrate: Speed::from_meters_per_second(#motion_feedrate / 1000.0),
                     positioning: Positioning::from(#motion_positioning),
+                    feedrate_multiplier: #motion_feedrate_multiplier,
                     retraction: RetractionMotionConfig{
                         feedrate: Speed::from_meters_per_second(#motion_retraction_feedrate),
                         length: Length::from_meters(#motion_retraction_len * 1000.0),
