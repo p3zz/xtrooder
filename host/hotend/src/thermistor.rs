@@ -14,7 +14,7 @@ Vcc: voltage reference of the board
 Varef: voltage of the thermistor
 */
 
-struct Thermistor<'a, A: MyAdc>{
+pub struct Thermistor<'a, A: MyAdc>{
     adc: A,
     dma_peri: A::DmaType,
     read_pin: A::PinType,

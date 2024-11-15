@@ -2,3 +2,4 @@
 
 pub mod heater;
 pub mod thermistor;
+pub mod controller;
