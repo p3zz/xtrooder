@@ -10,7 +10,6 @@ use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Chann
 
 pub mod config;
 pub mod ext;
-pub mod hotend;
 pub mod utils;
 
 #[derive(Clone, Copy, Debug)]
