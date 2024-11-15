@@ -16,6 +16,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "common",
  "confy",
  "cortex-m",
  "cortex-m-rt",
@@ -129,6 +130,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "math",
 ]
 
 [[package]]
@@ -583,7 +591,8 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 name = "fan"
 version = "0.1.0"
 dependencies = [
- "measurements",
+ "common",
+ "math",
 ]
 
 [[package]]

@@ -228,6 +228,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "math",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -520,7 +527,8 @@ name = "fan"
 version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
- "measurements",
+ "common",
+ "math",
 ]
 
 [[package]]
@@ -793,6 +801,16 @@ name = "hermit-abi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
+
+[[package]]
+name = "hotend"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "common",
+ "math",
+ "pid-lite",
+]
 
 [[package]]
 name = "ident_case"
@@ -1533,6 +1551,12 @@ dependencies = [
  "fixedbitset",
  "indexmap",
 ]
+
+[[package]]
+name = "pid-lite"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525af580ce1fff6a619c17736c1d91dcab5d5abff5df3937136f499922dfa73f"
 
 [[package]]
 name = "pin-project-lite"

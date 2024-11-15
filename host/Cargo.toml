@@ -5,5 +5,7 @@ members = [
     "parser",
     "tools",
     "stepper",
-    "fan"
+    "fan",
+    "hotend",
+    "common"
 ]

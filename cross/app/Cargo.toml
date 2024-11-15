@@ -35,6 +35,8 @@ math = {path="../../host/math", features=["defmt-log"]}
 parser = {path="../../host/parser", features=["defmt-log"]}
 stepper = {path="../../host/stepper"}
 fan = {path="../../host/fan"}
+common = {path="../../host/common"}
+
 embedded-sdmmc = {version="0.8.0", default-features=false}
 
 [build-dependencies]

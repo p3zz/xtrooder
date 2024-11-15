@@ -1,12 +1,11 @@
 #![cfg_attr(not(test), no_std)]
 
-use measurements::AngularVelocity;
+use common::{MyPwm, PwmOutputConfig};
+use math::measurements::AngularVelocity;
 
-pub trait MyPwm<C>{
-    fn enable(&mut self, channel: C);
-    fn disable(&mut self, channel: C);
-    fn get_max_duty(&self) -> u64;
-    fn set_duty(&mut self, channel: C, duty_cycle: u64);
+pub struct FanConfig {
+    pub max_speed: AngularVelocity,
+    pub pwm: PwmOutputConfig,
 }
 
 pub struct FanController<C: Copy + Clone> {

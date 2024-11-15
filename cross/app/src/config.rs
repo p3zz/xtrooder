@@ -140,7 +140,7 @@ pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
 
 pub struct FanConfig {
     pub max_speed: AngularVelocity,
-    pub pwm: PwmOutputConfig,
+    pub pwm_output_channel: PwmOutputConfig,
 }
 
 pub struct SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS> {

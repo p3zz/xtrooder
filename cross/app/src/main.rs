@@ -15,7 +15,7 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::fan::SimplePwmWrapper;
+use app::SimplePwmWrapper;
 use fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
