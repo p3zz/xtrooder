@@ -15,7 +15,8 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::fan::FanController;
+use app::fan::SimplePwmWrapper;
+use fan::FanController;
 use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
@@ -34,7 +35,7 @@ use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, Speed as PinSpeed},
-    timer::{simple_pwm::SimplePwm, Channel as TimerChannel},
+    timer::{Channel as TimerChannel},
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
@@ -65,7 +66,7 @@ static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8>
 
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
-static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwm<'_, PwmTimer>>> = Mutex::new(None);
+static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwmWrapper<'_, PwmTimer>>> = Mutex::new(None);
 static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, 8, 8, 8> =
     PubSubChannel::new();
 
