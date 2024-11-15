@@ -97,7 +97,9 @@ pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel>{
     inner: SimplePwm<'a, T>
 }
 
-impl<'a, T: GeneralInstance4Channel> MyPwm<Channel> for SimplePwmWrapper<'a, T>{
+impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
+    type Channel = Channel;
+
     fn enable(&mut self, channel: Channel) {
         self.inner.enable(channel);
     }
@@ -113,4 +115,5 @@ impl<'a, T: GeneralInstance4Channel> MyPwm<Channel> for SimplePwmWrapper<'a, T>{
     fn set_duty(&mut self, channel: Channel, duty_cycle: u64) {
         self.inner.set_duty(channel, duty_cycle as u32);
     }
+    
 }

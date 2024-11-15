@@ -8,25 +8,25 @@ pub struct FanConfig {
     pub pwm: PwmOutputConfig,
 }
 
-pub struct FanController<C: Copy + Clone> {
-    ch: C,
+pub struct FanController<P: MyPwm> {
+    ch: P::Channel,
     max_speed: AngularVelocity,
 }
 
-impl<C: Copy + Clone> FanController<C> {
-    pub fn new(ch: C, max_speed: AngularVelocity) -> Self {
+impl<P: MyPwm> FanController<P> {
+    pub fn new(ch: P::Channel, max_speed: AngularVelocity) -> Self {
         Self { ch, max_speed }
     }
 
-    pub fn enable<P: MyPwm<C>>(&self, pwm: &mut P) {
+    pub fn enable(&self, pwm: &mut P) {
         pwm.enable(self.ch);
     }
 
-    pub fn disable<P: MyPwm<C>>(&self, pwm: &mut P) {
+    pub fn disable(&self, pwm: &mut P) {
         pwm.disable(self.ch);
     }
 
-    pub fn set_speed<P: MyPwm<C>>(
+    pub fn set_speed(
         &mut self,
         rpm: AngularVelocity,
         pwm: &mut P,

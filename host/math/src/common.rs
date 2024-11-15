@@ -1,10 +1,10 @@
 use core::{f64::consts::PI, time::Duration};
-use measurements::{AngularVelocity, Distance, Speed};
+use measurements::{AngularVelocity, Distance, Resistance, Speed, Temperature};
 use micromath::F32Ext;
 
 use crate::{
     angle::{asin, cos, sin, Angle},
-    vector::Vector2D,
+    vector::Vector2D, Resolution,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -197,6 +197,24 @@ pub fn compute_arc_destination(
     let x = Distance::from_millimeters(x);
     let y = Distance::from_millimeters(y);
     Vector2D::new(x, y)
+}
+
+// https://circuitdigest.com/microcontroller-projects/interfacing-Thermistor-with-arduino
+// https://www.petervis.com/electronics%20guides/calculators/thermistor/thermistor.html
+// Steinhart–Hart equation simplified for ntc thermistors
+pub fn compute_ntf_thermistor_temperature(
+    sample: u64,
+    resolution: Resolution,
+    t0: Temperature,
+    b: Temperature,
+    r0: Resistance,
+    r_series: Resistance,
+) -> Temperature {
+    let max_sample: u64 = resolution.into();
+    let r_ntc = r_series * (max_sample / sample - 1) as f64;
+    let val_inv =
+        (1.0 / t0.as_kelvin()) + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
+    Temperature::from_kelvin(1.0 / val_inv)
 }
 
 #[cfg(test)]

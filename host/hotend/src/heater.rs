@@ -4,14 +4,14 @@ use common::{MyPwm, PidConfig};
 use math::measurements::Temperature;
 use pid_lite::Controller;
 
-pub struct HeaterController<C: Copy + Clone>{
-    ch: C,
+pub struct HeaterController<P: MyPwm>{
+    ch: P::Channel,
     pid: Controller,
-    target_temperature: Option<Temperature>
+    target_temperature: Option<Temperature>,
 }
 
-impl <C: Copy + Clone> HeaterController<C>{
-    pub fn new(ch: C, config: PidConfig) -> Self {
+impl <P: MyPwm> HeaterController<P>{
+    pub fn new(ch: P::Channel, config: PidConfig) -> Self {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),
             config.k_p,
@@ -25,11 +25,11 @@ impl <C: Copy + Clone> HeaterController<C>{
         }
     }
 
-    pub fn enable<P: MyPwm<C>>(&self, pwm: &mut P) {
+    pub fn enable(&self, pwm: &mut P) {
         pwm.enable(self.ch);
     }
 
-    pub fn disable<P: MyPwm<C>>(&self, pwm: &mut P) {
+    pub fn disable(&self, pwm: &mut P) {
         pwm.disable(self.ch);
     }
 
@@ -44,7 +44,7 @@ impl <C: Copy + Clone> HeaterController<C>{
             .set_target(self.target_temperature.unwrap().as_celsius());
     }
 
-    pub fn update<P: MyPwm<C>>(
+    pub fn update(
         &mut self,
         tmp: Temperature,
         dt: Duration,
@@ -56,7 +56,7 @@ impl <C: Copy + Clone> HeaterController<C>{
 
         let duty_cycle = self.pid.update_elapsed(
             tmp.as_celsius(),
-            core::time::Duration::from_millis(dt.as_millis() as u64),
+            dt,
         );
 
         let duty_cycle = duty_cycle.max(0.0).min(pwm.get_max_duty() as f64) as u64;
