@@ -71,6 +71,8 @@ pub enum GCommand {
     G90,
     // set positioning as relative
     G91,
+    // TODO set steppers position
+    // G92,
     // List SD Card files
     M20,
     // Init SD card (mount fs)
@@ -520,10 +522,10 @@ fn extract_duration(
     key: &str,
     unit: DurationUnit,
 ) -> Option<Duration> {
-    let value = extract_token_as_number(cmd, key)? as u64;
+    let value = extract_token_as_number(cmd, key)?;
     match unit {
-        DurationUnit::Second => Some(Duration::from_secs(value)),
-        DurationUnit::Millisecond => Some(Duration::from_millis(value)),
+        DurationUnit::Second => Some(Duration::from_secs_f64(value)),
+        DurationUnit::Millisecond => Some(Duration::from_secs_f64(value / 1000f64)),
     }
 }
 
@@ -548,15 +550,16 @@ fn extract_token_as_number(cmd: &LinearMap<&str, &str, 16>, key: &str) -> Option
 }
 
 fn extract_token_as_string<'a>(cmd: &'a LinearMap<&str, &str, 16>, key: &str) -> Option<&'a str> {
-    match cmd.get(key).copied() {
+    match cmd.get(key) {
         Some(t) => Some(t),
         None => None,
     }
 }
 
+#[derive(Clone, Copy)]
 enum ParserState {
     ReadingCommand,
-    ReadingComment,
+    ReadingComment(char),
 }
 pub struct GCodeParser {
     distance_unit: DistanceUnit,
@@ -579,25 +582,45 @@ impl GCodeParser {
 
     pub fn parse(&mut self, data: &str) -> Option<GCommand> {
         let mut state = ParserState::ReadingCommand;
-        let mut data_buffer: String<64> = String::new();
-        for b in data.chars() {
-            if b == '\n' {
-                break;
-            }
+        let mut command_start = None;
+        let mut command_end = None;
+
+        for (i, b) in data.chars().enumerate() {
             match state {
                 ParserState::ReadingCommand => match b {
-                    ';' | '(' => state = ParserState::ReadingComment,
-                    // todo check buffer overflow
-                    _ => data_buffer.push(b).ok()?,
+                    ';' | '(' => {
+                        state = ParserState::ReadingComment(b);
+                        if command_start.is_some() && command_end.is_none() {
+                            command_end = Some(i);
+                        }
+                    }
+                    '\n' => {
+                        let start = command_start?;
+                        let end = command_end.unwrap_or(i);
+                        return self.parse_line(&data[start..end].trim());
+                    }
+                    _ => {
+                        if command_start.is_none() {
+                            command_start = Some(i);
+                        }
+                    }
                 },
-                ParserState::ReadingComment => {
-                    if b == ')' {
-                        state = ParserState::ReadingCommand
+                ParserState::ReadingComment(start) => {
+                    if start == '(' && b == ')' {
+                        state = ParserState::ReadingCommand;
+                    }
+                    else if start == ';' && b == ';' {
+                        state = ParserState::ReadingCommand;
                     }
                 }
             }
         }
-        self.parse_line(data_buffer.as_str())
+
+        if let Some(start) = command_start {
+            let end = command_end.unwrap_or(data.len());
+            return self.parse_line(&data[start..end].trim());
+        }
+        None
     }
 
     pub fn set_distance_unit(&mut self, unit: DistanceUnit) {
@@ -1041,6 +1064,42 @@ mod tests {
         let mut parser = GCodeParser::new();
         let res = parser.parse(data);
         assert!(res.is_none());
+    }
+
+    #[test]
+    fn test_parser_invalid_with_comment_double_semicolon() {
+        let data = ";comment;G1 X10.1 F1200";
+        let mut parser = GCodeParser::new();
+        let res = parser.parse(data);
+        assert!(res.is_some());
+        assert!(
+            res.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_millimeters(10.1)),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(Speed::from_meters_per_second(1.20))
+                }
+        );
+    }
+
+    #[test]
+    fn test_parser_invalid_with_comment_parenthesis() {
+        let data = "G1 X10.1 F1200(some comment)";
+        let mut parser = GCodeParser::new();
+        let res = parser.parse(data);
+        assert!(res.is_some());
+        assert!(
+            res.unwrap()
+                == GCommand::G1 {
+                    x: Some(Distance::from_millimeters(10.1)),
+                    y: None,
+                    z: None,
+                    e: None,
+                    f: Some(Speed::from_meters_per_second(1.20))
+                }
+        );
     }
 
     #[test]
