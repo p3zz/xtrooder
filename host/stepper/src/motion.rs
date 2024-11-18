@@ -494,7 +494,7 @@ pub async fn auto_home<
     let step_duration = stepper.get_step_duration();
     // calibrate x
     while !trigger.is_high() {
-        stepper.step()?;
+        stepper.step_unchecked();
         T::after(step_duration).await;
         duration += step_duration;
     }

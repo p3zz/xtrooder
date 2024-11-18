@@ -190,7 +190,15 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         }
     }
 
-    pub fn step(&mut self) -> Result<(), StepperError> {
+    pub fn step(&mut self) -> Result<(), StepperError>{
+        self.step_inner(true)
+    }
+
+    pub fn step_unchecked(&mut self) -> () {
+        self.step_inner(false).unwrap();
+    }
+
+    fn step_inner(&mut self, check_bounds: bool) -> Result<(), StepperError> {
         let mut step = 1.0 / f64::from(u8::from(self.options.stepping_mode));
         // if we are going counterclockwise but the positive direction is counterclockwise, the step is positive
         // if we are going clockwise but the positive direction is clockwise, the step is positive
@@ -199,9 +207,11 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         let dir = i8::from(self.options.positive_direction) * i8::from(self.get_direction());
         step *= f64::from(dir);
         let steps_next = self.steps + step;
-        if let Some((min, max)) = self.options.bounds {
-            if steps_next < min || steps_next > max {
-                return Err(StepperError::MoveOutOfBounds);
+        if check_bounds{
+            if let Some((min, max)) = self.options.bounds {
+                if steps_next < min || steps_next > max {
+                    return Err(StepperError::MoveOutOfBounds);
+                }
             }
         }
 
