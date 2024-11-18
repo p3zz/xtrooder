@@ -64,10 +64,8 @@ pub fn dps_from_radius(r: Distance, steps_per_revolution: u64) -> Option<Distanc
     if r.as_millimeters() == 0f64 || steps_per_revolution == 0 {
         return None;
     }
-    let p = 2.0 * r.as_millimeters() * PI;
-    Some(Distance::from_millimeters(
-        p / (steps_per_revolution as f64),
-    ))
+    let p = 2.0 * r * PI;
+    Some(p / steps_per_revolution as f64)
 }
 
 // get distance per step from bar's pitch
@@ -76,9 +74,7 @@ pub fn dps_from_pitch(pitch: Distance, steps_per_revolution: u64) -> Option<Dist
     if pitch.as_millimeters() == 0f64 || steps_per_revolution == 0 {
         return None;
     }
-    Some(Distance::from_millimeters(
-        pitch.as_millimeters() / (steps_per_revolution as f64),
-    ))
+    Some(pitch / steps_per_revolution as f64)
 }
 
 // compute the step duration, known as the delay between two successive steps
@@ -91,10 +87,11 @@ pub fn compute_step_duration(rpm: AngularVelocity, steps_per_revolution: u64) ->
         return Duration::ZERO;
     }
     let rpm = rpm.as_rpm().max(0f64);
-    if rpm == 0.0 {
+    let rpm = AngularVelocity::from_rpm(rpm);
+    if rpm.as_rpm() == 0.0 {
         return Duration::ZERO;
     }
-    let second_per_revolution = 1.0 / (rpm / 60.0);
+    let second_per_revolution = 1.0 / rpm.as_hertz();
     let second_per_step = second_per_revolution / (steps_per_revolution as f64);
     Duration::from_secs_f64(second_per_step)
 }
@@ -154,9 +151,9 @@ pub fn compute_arc_length(
     let mut th: f64 =
         2.0 * asin(chord_length.as_millimeters() / (2.0 * radius.as_millimeters())).as_radians();
 
-    if start_angle.as_radians() < end_angle.as_radians()
+    if start_angle < end_angle
         && direction == RotationDirection::Clockwise
-        || start_angle.as_radians() > end_angle.as_radians()
+        || start_angle > end_angle
             && direction == RotationDirection::CounterClockwise
     {
         th = 2.0 * PI - th;
@@ -166,7 +163,7 @@ pub fn compute_arc_length(
         th = 2.0 * PI;
     }
 
-    Distance::from_millimeters(radius.as_millimeters() * th)
+    radius * th
 }
 
 pub fn compute_arc_destination(
@@ -183,19 +180,17 @@ pub fn compute_arc_destination(
     }
 
     let l = match direction {
-        RotationDirection::Clockwise => Distance::from_millimeters(-arc_length.as_millimeters()),
+        RotationDirection::Clockwise => -1f64 * arc_length,
         RotationDirection::CounterClockwise => arc_length,
     };
 
-    let angle = Angle::from_radians(l.as_millimeters() / radius.as_millimeters());
+    let angle = Angle::from_radians(l / radius);
 
-    let x = center.get_x().as_millimeters() + (delta.get_x().as_millimeters() * cos(angle))
-        - (delta.get_y().as_millimeters() * sin(angle));
-    let y = center.get_y().as_millimeters()
-        + (delta.get_x().as_millimeters() * sin(angle))
-        + (delta.get_y().as_millimeters() * cos(angle));
-    let x = Distance::from_millimeters(x);
-    let y = Distance::from_millimeters(y);
+    let x = center.get_x() + (delta.get_x() * cos(angle))
+        - (delta.get_y() * sin(angle));
+    let y = center.get_y()
+        + (delta.get_x() * sin(angle))
+        + (delta.get_y() * cos(angle));
     Vector2D::new(x, y)
 }
 
