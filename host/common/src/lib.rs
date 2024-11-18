@@ -26,7 +26,7 @@ pub trait MyPwm{
 pub trait MyAdc{
     type PinType;
     type DmaType;
-    type SampleTime;
+    type SampleTime : Copy + Clone;
 
     fn new<P>(peripheral: P) -> Self;
     fn set_sample_time(&mut self, sample_time: Self::SampleTime);
