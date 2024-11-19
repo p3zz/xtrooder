@@ -11,22 +11,22 @@ Varef: voltage of the thermistor
 */
 
 #[derive(Clone, Copy)]
-pub struct ThermistorConfig{
+pub struct ThermistorConfig {
     pub r_series: Resistance,
     pub r0: Resistance,
     pub b: Temperature,
 }
 
-pub struct Thermistor<'a, A: MyAdc>{
+pub struct Thermistor<'a, A: MyAdc> {
     adc: A,
     dma_peri: A::DmaType,
     read_pin: A::PinType,
     readings: &'a mut DmaBufType,
     config: ThermistorConfig,
-    resolution: A::Resolution
+    resolution: A::Resolution,
 }
 
-impl <'a, A: MyAdc> Thermistor<'a, A>{
+impl<'a, A: MyAdc> Thermistor<'a, A> {
     pub fn new(
         adc_peri: A::PeriType,
         dma_peri: A::DmaType,
@@ -34,7 +34,7 @@ impl <'a, A: MyAdc> Thermistor<'a, A>{
         sample_time: A::SampleTime,
         resolution: A::Resolution,
         readings: &'a mut DmaBufType,
-        config: ThermistorConfig
+        config: ThermistorConfig,
     ) -> Self {
         let mut adc = A::new(adc_peri);
         adc.set_sample_time(sample_time);
@@ -45,7 +45,7 @@ impl <'a, A: MyAdc> Thermistor<'a, A>{
             dma_peri,
             readings,
             config,
-            resolution
+            resolution,
         }
     }
 
@@ -67,88 +67,83 @@ impl <'a, A: MyAdc> Thermistor<'a, A>{
             self.config.r_series,
         )
     }
-
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[derive(Copy, Clone)]
-    pub enum Resolution{
+    pub enum Resolution {
         BITS12,
     }
 
-    impl From<Resolution> for u64{
+    impl From<Resolution> for u64 {
         fn from(val: Resolution) -> Self {
             match val {
                 Resolution::BITS12 => 1 << 12,
-            }    
+            }
         }
     }
 
-    struct AdcWrapper{
+    struct AdcWrapper {
         resolution: Resolution,
         value: u16,
     }
 
-    impl MyAdc for AdcWrapper{
+    impl MyAdc for AdcWrapper {
         type PinType = ();
-    
+
         type DmaType = ();
-    
+
         type PeriType = ();
-    
+
         type SampleTime = ();
-    
+
         type Resolution = Resolution;
-    
+
         fn new(_peripheral: Self::PeriType) -> Self {
-            Self{
+            Self {
                 resolution: Resolution::BITS12,
-                value: 2000
+                value: 2000,
             }
         }
-    
-        fn set_sample_time(&mut self, _sample_time: Self::SampleTime) {
-        }
-    
-        fn sample_time(&self) -> Self::SampleTime {
-            
-        }
-    
+
+        fn set_sample_time(&mut self, _sample_time: Self::SampleTime) {}
+
+        fn sample_time(&self) -> Self::SampleTime {}
+
         fn set_resolution(&mut self, resolution: Self::Resolution) {
             self.resolution = resolution;
         }
-    
+
         async fn read(
             &mut self,
             _dma: &mut Self::DmaType,
             _pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
-            readings: &mut [u16]
+            readings: &mut [u16],
         ) {
             readings[0] = self.value
         }
     }
 
     #[tokio::test]
-    async fn test_thermistor(){
-        let mut readings = [0u16;1];
+    async fn test_thermistor() {
+        let mut readings = [0u16; 1];
         let mut thermistor: Thermistor<'_, AdcWrapper> = Thermistor::new(
-            (), 
-            (), 
+            (),
+            (),
             (),
             (),
             Resolution::BITS12,
             &mut readings,
-            ThermistorConfig{
+            ThermistorConfig {
                 r_series: Resistance::from_ohms(10_000.0),
                 r0: Resistance::from_ohms(10_000.0),
-                b: Temperature::from_kelvin(3950.0)
-            }
+                b: Temperature::from_kelvin(3950.0),
+            },
         );
         let t = thermistor.read_temperature().await;
         assert_eq!(25.0, t.as_celsius());
     }
-
 }

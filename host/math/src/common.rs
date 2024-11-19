@@ -151,10 +151,8 @@ pub fn compute_arc_length(
     let mut th: f64 =
         2.0 * asin(chord_length.as_millimeters() / (2.0 * radius.as_millimeters())).as_radians();
 
-    if start_angle < end_angle
-        && direction == RotationDirection::Clockwise
-        || start_angle > end_angle
-            && direction == RotationDirection::CounterClockwise
+    if start_angle < end_angle && direction == RotationDirection::Clockwise
+        || start_angle > end_angle && direction == RotationDirection::CounterClockwise
     {
         th = 2.0 * PI - th;
     }
@@ -186,11 +184,8 @@ pub fn compute_arc_destination(
 
     let angle = Angle::from_radians(l / radius);
 
-    let x = center.get_x() + (delta.get_x() * cos(angle))
-        - (delta.get_y() * sin(angle));
-    let y = center.get_y()
-        + (delta.get_x() * sin(angle))
-        + (delta.get_y() * cos(angle));
+    let x = center.get_x() + (delta.get_x() * cos(angle)) - (delta.get_y() * sin(angle));
+    let y = center.get_y() + (delta.get_x() * sin(angle)) + (delta.get_y() * cos(angle));
     Vector2D::new(x, y)
 }
 

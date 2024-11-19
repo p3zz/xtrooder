@@ -26,11 +26,7 @@ impl<P: MyPwm> FanController<P> {
         pwm.disable(self.ch);
     }
 
-    pub fn set_speed(
-        &mut self,
-        rpm: AngularVelocity,
-        pwm: &mut P,
-    ) {
+    pub fn set_speed(&mut self, rpm: AngularVelocity, pwm: &mut P) {
         let rpm = rpm.as_rpm().max(0f64).min(self.max_speed.as_rpm());
 
         let multiplier = self.max_speed.as_rpm() / rpm;
@@ -41,5 +37,4 @@ impl<P: MyPwm> FanController<P> {
     pub fn get_max_speed(&self) -> AngularVelocity {
         self.max_speed
     }
-
 }

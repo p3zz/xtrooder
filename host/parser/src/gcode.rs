@@ -1,4 +1,8 @@
-use core::{fmt::{Display, Write}, str::FromStr, time::Duration};
+use core::{
+    fmt::{Display, Write},
+    str::FromStr,
+    time::Duration,
+};
 
 use heapless::{LinearMap, String, Vec};
 use math::{
@@ -62,7 +66,7 @@ pub enum GCommand {
     // set distance unit to millimeters
     G21,
     // auto home
-    G28{
+    G28 {
         x: bool,
         y: bool,
         z: bool,
@@ -290,44 +294,53 @@ impl Display for GCommand {
                 let mut y_t: String<16> = String::new();
                 let mut z_t: String<16> = String::new();
                 let mut f_t: String<16> = String::new();
-                if let Some(x) = x{
+                if let Some(x) = x {
                     core::write!(&mut x_t, " X{}", x.as_millimeters())?;
                 }
-                if let Some(y) = y{
+                if let Some(y) = y {
                     core::write!(&mut y_t, " Y{}", y.as_millimeters())?;
                 }
-                if let Some(z) = z{
+                if let Some(z) = z {
                     core::write!(&mut z_t, " Z{}", z.as_millimeters())?;
                 }
-                if let Some(f) = f{
+                if let Some(f) = f {
                     core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
                 }
                 core::write!(fmt, "G0{}{}{}{}", x_t, y_t, z_t, f_t)
-            },
+            }
             GCommand::G1 { x, y, z, e, f } => {
                 let mut x_t: String<16> = String::new();
                 let mut y_t: String<16> = String::new();
                 let mut z_t: String<16> = String::new();
                 let mut e_t: String<16> = String::new();
                 let mut f_t: String<16> = String::new();
-                if let Some(x) = x{
+                if let Some(x) = x {
                     core::write!(&mut x_t, " X{}", x.as_millimeters())?;
                 }
-                if let Some(y) = y{
+                if let Some(y) = y {
                     core::write!(&mut y_t, " Y{}", y.as_millimeters())?;
                 }
-                if let Some(z) = z{
+                if let Some(z) = z {
                     core::write!(&mut z_t, " Z{}", z.as_millimeters())?;
                 }
-                if let Some(e) = e{
+                if let Some(e) = e {
                     core::write!(&mut e_t, " E{}", e.as_millimeters())?;
                 }
-                if let Some(f) = f{
+                if let Some(f) = f {
                     core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
                 }
                 core::write!(fmt, "G1{}{}{}{}{}", x_t, y_t, z_t, e_t, f_t)
-            },
-            GCommand::G2 { x, y, z, e, f, i, j, r } => {
+            }
+            GCommand::G2 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => {
                 let mut x_t: String<16> = String::new();
                 let mut y_t: String<16> = String::new();
                 let mut z_t: String<16> = String::new();
@@ -336,33 +349,53 @@ impl Display for GCommand {
                 let mut i_t: String<16> = String::new();
                 let mut j_t: String<16> = String::new();
                 let mut r_t: String<16> = String::new();
-                if let Some(x) = x{
+                if let Some(x) = x {
                     core::write!(&mut x_t, " X{}", x.as_millimeters())?;
                 }
-                if let Some(y) = y{
+                if let Some(y) = y {
                     core::write!(&mut y_t, " Y{}", y.as_millimeters())?;
                 }
-                if let Some(z) = z{
+                if let Some(z) = z {
                     core::write!(&mut z_t, " Z{}", z.as_millimeters())?;
                 }
-                if let Some(e) = e{
+                if let Some(e) = e {
                     core::write!(&mut e_t, " E{}", e.as_millimeters())?;
                 }
-                if let Some(f) = f{
+                if let Some(f) = f {
                     core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
                 }
-                if let Some(i) = i{
+                if let Some(i) = i {
                     core::write!(&mut i_t, " I{}", i.as_millimeters())?;
                 }
-                if let Some(j) = j{
+                if let Some(j) = j {
                     core::write!(&mut j_t, " J{}", j.as_millimeters())?;
                 }
-                if let Some(r) = r{
+                if let Some(r) = r {
                     core::write!(&mut r_t, " R{}", r.as_millimeters())?;
                 }
-                core::write!(fmt, "G2{}{}{}{}{}{}{}{}", x_t, y_t, z_t, e_t, f_t, i_t, j_t, r_t)
-            },
-            GCommand::G3 { x, y, z, e, f, i, j, r } => {
+                core::write!(
+                    fmt,
+                    "G2{}{}{}{}{}{}{}{}",
+                    x_t,
+                    y_t,
+                    z_t,
+                    e_t,
+                    f_t,
+                    i_t,
+                    j_t,
+                    r_t
+                )
+            }
+            GCommand::G3 {
+                x,
+                y,
+                z,
+                e,
+                f,
+                i,
+                j,
+                r,
+            } => {
                 let mut x_t: String<16> = String::new();
                 let mut y_t: String<16> = String::new();
                 let mut z_t: String<16> = String::new();
@@ -371,55 +404,66 @@ impl Display for GCommand {
                 let mut i_t: String<16> = String::new();
                 let mut j_t: String<16> = String::new();
                 let mut r_t: String<16> = String::new();
-                if let Some(x) = x{
+                if let Some(x) = x {
                     core::write!(&mut x_t, " X{}", x.as_millimeters())?;
                 }
-                if let Some(y) = y{
+                if let Some(y) = y {
                     core::write!(&mut y_t, " Y{}", y.as_millimeters())?;
                 }
-                if let Some(z) = z{
+                if let Some(z) = z {
                     core::write!(&mut z_t, " Z{}", z.as_millimeters())?;
                 }
-                if let Some(e) = e{
+                if let Some(e) = e {
                     core::write!(&mut e_t, " E{}", e.as_millimeters())?;
                 }
-                if let Some(f) = f{
+                if let Some(f) = f {
                     core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
                 }
-                if let Some(i) = i{
+                if let Some(i) = i {
                     core::write!(&mut i_t, " I{}", i.as_millimeters())?;
                 }
-                if let Some(j) = j{
+                if let Some(j) = j {
                     core::write!(&mut j_t, " J{}", j.as_millimeters())?;
                 }
-                if let Some(r) = r{
+                if let Some(r) = r {
                     core::write!(&mut r_t, " R{}", r.as_millimeters())?;
                 }
-                core::write!(fmt, "G3{}{}{}{}{}{}{}{}", x_t, y_t, z_t, e_t, f_t, i_t, j_t, r_t)
-            },
+                core::write!(
+                    fmt,
+                    "G3{}{}{}{}{}{}{}{}",
+                    x_t,
+                    y_t,
+                    z_t,
+                    e_t,
+                    f_t,
+                    i_t,
+                    j_t,
+                    r_t
+                )
+            }
             GCommand::G4 { p, s } => {
                 let mut p_t: String<16> = String::new();
                 let mut s_t: String<16> = String::new();
-                if let Some(p) = p{
+                if let Some(p) = p {
                     core::write!(&mut p_t, " X{}", p.as_millis())?;
                 }
-                if let Some(s) = s{
+                if let Some(s) = s {
                     core::write!(&mut s_t, " Y{}", s.as_secs())?;
                 }
                 core::write!(fmt, "G4{}{}", p_t, s_t)
-            },
+            }
             GCommand::G10 => {
                 core::write!(fmt, "G10")
-            },
+            }
             GCommand::G11 => {
                 core::write!(fmt, "G11")
-            },
+            }
             GCommand::G20 => {
                 core::write!(fmt, "G22")
-            },
+            }
             GCommand::G21 => {
                 core::write!(fmt, "G21")
-            },
+            }
             GCommand::G28 { x, y, z } => {
                 let mut x_t = "";
                 let mut y_t = "";
@@ -434,50 +478,50 @@ impl Display for GCommand {
                     z_t = " Z";
                 }
                 core::write!(fmt, "G28{}{}{}", x_t, y_t, z_t)
-            },
+            }
             GCommand::G90 => {
                 core::write!(fmt, "G90")
-            },
+            }
             GCommand::G91 => {
                 core::write!(fmt, "G91")
-            },
+            }
             GCommand::M20 => {
                 core::write!(fmt, "M20")
-            },
+            }
             GCommand::M21 => {
                 core::write!(fmt, "M21")
-            },
+            }
             GCommand::M22 => {
                 core::write!(fmt, "M22")
-            },
+            }
             GCommand::M23 { filename } => {
                 core::write!(fmt, "M23 {}", filename)
-            },
+            }
             // GCommand::M24 { s, t } => todo!(),
             GCommand::M25 => {
                 core::write!(fmt, "M25")
-            },
+            }
             GCommand::M27 => {
                 core::write!(fmt, "M27")
-            },
+            }
             GCommand::M31 => {
                 core::write!(fmt, "M31")
-            },
+            }
             GCommand::M104 { s } => {
                 core::write!(fmt, "M104 {}", s.as_celsius())
-            },
+            }
             GCommand::M105 => {
                 core::write!(fmt, "105")
-            },
+            }
             GCommand::M106 { s } => {
                 core::write!(fmt, "M106 {}", s)
-            },
+            }
             // GCommand::M109 { r, s } => {
-                // core::write!(fmt, "M104 {}", s.as_celsius())
+            // core::write!(fmt, "M104 {}", s.as_celsius())
             // },
             GCommand::M114 => {
                 core::write!(fmt, "114")
-            },
+            }
             GCommand::M123 { s } => todo!(),
             GCommand::M140 { s } => todo!(),
             GCommand::M149 { u } => todo!(),
@@ -495,7 +539,7 @@ impl Display for GCommand {
             GCommand::D1 { x, y, z, e, t } => todo!(),
             GCommand::D114 => todo!(),
             GCommand::D115 => todo!(),
-            _ => todo!()
+            _ => todo!(),
         }
     }
 }
@@ -608,8 +652,7 @@ impl GCodeParser {
                 ParserState::ReadingComment(start) => {
                     if start == '(' && b == ')' {
                         state = ParserState::ReadingCommand;
-                    }
-                    else if start == ';' && b == ';' {
+                    } else if start == ';' && b == ';' {
                         state = ParserState::ReadingCommand;
                     }
                 }
@@ -727,27 +770,20 @@ impl GCodeParser {
             (GCommandType::G, 21) => Some(GCommand::G21),
             (GCommandType::G, 28) => {
                 let (mut x, mut y, mut z) = (false, false, false);
-                if tokens.is_empty(){
-                    (x,y,z) = (true, true, true)
-                }
-                else{
-                    for t in &tokens{
-                        match *t{
-                            "X" => {
-                                x = true
-                            }
-                            "Y" => {
-                                y = true
-                            }
-                            "Z" => {
-                                z = true
-                            }
-                            _ => ()
+                if tokens.is_empty() {
+                    (x, y, z) = (true, true, true)
+                } else {
+                    for t in &tokens {
+                        match *t {
+                            "X" => x = true,
+                            "Y" => y = true,
+                            "Z" => z = true,
+                            _ => (),
                         };
                     }
                 }
                 Some(GCommand::G28 { x, y, z })
-            },
+            }
             (GCommandType::G, 90) => Some(GCommand::G90),
             (GCommandType::G, 91) => Some(GCommand::G91),
             (GCommandType::M, 20) => Some(GCommand::M20),
@@ -822,16 +858,12 @@ impl GCodeParser {
             // set feedrate multiplier
             (GCommandType::M, 220) => {
                 let s = extract_token_as_number(&args, "S")?;
-                Some(GCommand::M220 {
-                    s
-                })
-            },
+                Some(GCommand::M220 { s })
+            }
             (GCommandType::M, 221) => {
                 let s = extract_token_as_number(&args, "S")?;
-                Some(GCommand::M221 {
-                    s
-                })
-            } 
+                Some(GCommand::M221 { s })
+            }
             (GCommandType::M, 524) => Some(GCommand::M524),
             _ => None,
         }
@@ -1116,15 +1148,26 @@ mod tests {
     }
 
     #[test]
-    fn test_display_g0(){
-        let cmd = GCommand::G0 { x: Some(Length::from_millimeters(3.1)), y: None, z: None, f: Some(Speed::from_meters_per_second(1.0)) };
+    fn test_display_g0() {
+        let cmd = GCommand::G0 {
+            x: Some(Length::from_millimeters(3.1)),
+            y: None,
+            z: None,
+            f: Some(Speed::from_meters_per_second(1.0)),
+        };
         let res = cmd.to_string();
         assert_eq!("G0 X3.1 F1000", res.as_str());
     }
 
     #[test]
-    fn test_display_g1(){
-        let cmd = GCommand::G1 { x: Some(Length::from_millimeters(3.1)), y: None, z: None, e: Some(Length::from_millimeters(31.45)), f: Some(Speed::from_meters_per_second(1.0)) };
+    fn test_display_g1() {
+        let cmd = GCommand::G1 {
+            x: Some(Length::from_millimeters(3.1)),
+            y: None,
+            z: None,
+            e: Some(Length::from_millimeters(31.45)),
+            f: Some(Speed::from_meters_per_second(1.0)),
+        };
         let res = cmd.to_string();
         assert_eq!("G1 X3.1 E31.45 F1000", res.as_str());
     }

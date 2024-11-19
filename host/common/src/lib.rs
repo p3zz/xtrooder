@@ -12,7 +12,7 @@ pub struct PwmOutputConfig {
     pub channel: u8,
 }
 
-pub trait MyPwm{
+pub trait MyPwm {
     type Channel: Copy + Clone;
     type Pwm;
 
@@ -23,12 +23,12 @@ pub trait MyPwm{
     fn set_duty(&mut self, channel: Self::Channel, duty_cycle: u64);
 }
 
-pub trait MyAdc{
+pub trait MyAdc {
     type PinType;
     type DmaType;
     type PeriType;
-    type SampleTime : Copy + Clone;
-    type Resolution : Copy + Clone + Into<u64>;
+    type SampleTime: Copy + Clone;
+    type Resolution: Copy + Clone + Into<u64>;
 
     fn new(peripheral: Self::PeriType) -> Self;
     fn set_sample_time(&mut self, sample_time: Self::SampleTime);
@@ -38,6 +38,6 @@ pub trait MyAdc{
         &mut self,
         dma: &mut Self::DmaType,
         pin: IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
-        readings: &mut [u16]
+        readings: &mut [u16],
     ) -> impl Future<Output = ()>;
 }

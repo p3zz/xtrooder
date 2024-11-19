@@ -1,8 +1,8 @@
 use crate::motion::auto_home;
 
 use super::motion::{
-    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d,
-    linear_move_3d_e, linear_move_to, no_move, retract, Positioning,
+    arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
+    linear_move_to, no_move, retract, Positioning,
 };
 use super::stepper::{Attached, StatefulInputPin, StatefulOutputPin, Stepper, StepperError};
 use core::marker::PhantomData;
@@ -138,7 +138,7 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
                 self.g11().await?;
                 Ok(None)
             }
-            GCommand::G28{x,y, z} => {
+            GCommand::G28 { x, y, z } => {
                 let duration = self.g28((x, y, z)).await?;
                 Ok(Some(duration))
             }
@@ -486,20 +486,20 @@ impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> 
     // auto home
     async fn g28(
         &mut self,
-        enabled: (bool, bool, bool)
+        enabled: (bool, bool, bool),
     ) -> Result<core::time::Duration, StepperError> {
         let mut duration = Duration::ZERO;
-        if enabled.0{
+        if enabled.0 {
             let e = self.endstops.0.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_,_,T,_>(&mut self.x_stepper, e).await?;
+            duration += auto_home::<_, _, T, _>(&mut self.x_stepper, e).await?;
         }
-        if enabled.1{
+        if enabled.1 {
             let e = self.endstops.1.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_,_,T,_>(&mut self.y_stepper, e).await?;
+            duration += auto_home::<_, _, T, _>(&mut self.y_stepper, e).await?;
         }
-        if enabled.2{
+        if enabled.2 {
             let e = self.endstops.2.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_,_,T,_>(&mut self.z_stepper, e).await?;
+            duration += auto_home::<_, _, T, _>(&mut self.z_stepper, e).await?;
         }
         Ok(duration)
     }

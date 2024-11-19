@@ -190,7 +190,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         }
     }
 
-    pub fn step(&mut self) -> Result<(), StepperError>{
+    pub fn step(&mut self) -> Result<(), StepperError> {
         self.step_inner(true)
     }
 
@@ -207,7 +207,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         let dir = i8::from(self.options.positive_direction) * i8::from(self.get_direction());
         step *= f64::from(dir);
         let steps_next = self.steps + step;
-        if check_bounds{
+        if check_bounds {
             if let Some((min, max)) = self.options.bounds {
                 if steps_next < min || steps_next > max {
                     return Err(StepperError::MoveOutOfBounds);
