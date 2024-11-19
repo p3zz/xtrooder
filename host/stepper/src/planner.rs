@@ -4,7 +4,7 @@ use super::motion::{
     arc_move_3d_e_offset_from_center, arc_move_3d_e_radius, linear_move_3d, linear_move_3d_e,
     linear_move_to, no_move, retract, Positioning,
 };
-use super::stepper::{Attached, StatefulInputPin, StatefulOutputPin, Stepper, StepperError};
+use super::stepper::{Attached, Stepper, StepperError};
 use core::marker::PhantomData;
 use core::time::Duration;
 use math::common::RotationDirection;
@@ -12,7 +12,7 @@ use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 
-use super::TimerTrait;
+use common::{TimerTrait, StatefulInputPin, StatefulOutputPin};
 
 #[derive(Clone, Copy)]
 pub struct RecoverMotionConfig {

@@ -1,6 +1,4 @@
-use super::TimerTrait;
 use core::fmt::Display;
-use core::future::Future;
 use core::marker::PhantomData;
 use core::time::Duration;
 use math::common::{abs, floor, RotationDirection};
@@ -9,18 +7,7 @@ use math::common::{
     speed_from_angular_velocity,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
-
-pub trait StatefulOutputPin {
-    fn set_high(&mut self);
-    fn set_low(&mut self);
-    fn is_high(&self) -> bool;
-}
-
-pub trait StatefulInputPin {
-    fn is_high(&self) -> bool;
-    fn wait_for_high(&mut self) -> impl Future<Output = ()>;
-    fn wait_for_low(&mut self) -> impl Future<Output = ()>;
-}
+use common::{StatefulOutputPin, TimerTrait};
 
 #[derive(Clone, Copy)]
 pub struct StepperAttachment {

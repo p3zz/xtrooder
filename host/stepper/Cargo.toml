@@ -7,6 +7,7 @@ edition = "2021"
 math = { path = "../math" }
 parser = { path = "../parser" }
 futures = { version = "0.3.17", default-features = false, features = ["async-await"] }
+common = {path = "../common"}
 
 [dev-dependencies]
 tokio = {version= "1.37.0", features = ["full"]}

@@ -5,13 +5,13 @@ use defmt::info;
 use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
 use embassy_time::Timer;
 use stepper::stepper::{
-    StatefulOutputPin, Stepper, StepperAttachment, StepperOptions, SteppingMode,
+    Stepper, StepperAttachment, StepperOptions, SteppingMode,
 };
-use stepper::TimerTrait;
 use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use math::{common::RotationDirection, measurements::AngularVelocity};
+use common::{StatefulOutputPin, TimerTrait};
 
 struct StepperTimer {}
 

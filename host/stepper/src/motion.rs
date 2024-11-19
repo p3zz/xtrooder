@@ -8,10 +8,10 @@ use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
 use crate::stepper::{
-    Attached, AttachmentMode, StatefulInputPin, StatefulOutputPin, Stepper, StepperError,
+    Attached, AttachmentMode, Stepper, StepperError,
 };
 
-use super::TimerTrait;
+use common::{StatefulInputPin, StatefulOutputPin, TimerTrait};
 
 #[derive(Clone, Copy)]
 pub enum Positioning {

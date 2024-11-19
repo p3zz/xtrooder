@@ -19,7 +19,7 @@ use app::ext::{
 use app::Clock;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::MyAdc;
+use common::{MyAdc, StatefulInputPin, StatefulOutputPin, TimerTrait};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
@@ -50,9 +50,8 @@ use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
 use stepper::stepper::{
-    StatefulInputPin, StatefulOutputPin, Stepper, StepperAttachment, StepperOptions,
+    Stepper, StepperAttachment, StepperOptions,
 };
-use stepper::TimerTrait;
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };

@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 
-use core::{array::IntoIter, future::Future};
+use core::{array::IntoIter, future::Future, time::Duration};
 
 pub struct PidConfig {
     pub k_p: f64,
@@ -40,4 +40,20 @@ pub trait MyAdc {
         pin: IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
         readings: &mut [u16],
     ) -> impl Future<Output = ()>;
+}
+
+pub trait TimerTrait {
+    fn after(duration: Duration) -> impl Future<Output = ()>;
+}
+
+pub trait StatefulOutputPin {
+    fn set_high(&mut self);
+    fn set_low(&mut self);
+    fn is_high(&self) -> bool;
+}
+
+pub trait StatefulInputPin {
+    fn is_high(&self) -> bool;
+    fn wait_for_high(&mut self) -> impl Future<Output = ()>;
+    fn wait_for_low(&mut self) -> impl Future<Output = ()>;
 }
