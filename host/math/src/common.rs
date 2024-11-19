@@ -199,13 +199,12 @@ pub fn compute_arc_destination(
 // Steinhart–Hart equation simplified for ntc thermistors
 pub fn compute_ntf_thermistor_temperature(
     sample: u64,
-    resolution: Resolution,
+    max_sample: u64,
     t0: Temperature,
     b: Temperature,
     r0: Resistance,
     r_series: Resistance,
 ) -> Temperature {
-    let max_sample: u64 = resolution.into();
     let r_ntc = r_series * (max_sample / sample - 1) as f64;
     let val_inv =
         (1.0 / t0.as_kelvin()) + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);

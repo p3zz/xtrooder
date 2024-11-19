@@ -94,7 +94,7 @@ pub enum GCommand {
     M27,
     // report print time
     M31,
-    // set hotend temperature
+    // set ThermalActuator temperature
     M104 {
         s: Temperature,
     },
@@ -105,7 +105,7 @@ pub enum GCommand {
     M106 {
         s: u8,
     },
-    // [future] wait for hotend temperature
+    // [future] wait for ThermalActuator temperature
     M109 {
         r: Temperature,
         s: Temperature,

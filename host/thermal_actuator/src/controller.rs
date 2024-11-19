@@ -3,15 +3,15 @@ use core::time::Duration;
 use common::{MyAdc, MyPwm};
 use math::measurements::Temperature;
 
-use crate::{heater::HeaterController, thermistor::Thermistor};
+use crate::{heater::Heater, thermistor::Thermistor};
 
-pub struct Hotend<'a, P: MyPwm, A: MyAdc>{
-    heater: HeaterController<P>,
+pub struct ThermalActuator<'a, P: MyPwm, A: MyAdc>{
+    heater: Heater<P>,
     thermistor: Thermistor<'a, A>
 }
 
-impl <'a, P: MyPwm, A: MyAdc> Hotend<'a, P, A>{
-    pub fn new(heater: HeaterController<P>, thermistor: Thermistor<'a, A>) -> Self{
+impl <'a, P: MyPwm, A: MyAdc> ThermalActuator<'a, P, A>{
+    pub fn new(heater: Heater<P>, thermistor: Thermistor<'a, A>) -> Self{
         Self { heater, thermistor }
     }
 

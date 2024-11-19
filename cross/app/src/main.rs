@@ -6,7 +6,7 @@ use core::fmt::Write;
 use core::str::FromStr;
 
 use app::config::{
-    EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermistorConfig,
+    EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig, ThermistorConfig
 };
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
@@ -17,13 +17,14 @@ use app::ext::{
 };
 use app::SimplePwmWrapper;
 use fan::FanController;
-use app::hotend::{controller::Hotend, heater::Heater, thermistor, thermistor::Thermistor};
+use thermal_actuator::thermistor::ThermistorConfig;
+use thermal_actuator::{controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::AdcChannel;
+use embassy_stm32::adc::{AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::Pull;
 use embassy_stm32::mode::{Async, Blocking};
@@ -222,7 +223,7 @@ async fn command_dispatcher_task() {
                 }
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
-                // hotend target temperature is used to update the target temperature of the hotend task
+                // ThermalActuator target temperature is used to update the target temperature of the ThermalActuator task
                 GCommand::M104 { .. } | GCommand::M106 { .. } => {
                     HOTEND_CHANNEL.send(cmd).await;
                 }
@@ -230,7 +231,7 @@ async fn command_dispatcher_task() {
                     HOTEND_CHANNEL.send(cmd.clone()).await;
                     HEATBED_CHANNEL.send(cmd.clone()).await;
                 }
-                // heatbed target temperature is used to update the target temperature of the hotend task
+                // heatbed target temperature is used to update the target temperature of the ThermalActuator task
                 GCommand::M140 { .. } => {
                     HOTEND_CHANNEL.send(cmd).await;
                 }
@@ -263,32 +264,36 @@ async fn command_dispatcher_task() {
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn hotend_handler(
-    config: ThermistorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
+    config: ThermalActuatorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
     fan_config: FanConfig,
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
+    let cfg = thermal_actuator::thermistor::ThermistorConfig{
+        r_series: config.thermistor.r_series,
+        r0: config.thermistor.r0,
+        b: config.thermistor.b
+    };
 
     let thermistor = Thermistor::new(
-        config.adc.peripheral,
-        config.adc.dma,
-        config.adc.input.degrade_adc(),
+        config.thermistor.adc.peripheral,
+        config.thermistor.adc.dma,
+        config.thermistor.adc.input.degrade_adc(),
+        SampleTime::CYCLES32_5,
         Resolution::BITS12,
-        config.heater.r0,
-        config.heater.r_series,
-        config.heater.b,
         readings,
+        cfg,
     );
 
     let channel = fan_config.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
     let mut fan_controller = FanController::new(channel, fan_config.max_speed);
 
-    let channel = config.pwm.channel;
+    let channel = config;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
-    let mut hotend = Hotend::new(heater, thermistor);
+    let mut hotend = ThermalActuator::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
@@ -305,12 +310,12 @@ async fn hotend_handler(
         last_temperature.replace( hotend.read_temperature().await );
 
         // SAFETY - unwrap last_temperature because it's set on the previous line
-        if last_temperature.unwrap() > config.heater.max_temperature_limit {
+        if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             // SAFETY - unwrap last_temperature because it's set on the previous line
             let e = PrinterEvent::HotendOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
-            write!(&mut report, "[HOTEND] {}", e).unwrap();
+            write!(&mut report, "[ThermalActuator] {}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
@@ -338,7 +343,7 @@ async fn hotend_handler(
             report.clear();
             core::write!(
                 &mut report,
-                "Hotend temperature: {}",
+                "ThermalActuator temperature: {}",
                 last_temperature.unwrap()
             )
             .unwrap(); // SAFETY: last temperature is set before this instruction
@@ -348,14 +353,14 @@ async fn hotend_handler(
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
             match cmd {
                 GCommand::M104 { s } => {
-                    info!("[HOTEND HANDLER] Target temperature: {}", s.as_celsius());
+                    info!("[ThermalActuator HANDLER] Target temperature: {}", s.as_celsius());
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
                     report.clear();
                     core::write!(
                         &mut report,
-                        "Hotend temperature: {}",
+                        "ThermalActuator temperature: {}",
                         last_temperature.unwrap()
                     )
                     .unwrap(); // SAFETY: last temperature is set before this instruction
@@ -368,7 +373,7 @@ async fn hotend_handler(
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
-                        info!("[HOTEND HANDLER] Fan speed: {} revs/s", speed.as_rpm());
+                        info!("[ThermalActuator HANDLER] Fan speed: {} revs/s", speed.as_rpm());
                     }
                 }
                 GCommand::M155 { s } => {
@@ -382,7 +387,7 @@ async fn hotend_handler(
         {
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
-            if let Ok(duty_cycle) = hotend.update(dt, pwm).await {
+            if let Ok(duty_cycle) = hotend.update(dt.into(), pwm).await {
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
@@ -398,27 +403,32 @@ async fn hotend_handler(
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn heatbed_handler(
-    config: ThermistorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>,
+    config: ThermalActuatorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>,
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
+    let cfg = thermal_actuator::thermistor::ThermistorConfig{
+        r_series: config.thermistor.r_series,
+        r0: config.thermistor.r0,
+        b: config.thermistor.b
+    };
+
     let thermistor = Thermistor::new(
-        config.adc.peripheral,
-        config.adc.dma,
-        config.adc.input.degrade_adc(),
+        config.thermistor.adc.peripheral,
+        config.thermistor.adc.dma,
+        config.thermistor.adc.input.degrade_adc(),
+        SampleTime::CYCLES32_5,
         Resolution::BITS12,
-        config.heater.r0,
-        config.heater.r_series,
-        config.heater.b,
         readings,
+        cfg,
     );
 
-    let channel = config.pwm.channel;
+    let channel = config.heater.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
-    let mut heatbed = Hotend::new(heater, thermistor);
+    let mut heatbed = ThermalActuator::new(heater, thermistor);
 
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
@@ -434,7 +444,7 @@ async fn heatbed_handler(
     loop {
         last_temperature.replace( heatbed.read_temperature().await );
 
-        if last_temperature.unwrap() > config.heater.max_temperature_limit {
+        if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
@@ -444,8 +454,8 @@ async fn heatbed_handler(
 
         if let Some(e) = event_channel_subscriber.try_next_message_pure() {
             match e {
-                PrinterEvent::HotendOverheating(_)
-                | PrinterEvent::HotendUnderheating(_)
+                PrinterEvent::HeatbedOverheating(_)
+                | PrinterEvent::HeatbedUnderheating(_)
                 | PrinterEvent::HeatbedUnderheating(_)
                 | PrinterEvent::HeatbedOverheating(_)
                 | PrinterEvent::Stepper(_)
@@ -489,7 +499,7 @@ async fn heatbed_handler(
         {
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
-            if let Ok(duty_cycle) = heatbed.update(dt, pwm).await {
+            if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm).await {
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }

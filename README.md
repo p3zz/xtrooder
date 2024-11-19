@@ -11,3 +11,4 @@ https://circuitdigest.com/tutorial/what-is-stepper-motor-and-how-it-works
 https://www.electricaltechnology.org/2021/11/thermistor.html
 https://www.monolithicpower.com/learning/resources/stepper-motors-basics-types-uses
 https://www.omega.com/en-us/resources/cartridge-heaters
+https://www.3deasy.it/wp/2020/01/16/hotend/

@@ -803,16 +803,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
-name = "hotend"
-version = "0.1.0"
-dependencies = [
- "approx 0.5.1",
- "common",
- "math",
- "pid-lite",
-]
-
-[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1981,6 +1971,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "thermal_actuator"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "common",
+ "math",
+ "pid-lite",
 ]
 
 [[package]]

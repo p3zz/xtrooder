@@ -6,6 +6,6 @@ members = [
     "tools",
     "stepper",
     "fan",
-    "hotend",
+    "thermal_actuator",
     "common"
 ]

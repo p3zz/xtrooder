@@ -1,12 +1,12 @@
 #![no_std]
 #![no_main]
 
-use core::fmt::Display;
+use core::{fmt::Display, marker::PhantomData};
 
-use common::MyPwm;
+use common::{MyAdc, MyPwm};
 use math::measurements::Temperature;
 use stepper::stepper::StepperError;
-use embassy_stm32::timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel};
+use embassy_stm32::{adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}, Peripheral};
 
 pub mod config;
 pub mod ext;
@@ -113,6 +113,70 @@ impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
     
     fn set_duty(&mut self, channel: Channel, duty_cycle: u64) {
         self.inner.set_duty(channel, duty_cycle as u32);
+    }
+    
+}
+
+#[derive(Clone, Copy)]
+pub struct ResolutionWrapper{
+    inner: Resolution
+}
+
+impl Into<u64> for ResolutionWrapper{
+    fn into(self) -> u64 {
+        match self.inner{
+            Resolution::BITS16 => 1 << 16,
+            Resolution::BITS14 => 1 << 14,
+            Resolution::BITS12 => 1 << 12,
+            Resolution::BITS10 => 1 << 10,
+            Resolution::BITS14V => 1 << 14,
+            Resolution::BITS12V => 1 << 12,
+            Resolution::BITS8 => 1 << 8,
+            _ => 0
+        }
+    }
+}
+
+pub struct AdcWrapper<'a, T: Instance, DT, X>{
+    inner: Adc<'a, T>,
+    _peri_type: PhantomData<X>,
+    _dma_type: PhantomData<DT>,
+}
+
+impl <'a, T: Instance, DT: RxDma<T>, X: 'a + Peripheral<P=T>> MyAdc for AdcWrapper<'a, T, DT, X>{
+    type PeriType = X;
+
+    type PinType = AnyAdcChannel<T>;
+
+    type DmaType = DT;
+
+    type SampleTime = SampleTime;
+    
+    type Resolution = ResolutionWrapper;
+
+    fn new(peripheral: Self::PeriType) -> Self {
+        Self { inner: Adc::new(peripheral), _peri_type: PhantomData, _dma_type: PhantomData }
+    }
+
+    fn set_sample_time(&mut self, sample_time: Self::SampleTime) {
+        self.inner.set_sample_time(sample_time);
+    }
+
+    fn sample_time(&self) -> Self::SampleTime {
+        self.inner.sample_time()
+    }
+
+    fn set_resolution(&mut self, resolution: Self::Resolution) {
+        self.inner.set_resolution(resolution.inner);
+    }
+
+    fn read(
+        &mut self,
+        dma: &mut Self::DmaType,
+        pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
+        readings: &mut [u16]
+    ) -> impl core::future::Future<Output = ()> {
+        self.inner.read(dma, pin, readings)
     }
     
 }

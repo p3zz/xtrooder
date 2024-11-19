@@ -277,13 +277,13 @@ mod external {
     }
 
     /* ADC */
-    // [hotend.adc]
+    // [ThermalActuator.adc]
     // peripheral = "ADC1"
 
-    // [hotend.adc.input]
+    // [ThermalActuator.adc.input]
     // pin = "PA1"
 
-    // [hotend.adc.dma]
+    // [ThermalActuator.adc.dma]
     // peripheral = ""
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct AdcConfig {
@@ -306,22 +306,22 @@ mod external {
         }
     }
 
-    // [hotend.pwm]
+    // [ThermalActuator.pwm]
     // frequency=0
 
-    // [hotend.pwm.timer]
+    // [ThermalActuator.pwm.timer]
     // peripheral = ""
 
-    // [hotend.pwm.channel0]
+    // [ThermalActuator.pwm.channel0]
     // pin = ""
 
-    // [hotend.pwm.channel1]
+    // [ThermalActuator.pwm.channel1]
     // pin = ""
 
-    // [hotend.pwm.channel2]
+    // [ThermalActuator.pwm.channel2]
     // pin = ""
 
-    // [hotend.pwm.channel3]
+    // [ThermalActuator.pwm.channel3]
     // pin = ""
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct PwmConfig {
@@ -354,7 +354,7 @@ mod external {
         }
     }
 
-    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
     pub struct PwmOutputConfig {
         channel: u8,
     }
@@ -394,7 +394,7 @@ mod external {
         }
     }
 
-    // [hotend.heater.pid]
+    // [ThermalActuator.heater.pid]
     // k_p = 0
     // k_i = 0
     // k_d = 0
@@ -418,21 +418,55 @@ mod external {
         }
     }
 
-    // [hotend.heater]
-    // r_series=0
-    // r0=0
-    // b = 0
-    #[derive(Default, Debug, Serialize, Deserialize, Clone, Copy)]
-    pub struct HeaterConfig {
-        r_series: f64,
-        r0: f64,
-        b: f64,
-        pid: PidConfig,
-        max_temperature_limit: f64,
-        min_temperature_limit: f64,
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct ThermalActuatorConfig{
+        pub thermistor: ThermistorConfig,
+        pub heater: HeaterConfig
     }
 
-    impl HeaterConfig {
+    impl ThermalActuatorConfig{
+        pub fn get_thermistor(&self) -> ThermistorConfig {
+            self.thermistor.clone()
+        }
+
+        pub fn get_heater(&self) -> HeaterConfig {
+            self.heater.clone()
+        }
+    }
+    
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct HeaterConfig {
+        pub pwm: PwmOutputConfig,
+        pub pid: PidConfig,
+        pub min_temperature_limit: f64,
+        pub max_temperature_limit: f64,
+    }
+
+    impl HeaterConfig{
+        pub fn get_pid(&self) -> PidConfig {
+            self.pid
+        }
+        pub fn get_max_temperature_limit(&self) -> f64 {
+            self.max_temperature_limit
+        }
+        pub fn get_min_temperature_limit(&self) -> f64 {
+            self.min_temperature_limit
+        }
+        pub fn get_pwm(&self) -> PwmOutputConfig {
+            self.pwm
+        }
+    }
+    
+    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
+    pub struct ThermistorConfig {
+        pub r_series: f64,
+        pub r0: f64,
+        pub b: f64,
+        pub adc: AdcConfig,
+    }
+
+
+    impl ThermistorConfig {
         pub fn get_r_series(&self) -> f64 {
             self.r_series
         }
@@ -444,35 +478,9 @@ mod external {
         pub fn get_b(&self) -> f64 {
             self.b
         }
-        pub fn get_pid(&self) -> PidConfig {
-            self.pid
-        }
-        pub fn get_max_temperature_limit(&self) -> f64 {
-            self.max_temperature_limit
-        }
-        pub fn get_min_temperature_limit(&self) -> f64 {
-            self.min_temperature_limit
-        }
-    }
 
-    #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct ThermistorConfig {
-        heater: HeaterConfig,
-        adc: AdcConfig,
-        pwm: PwmOutputConfig,
-    }
-
-    impl ThermistorConfig {
-        pub fn get_heater(&self) -> HeaterConfig {
-            self.heater
-        }
-
-        pub fn get_adc(&self) -> AdcConfig {
+        pub fn get_adc(&self) -> AdcConfig{
             self.adc.clone()
-        }
-
-        pub fn get_pwm(&self) -> PwmOutputConfig {
-            self.pwm.clone()
         }
     }
 
@@ -507,8 +515,8 @@ mod external {
         pub steppers: StepperConfigs,
         pub pwm: PwmConfig,
         pub uart: UartConfig,
-        pub hotend: ThermistorConfig,
-        pub heatbed: ThermistorConfig,
+        pub hotend: ThermalActuatorConfig,
+        pub heatbed: ThermalActuatorConfig,
         pub fan: FanConfig,
         pub sdcard: SdCardConfig,
         pub motion: MotionConfig,
@@ -749,31 +757,34 @@ fn main() {
 
     let hotend_adc_peripheral = conf
         .hotend
+        .get_thermistor()
         .get_adc()
         .get_peripheral()
-        .expect("Hotend ADC peripheral is missing");
+        .expect("hotend ADC peripheral is missing");
     let hotend_adc_peripheral = Ident::new(hotend_adc_peripheral.as_str(), Span::call_site());
 
     let hotend_adc_input_pin = conf
         .hotend
+        .get_thermistor()
         .get_adc()
         .get_input()
         .get_pin()
-        .expect("Hotend ADC input pin is missing");
+        .expect("hotend ADC input pin is missing");
     let hotend_adc_input_pin = Ident::new(hotend_adc_input_pin.as_str(), Span::call_site());
 
     let hotend_adc_dma = conf
         .hotend
+        .get_thermistor()
         .get_adc()
         .get_dma()
         .get_peripheral()
-        .expect("Hotend ADC DMA peripheral is missing");
+        .expect("hotend ADC DMA peripheral is missing");
     let hotend_adc_dma = Ident::new(hotend_adc_dma.as_str(), Span::call_site());
 
-    let hotend_pwm_output_channel = conf.hotend.get_pwm().get_channel();
-    let hotend_heater_r0 = conf.hotend.get_heater().get_r0();
-    let hotend_heater_r_series = conf.hotend.get_heater().get_r_series();
-    let hotend_heater_b = conf.hotend.get_heater().get_b();
+    let hotend_pwm_output_channel = conf.hotend.get_heater().get_pwm().get_channel();
+    let hotend_heater_r0 = conf.hotend.get_thermistor().get_r0();
+    let hotend_heater_r_series = conf.hotend.get_thermistor().get_r_series();
+    let hotend_heater_b = conf.hotend.get_thermistor().get_b();
     let hotend_heater_pid = conf.hotend.get_heater().get_pid();
     let hotend_heater_pid_kp = hotend_heater_pid.get_k_p();
     let hotend_heater_pid_ki = hotend_heater_pid.get_k_i();
@@ -783,6 +794,7 @@ fn main() {
 
     let heatbed_adc_peripheral = conf
         .heatbed
+        .get_thermistor()
         .get_adc()
         .get_peripheral()
         .expect("Heatbed ADC peripheral is missing");
@@ -790,6 +802,7 @@ fn main() {
 
     let heatbed_adc_input_pin = conf
         .heatbed
+        .get_thermistor()
         .get_adc()
         .get_input()
         .get_pin()
@@ -798,16 +811,17 @@ fn main() {
 
     let heatbed_adc_dma = conf
         .heatbed
+        .get_thermistor()
         .get_adc()
         .get_dma()
         .get_peripheral()
         .expect("Heatbed ADC DMA peripheral is missing");
     let heatbed_adc_dma = Ident::new(heatbed_adc_dma.as_str(), Span::call_site());
 
-    let heatbed_pwm_output_channel = conf.heatbed.get_pwm().get_channel();
-    let heatbed_heater_r0 = conf.heatbed.get_heater().get_r0();
-    let heatbed_heater_r_series = conf.heatbed.get_heater().get_r0();
-    let heatbed_heater_b = conf.heatbed.get_heater().get_r_series();
+    let heatbed_pwm_output_channel = conf.heatbed.get_heater().get_pwm().get_channel();
+    let heatbed_heater_r0 = conf.heatbed.get_thermistor().get_r0();
+    let heatbed_heater_r_series = conf.heatbed.get_thermistor().get_r0();
+    let heatbed_heater_b = conf.heatbed.get_thermistor().get_r_series();
     let heatbed_heater_pid = conf.heatbed.get_heater().get_pid();
     let heatbed_heater_pid_kp = heatbed_heater_pid.get_k_p();
     let heatbed_heater_pid_ki = heatbed_heater_pid.get_k_i();
@@ -858,7 +872,7 @@ fn main() {
     let sdcard_spi_cs = Ident::new(sdcard_spi_cs.as_str(), Span::call_site());
 
     if !(1..=4).contains(&hotend_pwm_output_channel) {
-        panic!("Hotend PWM channel must be between 1 and 4");
+        panic!("ThermalActuator PWM channel must be between 1 and 4");
     }
     if !(1..=4).contains(&heatbed_pwm_output_channel) {
         panic!("Heatbed PWM channel must be between 1 and 4");
@@ -1035,48 +1049,56 @@ fn main() {
                         dma: p.#uart_tx_dma,
                     }
                 },
-                hotend: ThermistorConfig{
-                    adc: AdcConfig {
-                        peripheral: p.#hotend_adc_peripheral,
-                        input: p.#hotend_adc_input_pin,
-                        dma: p.#hotend_adc_dma,
-                    },
-                    pwm: PwmOutputConfig {
-                        channel: #hotend_pwm_output_channel,
-                    },
-                    heater: HeaterConfig {
+                hotend: ThermalActuatorConfig {
+                    thermistor: ThermistorConfig {
+                        adc: AdcConfig {
+                            peripheral: p.#hotend_adc_peripheral,
+                            input: p.#hotend_adc_input_pin,
+                            dma: p.#hotend_adc_dma,
+                        },
                         r_series: Resistance::from_ohms(#hotend_heater_r_series),
                         r0: Resistance::from_ohms(#hotend_heater_r0),
                         b: Temperature::from_celsius(#hotend_heater_b),
+                    },
+                    heater: HeaterConfig {
+                        pwm: PwmOutputConfig {
+                            channel: #hotend_pwm_output_channel,
+                        },
                         pid: PidConfig{
                             k_p: #hotend_heater_pid_kp,
                             k_i: #hotend_heater_pid_ki,
                             k_d: #hotend_heater_pid_kd,
                         },
-                        max_temperature_limit: Temperature::from_celsius(#hotend_heater_max_temp),
-                        min_temperature_limit: Temperature::from_celsius(#hotend_heater_min_temp),
+                        temperature_limit: (
+                            Temperature::from_celsius(#hotend_heater_min_temp),
+                            Temperature::from_celsius(#hotend_heater_max_temp)
+                        )
                     },
                 },
-                heatbed: ThermistorConfig{
-                    adc: AdcConfig {
-                        peripheral: p.#heatbed_adc_peripheral,
-                        input: p.#heatbed_adc_input_pin,
-                        dma: p.#heatbed_adc_dma,
-                    },
-                    pwm: PwmOutputConfig {
-                        channel: #heatbed_pwm_output_channel,
-                    },
-                    heater: HeaterConfig {
+                heatbed: ThermalActuatorConfig{
+                    thermistor: ThermistorConfig {
+                        adc: AdcConfig {
+                            peripheral: p.#heatbed_adc_peripheral,
+                            input: p.#heatbed_adc_input_pin,
+                            dma: p.#heatbed_adc_dma,
+                        },
                         r_series: Resistance::from_ohms(#heatbed_heater_r_series),
                         r0: Resistance::from_ohms(#heatbed_heater_r0),
                         b: Temperature::from_celsius(#heatbed_heater_b),
+                    },
+                    heater: HeaterConfig {
+                        pwm: PwmOutputConfig {
+                            channel: #heatbed_pwm_output_channel,
+                        },
                         pid: PidConfig{
                             k_p: #heatbed_heater_pid_kp,
                             k_i: #heatbed_heater_pid_ki,
                             k_d: #heatbed_heater_pid_kd,
                         },
-                        max_temperature_limit: Temperature::from_celsius(#heatbed_heater_max_temp),
-                        min_temperature_limit: Temperature::from_celsius(#heatbed_heater_min_temp),
+                        temperature_limit: (
+                            Temperature::from_celsius(#heatbed_heater_min_temp),
+                            Temperature::from_celsius(#heatbed_heater_max_temp)
+                        )
                     },
                 },
                 fan: FanConfig{

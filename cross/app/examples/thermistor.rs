@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use app::hotend::thermistor::{DmaBufType, Thermistor};
+use app::ThermalActuator::thermistor::{DmaBufType, Thermistor};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};

@@ -1,6 +1,3 @@
-use core::array::IntoIter;
-use core::future::Future;
-
 use common::MyAdc;
 use math::common::compute_ntf_thermistor_temperature;
 use math::measurements::{Resistance, Temperature};
@@ -14,28 +11,31 @@ Vcc: voltage reference of the board
 Varef: voltage of the thermistor
 */
 
+#[derive(Clone, Copy)]
+pub struct ThermistorConfig{
+    pub r_series: Resistance,
+    pub r0: Resistance,
+    pub b: Temperature,
+}
+
 pub struct Thermistor<'a, A: MyAdc>{
     adc: A,
     dma_peri: A::DmaType,
     read_pin: A::PinType,
     readings: &'a mut DmaBufType,
-    r0: Resistance,
-    r_series: Resistance,
-    b: Temperature,
-    resolution: Resolution,
+    config: ThermistorConfig,
+    resolution: A::Resolution
 }
 
 impl <'a, A: MyAdc> Thermistor<'a, A>{
     pub fn new<P, S>(
-        adc_peri: P,
+        adc_peri: A::PeriType,
         dma_peri: A::DmaType,
         read_pin: A::PinType,
-        resolution: Resolution,
         sample_time: A::SampleTime,
-        r0: Resistance,
-        r_series: Resistance,
-        b: Temperature,
+        resolution: A::Resolution,
         readings: &'a mut DmaBufType,
+        config: ThermistorConfig
     ) -> Self {
         let mut adc = A::new(adc_peri);
         adc.set_sample_time(sample_time);
@@ -45,9 +45,7 @@ impl <'a, A: MyAdc> Thermistor<'a, A>{
             read_pin,
             dma_peri,
             readings,
-            r0,
-            r_series,
-            b,
+            config,
             resolution
         }
     }
@@ -63,11 +61,11 @@ impl <'a, A: MyAdc> Thermistor<'a, A>{
             .await;
         compute_ntf_thermistor_temperature(
             u64::from(readings[0]),
-            self.resolution,
+            self.resolution.into(),
             Temperature::from_celsius(25.0),
-            self.b,
-            self.r0,
-            self.r_series,
+            self.config.b,
+            self.config.r0,
+            self.config.r_series,
         )
     }
 

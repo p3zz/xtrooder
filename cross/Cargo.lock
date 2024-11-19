@@ -52,6 +52,7 @@ dependencies = [
  "stepper",
  "stm32-fmc",
  "syn 2.0.87",
+ "thermal_actuator",
 ]
 
 [[package]]
@@ -1050,6 +1051,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "thermal_actuator"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "math",
+ "pid-lite",
 ]
 
 [[package]]

@@ -84,8 +84,8 @@ pub struct PrinterConfig<
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
     pub uart: UartConfig<UP, RXP, RXD, TXP, TXD>,
-    pub hotend: ThermistorConfig<HOP, HOI, HOD>,
-    pub heatbed: ThermistorConfig<HEP, HEI, HED>,
+    pub hotend: ThermalActuatorConfig<HOP, HOI, HOD>,
+    pub heatbed: ThermalActuatorConfig<HEP, HEI, HED>,
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
     pub motion: MotionConfig,
@@ -117,30 +117,30 @@ pub struct SpiConfig<P, C, MO, MI, CS> {
     pub miso: MI,
     pub cs: CS,
 }
-pub struct PidConfig {
-    pub k_p: f64,
-    pub k_i: f64,
-    pub k_d: f64,
+
+pub type PidConfig = common::PidConfig;
+
+pub struct ThermalActuatorConfig<ADCP, ADCI, ADCD>{
+    pub thermistor: ThermistorConfig<ADCP, ADCI, ADCD>,
+    pub heater: HeaterConfig
 }
 
 pub struct HeaterConfig {
-    pub r_series: Resistance,
-    pub r0: Resistance,
-    pub b: Temperature,
+    pub pwm: PwmOutputConfig,
     pub pid: PidConfig,
-    pub max_temperature_limit: Temperature,
-    pub min_temperature_limit: Temperature,
+    pub temperature_limit: (Temperature, Temperature),
 }
 
 pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
-    pub heater: HeaterConfig,
+    pub r_series: Resistance,
+    pub r0: Resistance,
+    pub b: Temperature,
     pub adc: AdcConfig<ADCP, ADCI, ADCD>,
-    pub pwm: PwmOutputConfig,
 }
 
 pub struct FanConfig {
     pub max_speed: AngularVelocity,
-    pub pwm_output_channel: PwmOutputConfig,
+    pub pwm: PwmOutputConfig,
 }
 
 pub struct SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS> {

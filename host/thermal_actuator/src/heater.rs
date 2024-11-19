@@ -4,13 +4,13 @@ use common::{MyPwm, PidConfig};
 use math::measurements::Temperature;
 use pid_lite::Controller;
 
-pub struct HeaterController<P: MyPwm>{
+pub struct Heater<P: MyPwm>{
     ch: P::Channel,
     pid: Controller,
     target_temperature: Option<Temperature>,
 }
 
-impl <P: MyPwm> HeaterController<P>{
+impl <P: MyPwm> Heater<P>{
     pub fn new(ch: P::Channel, config: PidConfig) -> Self {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),

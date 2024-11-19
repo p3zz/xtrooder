@@ -110,9 +110,7 @@ ch3 = "PA14"
 # ------------- hotend ---------------
 
 [hotend.heater]
-r_series=0
-r0=0
-b = 0
+pwm.channel = 1
 max_temperature_limit=200
 min_temperature_limit=200
 
@@ -121,24 +119,20 @@ k_p = 0
 k_i = 0
 k_d = 0
 
-[hotend.adc]
+[hotend.thermistor]
+r_series=0
+r0=0
+b = 0
+
+[hotend.thermistor.adc]
 peripheral = "ADC1"
-
-[hotend.adc.input]
-pin = "PA3"
-
-[hotend.adc.dma]
-peripheral = "DMA1_CH2"
-
-[hotend.pwm]
-channel = 1
+input.pin = "PA3"
+dma.peripheral = "DMA1_CH2"
 
 # ------------- heatbed ---------------
 
 [heatbed.heater]
-r_series=0
-r0=0
-b = 0
+pwm.channel = 2
 max_temperature_limit=200
 min_temperature_limit=200
 
@@ -147,17 +141,16 @@ k_p = 0
 k_i = 0
 k_d = 0
 
-[heatbed.adc]
+
+[heatbed.thermistor]
+r_series=0
+r0=0
+b = 0
+
+[heatbed.thermistor.adc]
 peripheral = "ADC2"
-
-[heatbed.adc.input]
-pin = "PA2"
-
-[heatbed.adc.dma]
-peripheral = "DMA1_CH3"
-
-[heatbed.pwm]
-channel = 2
+input.pin = "PA2"
+dma.peripheral = "DMA1_CH3"
 
 # ------------- fan ---------------
 

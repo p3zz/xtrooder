@@ -2,8 +2,6 @@
 
 use core::{array::IntoIter, future::Future};
 
-use math::{measurements::Temperature, Resolution};
-
 pub struct PidConfig {
     pub k_p: f64,
     pub k_i: f64,
@@ -26,16 +24,18 @@ pub trait MyPwm{
 pub trait MyAdc{
     type PinType;
     type DmaType;
+    type PeriType;
     type SampleTime : Copy + Clone;
+    type Resolution : Copy + Clone + Into<u64>;
 
-    fn new<P>(peripheral: P) -> Self;
+    fn new(peripheral: Self::PeriType) -> Self;
     fn set_sample_time(&mut self, sample_time: Self::SampleTime);
     fn sample_time(&self) -> Self::SampleTime;
-    fn set_resolution(&mut self, resolution: Resolution);
+    fn set_resolution(&mut self, resolution: Self::Resolution);
     fn read(
         &mut self,
         dma: &mut Self::DmaType,
         pin: IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
         readings: &mut [u16]
-    ) -> impl Future<Output = Temperature>;
+    ) -> impl Future<Output = ()>;
 }

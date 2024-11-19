@@ -2,9 +2,9 @@
 #![no_main]
 
 use app::config::PidConfig;
-use app::hotend::controller::Hotend;
-use app::hotend::heater::Heater;
-use app::hotend::thermistor::{DmaBufType, Thermistor};
+use thermal_actuator::controller::ThermalActuator;
+use thermal_actuator::heater::Heater;
+use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use defmt::{error, info, println};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution};
@@ -88,15 +88,15 @@ async fn main(_spawner: Spawner) {
         },
     );
 
-    let mut hotend = Hotend::new(heater, thermistor);
+    let mut ThermalActuator = ThermalActuator::new(heater, thermistor);
 
-    hotend.set_temperature(Temperature::from_celsius(100f64));
+    ThermalActuator.set_temperature(Temperature::from_celsius(100f64));
 
-    info!("Hotend example");
+    info!("ThermalActuator example");
     let dt = Duration::from_millis(100);
 
     loop {
-        match hotend.update(dt, &mut heater_out).await {
+        match ThermalActuator.update(dt, &mut heater_out).await {
             Ok(r) => println!("Duty cycle: {}", r),
             Err(_) => error!("Target temperature not set"),
         };
