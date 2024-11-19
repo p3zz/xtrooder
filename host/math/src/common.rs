@@ -4,7 +4,7 @@ use micromath::F32Ext;
 
 use crate::{
     angle::{asin, cos, sin, Angle},
-    vector::Vector2D, Resolution,
+    vector::Vector2D,
 };
 
 #[derive(Clone, Copy, PartialEq, Debug)]
