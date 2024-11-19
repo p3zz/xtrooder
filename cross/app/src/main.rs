@@ -457,8 +457,8 @@ async fn heatbed_handler(
             match e {
                 PrinterEvent::HeatbedOverheating(_)
                 | PrinterEvent::HeatbedUnderheating(_)
-                | PrinterEvent::HeatbedUnderheating(_)
-                | PrinterEvent::HeatbedOverheating(_)
+                | PrinterEvent::HotendUnderheating(_)
+                | PrinterEvent::HotendOverheating(_)
                 | PrinterEvent::Stepper(_)
                 | PrinterEvent::PrintCompleted =>{
                     let mut pwm = PMW.lock().await;
