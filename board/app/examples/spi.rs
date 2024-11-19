@@ -3,7 +3,7 @@
 
 use core::cell::RefCell;
 
-use app::utils::stopwatch::Clock;
+use app::Clock;
 use defmt::{info, panic};
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::{Level, Output, Speed};

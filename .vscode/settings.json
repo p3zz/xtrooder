@@ -2,8 +2,8 @@
     // "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
     "rust-analyzer.linkedProjects": [
         // Declare for the target you wish to develop
-        "./cross/Cargo.toml",
-        "./cross/app/Cargo.toml",
+        "./board/Cargo.toml",
+        "./board/app/Cargo.toml",
         "./host/Cargo.toml",
         "./host/math/Cargo.toml",
         "./host/parser/Cargo.toml",
