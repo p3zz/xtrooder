@@ -116,9 +116,9 @@ mod tests{
         BITS12,
     }
 
-    impl Into<u64> for Resolution{
-        fn into(self) -> u64 {
-            match self {
+    impl From<Resolution> for u64{
+        fn from(val: Resolution) -> Self {
+            match val {
                 Resolution::BITS12 => 1 << 12,
             }    
         }
@@ -151,22 +151,20 @@ mod tests{
         }
     
         fn sample_time(&self) -> Self::SampleTime {
-            ()
+            
         }
     
         fn set_resolution(&mut self, resolution: Self::Resolution) {
             self.resolution = resolution;
         }
     
-        fn read(
+        async fn read(
             &mut self,
             _dma: &mut Self::DmaType,
             _pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
             readings: &mut [u16]
-        ) -> impl core::future::Future<Output = ()> {
-            async{
-                readings[0] = self.value
-            }
+        ) {
+            readings[0] = self.value
         }
     }
 

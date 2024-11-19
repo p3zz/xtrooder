@@ -148,9 +148,9 @@ mod tests{
     fn test_heater_enable(){
         let mut pwm = PwmWrapper::new(());
         let heater: Heater<PwmWrapper> = Heater::new(Channel::Ch2, PidConfig{k_p: 30.0, k_i: 0.0, k_d: 3.0});
-        assert_eq!(false, pwm.ch2.enabled);
+        assert!(!pwm.ch2.enabled);
         heater.enable(&mut pwm);
-        assert_eq!(true, pwm.ch2.enabled);
+        assert!(pwm.ch2.enabled);
     }
 
     #[test]
@@ -158,9 +158,9 @@ mod tests{
         let mut pwm = PwmWrapper::new(());
         let heater: Heater<PwmWrapper> = Heater::new(Channel::Ch2, PidConfig{k_p: 30.0, k_i: 0.0, k_d: 3.0});
         heater.enable(&mut pwm);
-        assert_eq!(true, pwm.ch2.enabled);
+        assert!(pwm.ch2.enabled);
         heater.disable(&mut pwm);
-        assert_eq!(false, pwm.ch2.enabled);
+        assert!(!pwm.ch2.enabled);
     }
 
 

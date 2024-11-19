@@ -194,7 +194,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         self.step_inner(true)
     }
 
-    pub fn step_unchecked(&mut self) -> () {
+    pub fn step_unchecked(&mut self) {
         self.step_inner(false).unwrap();
     }
 

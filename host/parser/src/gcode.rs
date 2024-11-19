@@ -597,7 +597,7 @@ impl GCodeParser {
                     '\n' => {
                         let start = command_start?;
                         let end = command_end.unwrap_or(i);
-                        return self.parse_line(&data[start..end].trim());
+                        return self.parse_line(data[start..end].trim());
                     }
                     _ => {
                         if command_start.is_none() {
@@ -618,7 +618,7 @@ impl GCodeParser {
 
         if let Some(start) = command_start {
             let end = command_end.unwrap_or(data.len());
-            return self.parse_line(&data[start..end].trim());
+            return self.parse_line(data[start..end].trim());
         }
         None
     }
