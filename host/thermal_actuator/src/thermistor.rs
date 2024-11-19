@@ -28,7 +28,7 @@ pub struct Thermistor<'a, A: MyAdc>{
 }
 
 impl <'a, A: MyAdc> Thermistor<'a, A>{
-    pub fn new<P, S>(
+    pub fn new(
         adc_peri: A::PeriType,
         dma_peri: A::DmaType,
         read_pin: A::PinType,

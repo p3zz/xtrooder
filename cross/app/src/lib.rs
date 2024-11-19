@@ -82,13 +82,14 @@ macro_rules! init_stepper {
 #[macro_export]
 macro_rules! timer_channel {
     ($channel: ident) => {
+        {use embassy_stm32::timer::Channel as TimerChannel;
         match $channel {
             1 => Some(TimerChannel::Ch1),
             2 => Some(TimerChannel::Ch2),
             3 => Some(TimerChannel::Ch3),
             4 => Some(TimerChannel::Ch4),
             _ => None,
-        }
+        }}
     };
 }
 
@@ -98,12 +99,19 @@ pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel>{
 
 impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
     type Channel = Channel;
+    type Pwm = SimplePwm<'a, T>;
 
-    fn enable(&mut self, channel: Channel) {
+    fn new(p: Self::Pwm) -> Self {
+        Self{
+            inner: p
+        }
+    }
+
+    fn enable(&mut self, channel: Self::Channel) {
         self.inner.enable(channel);
     }
 
-    fn disable(&mut self, channel: Channel) {
+    fn disable(&mut self, channel: Self::Channel) {
         self.inner.disable(channel);
     }
     
@@ -111,7 +119,7 @@ impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
         u64::from(self.inner.get_max_duty())
     }
     
-    fn set_duty(&mut self, channel: Channel, duty_cycle: u64) {
+    fn set_duty(&mut self, channel: Self::Channel, duty_cycle: u64) {
         self.inner.set_duty(channel, duty_cycle as u32);
     }
     
@@ -120,6 +128,12 @@ impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
 #[derive(Clone, Copy)]
 pub struct ResolutionWrapper{
     inner: Resolution
+}
+
+impl ResolutionWrapper{
+    pub fn new(inner: Resolution) -> Self{
+        Self { inner }
+    }
 }
 
 impl Into<u64> for ResolutionWrapper{
@@ -137,25 +151,24 @@ impl Into<u64> for ResolutionWrapper{
     }
 }
 
-pub struct AdcWrapper<'a, T: Instance, DT, X>{
+pub struct AdcWrapper<'a, T: Instance, DmaType>{
     inner: Adc<'a, T>,
-    _peri_type: PhantomData<X>,
-    _dma_type: PhantomData<DT>,
+    _dma_type: PhantomData<DmaType>,
 }
 
-impl <'a, T: Instance, DT: RxDma<T>, X: 'a + Peripheral<P=T>> MyAdc for AdcWrapper<'a, T, DT, X>{
-    type PeriType = X;
+impl <'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType>{
+    type PeriType = T;
 
     type PinType = AnyAdcChannel<T>;
 
-    type DmaType = DT;
+    type DmaType = DmaType;
 
     type SampleTime = SampleTime;
     
     type Resolution = ResolutionWrapper;
 
     fn new(peripheral: Self::PeriType) -> Self {
-        Self { inner: Adc::new(peripheral), _peri_type: PhantomData, _dma_type: PhantomData }
+        Self { inner: Adc::new(peripheral), _dma_type: PhantomData }
     }
 
     fn set_sample_time(&mut self, sample_time: Self::SampleTime) {

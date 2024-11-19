@@ -1,10 +1,11 @@
 #![no_std]
 #![no_main]
 
-use app::ThermalActuator::thermistor::{DmaBufType, Thermistor};
+use app::{config::ThermistorOptionsConfig, AdcWrapper, ResolutionWrapper};
+use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{AdcChannel, Resolution};
+use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
@@ -52,15 +53,18 @@ async fn main(_spawner: Spawner) {
 
     let readings = DMA_BUF.init([0u16; 1]);
 
-    let mut thermistor = Thermistor::new(
+    let mut thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         p.ADC1,
         p.DMA1_CH0,
         p.PA0.degrade_adc(),
-        Resolution::BITS12,
-        Resistance::from_ohms(100_000.0),
-        Resistance::from_ohms(10_000.0),
-        Temperature::from_kelvin(3950.0),
+        SampleTime::CYCLES32_5,
+        ResolutionWrapper::new(Resolution::BITS12),
         readings,
+        ThermistorOptionsConfig{
+            r_series: Resistance::from_ohms(100_000.0),
+            r0: Resistance::from_ohms(10_000.0),
+            b: Temperature::from_kelvin(3950.0)
+        }
     );
 
     info!("Thermistor example");

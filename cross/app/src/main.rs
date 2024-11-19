@@ -15,9 +15,9 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::SimplePwmWrapper;
+use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use common::MyAdc;
 use fan::FanController;
-use thermal_actuator::thermistor::ThermistorConfig;
 use thermal_actuator::{controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
@@ -270,18 +270,19 @@ async fn hotend_handler(
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
+    
     let cfg = thermal_actuator::thermistor::ThermistorConfig{
-        r_series: config.thermistor.r_series,
-        r0: config.thermistor.r0,
-        b: config.thermistor.b
+        r_series: config.thermistor.options.r_series,
+        r0: config.thermistor.options.r0,
+        b: config.thermistor.options.b
     };
 
-    let thermistor = Thermistor::new(
+    let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.adc.peripheral,
         config.thermistor.adc.dma,
         config.thermistor.adc.input.degrade_adc(),
         SampleTime::CYCLES32_5,
-        Resolution::BITS12,
+        ResolutionWrapper::new(Resolution::BITS12),
         readings,
         cfg,
     );
@@ -290,7 +291,7 @@ async fn hotend_handler(
     let channel = timer_channel!(channel).expect("Invalid timer channel");
     let mut fan_controller = FanController::new(channel, fan_config.max_speed);
 
-    let channel = config;
+    let channel = config.heater.pwm.channel;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
     let mut hotend = ThermalActuator::new(heater, thermistor);
@@ -410,17 +411,17 @@ async fn heatbed_handler(
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let cfg = thermal_actuator::thermistor::ThermistorConfig{
-        r_series: config.thermistor.r_series,
-        r0: config.thermistor.r0,
-        b: config.thermistor.b
+        r_series: config.thermistor.options.r_series,
+        r0: config.thermistor.options.r0,
+        b: config.thermistor.options.b
     };
 
-    let thermistor = Thermistor::new(
+    let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.adc.peripheral,
         config.thermistor.adc.dma,
         config.thermistor.adc.input.degrade_adc(),
         SampleTime::CYCLES32_5,
-        Resolution::BITS12,
+        ResolutionWrapper::new(Resolution::BITS12),
         readings,
         cfg,
     );

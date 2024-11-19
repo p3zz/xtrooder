@@ -1,13 +1,15 @@
 #![no_std]
 #![no_main]
 
-use app::config::PidConfig;
+use app::config::{PidConfig, ThermistorOptionsConfig};
+use app::{timer_channel, AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use common::MyPwm;
 use thermal_actuator::controller::ThermalActuator;
 use thermal_actuator::heater::Heater;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use defmt::{error, info, println};
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{AdcChannel, Resolution};
+use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_stm32::gpio::OutputType;
 use embassy_stm32::time::hz;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
@@ -59,18 +61,21 @@ async fn main(_spawner: Spawner) {
 
     let readings = DMA_BUF.init([0u16; 1]);
 
-    let thermistor = Thermistor::new(
+    let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         p.ADC1,
         p.DMA1_CH0,
         p.PA0.degrade_adc(),
-        Resolution::BITS12,
-        Resistance::from_ohms(100_000.0),
-        Resistance::from_ohms(10_000.0),
-        Temperature::from_kelvin(3950.0),
+        SampleTime::CYCLES32_5,
+        ResolutionWrapper::new(Resolution::BITS12),
         readings,
+        ThermistorOptionsConfig{
+            r_series: Resistance::from_ohms(100_000.0),
+            r0: Resistance::from_ohms(10_000.0),
+            b: Temperature::from_kelvin(3950.0)
+        }
     );
 
-    let mut heater_out = SimplePwm::new(
+    let heater_out = SimplePwm::new(
         p.TIM4,
         None,
         None,
@@ -79,8 +84,14 @@ async fn main(_spawner: Spawner) {
         hz(1),
         CountingMode::EdgeAlignedUp,
     );
+
+    let mut heater_out_wrapper = SimplePwmWrapper::new(heater_out);
+
+    let channel = 4;
+    let channel = timer_channel!(channel).expect("Invalid timer channel");
+
     let heater = Heater::new(
-        Channel::Ch4,
+        channel,
         PidConfig {
             k_p: 2.0,
             k_i: 2.0,
@@ -88,15 +99,15 @@ async fn main(_spawner: Spawner) {
         },
     );
 
-    let mut ThermalActuator = ThermalActuator::new(heater, thermistor);
+    let mut hotend = ThermalActuator::new(heater, thermistor);
 
-    ThermalActuator.set_temperature(Temperature::from_celsius(100f64));
+    hotend.set_temperature(Temperature::from_celsius(100f64));
 
     info!("ThermalActuator example");
     let dt = Duration::from_millis(100);
 
     loop {
-        match ThermalActuator.update(dt, &mut heater_out).await {
+        match hotend.update(dt.into(), &mut heater_out_wrapper).await {
             Ok(r) => println!("Duty cycle: {}", r),
             Err(_) => error!("Target temperature not set"),
         };

@@ -131,10 +131,10 @@ pub struct HeaterConfig {
     pub temperature_limit: (Temperature, Temperature),
 }
 
+pub type ThermistorOptionsConfig = thermal_actuator::thermistor::ThermistorConfig;
+
 pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
-    pub r_series: Resistance,
-    pub r0: Resistance,
-    pub b: Temperature,
+    pub options: ThermistorOptionsConfig,
     pub adc: AdcConfig<ADCP, ADCI, ADCD>,
 }
 

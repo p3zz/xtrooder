@@ -1056,9 +1056,11 @@ fn main() {
                             input: p.#hotend_adc_input_pin,
                             dma: p.#hotend_adc_dma,
                         },
-                        r_series: Resistance::from_ohms(#hotend_heater_r_series),
-                        r0: Resistance::from_ohms(#hotend_heater_r0),
-                        b: Temperature::from_celsius(#hotend_heater_b),
+                        options: ThermistorOptionsConfig{
+                            r_series: Resistance::from_ohms(#hotend_heater_r_series),
+                            r0: Resistance::from_ohms(#hotend_heater_r0),
+                            b: Temperature::from_celsius(#hotend_heater_b),
+                        }
                     },
                     heater: HeaterConfig {
                         pwm: PwmOutputConfig {
@@ -1082,9 +1084,12 @@ fn main() {
                             input: p.#heatbed_adc_input_pin,
                             dma: p.#heatbed_adc_dma,
                         },
-                        r_series: Resistance::from_ohms(#heatbed_heater_r_series),
-                        r0: Resistance::from_ohms(#heatbed_heater_r0),
-                        b: Temperature::from_celsius(#heatbed_heater_b),
+                        options: ThermistorOptionsConfig{
+                            r_series: Resistance::from_ohms(#heatbed_heater_r_series),
+                            r0: Resistance::from_ohms(#heatbed_heater_r0),
+                            b: Temperature::from_celsius(#heatbed_heater_b),
+                        }
+
                     },
                     heater: HeaterConfig {
                         pwm: PwmOutputConfig {
