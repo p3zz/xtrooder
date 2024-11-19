@@ -4,9 +4,12 @@
 use core::{fmt::Display, marker::PhantomData};
 
 use common::{MyAdc, MyPwm};
+use embassy_stm32::{
+    adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime},
+    timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
+};
 use math::measurements::Temperature;
 use stepper::stepper::StepperError;
-use embassy_stm32::{adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}};
 
 pub mod config;
 pub mod ext;
@@ -43,7 +46,7 @@ impl Display for PrinterEvent {
             }
             PrinterEvent::EOF => {
                 core::write!(f, "SD-card EOF")
-            },
+            }
             PrinterEvent::PrintCompleted => {
                 core::write!(f, "Print completed")
             }
@@ -81,30 +84,28 @@ macro_rules! init_stepper {
 
 #[macro_export]
 macro_rules! timer_channel {
-    ($channel: ident) => {
-        {use embassy_stm32::timer::Channel as TimerChannel;
+    ($channel: ident) => {{
+        use embassy_stm32::timer::Channel as TimerChannel;
         match $channel {
             1 => Some(TimerChannel::Ch1),
             2 => Some(TimerChannel::Ch2),
             3 => Some(TimerChannel::Ch3),
             4 => Some(TimerChannel::Ch4),
             _ => None,
-        }}
-    };
+        }
+    }};
 }
 
-pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel>{
-    inner: SimplePwm<'a, T>
+pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel> {
+    inner: SimplePwm<'a, T>,
 }
 
-impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
+impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T> {
     type Channel = Channel;
     type Pwm = SimplePwm<'a, T>;
 
     fn new(p: Self::Pwm) -> Self {
-        Self{
-            inner: p
-        }
+        Self { inner: p }
     }
 
     fn enable(&mut self, channel: Self::Channel) {
@@ -114,31 +115,30 @@ impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T>{
     fn disable(&mut self, channel: Self::Channel) {
         self.inner.disable(channel);
     }
-    
+
     fn get_max_duty(&self) -> u64 {
         u64::from(self.inner.get_max_duty())
     }
-    
+
     fn set_duty(&mut self, channel: Self::Channel, duty_cycle: u64) {
         self.inner.set_duty(channel, duty_cycle as u32);
     }
-    
 }
 
 #[derive(Clone, Copy)]
-pub struct ResolutionWrapper{
-    inner: Resolution
+pub struct ResolutionWrapper {
+    inner: Resolution,
 }
 
-impl ResolutionWrapper{
-    pub fn new(inner: Resolution) -> Self{
+impl ResolutionWrapper {
+    pub fn new(inner: Resolution) -> Self {
         Self { inner }
     }
 }
 
-impl From<ResolutionWrapper> for u64{
+impl From<ResolutionWrapper> for u64 {
     fn from(val: ResolutionWrapper) -> Self {
-        match val.inner{
+        match val.inner {
             Resolution::BITS16 => 1 << 16,
             Resolution::BITS14 => 1 << 14,
             Resolution::BITS12 => 1 << 12,
@@ -146,17 +146,17 @@ impl From<ResolutionWrapper> for u64{
             Resolution::BITS14V => 1 << 14,
             Resolution::BITS12V => 1 << 12,
             Resolution::BITS8 => 1 << 8,
-            _ => 0
+            _ => 0,
         }
     }
 }
 
-pub struct AdcWrapper<'a, T: Instance, DmaType>{
+pub struct AdcWrapper<'a, T: Instance, DmaType> {
     inner: Adc<'a, T>,
     _dma_type: PhantomData<DmaType>,
 }
 
-impl <'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType>{
+impl<'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType> {
     type PeriType = T;
 
     type PinType = AnyAdcChannel<T>;
@@ -164,11 +164,14 @@ impl <'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType>{
     type DmaType = DmaType;
 
     type SampleTime = SampleTime;
-    
+
     type Resolution = ResolutionWrapper;
 
     fn new(peripheral: Self::PeriType) -> Self {
-        Self { inner: Adc::new(peripheral), _dma_type: PhantomData }
+        Self {
+            inner: Adc::new(peripheral),
+            _dma_type: PhantomData,
+        }
     }
 
     fn set_sample_time(&mut self, sample_time: Self::SampleTime) {
@@ -187,9 +190,8 @@ impl <'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType>{
         &mut self,
         dma: &mut Self::DmaType,
         pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
-        readings: &mut [u16]
+        readings: &mut [u16],
     ) -> impl core::future::Future<Output = ()> {
         self.inner.read(dma, pin, readings)
     }
-    
 }

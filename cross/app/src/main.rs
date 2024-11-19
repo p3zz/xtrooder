@@ -6,7 +6,8 @@ use core::fmt::Write;
 use core::str::FromStr;
 
 use app::config::{
-    EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig, ThermistorConfig
+    EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig,
+    ThermistorConfig,
 };
 use app::ext::{
     peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
@@ -15,12 +16,10 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::MyAdc;
-use fan::FanController;
-use thermal_actuator::{controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor};
 use app::utils::stopwatch::Clock;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
+use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use common::MyAdc;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
@@ -36,7 +35,7 @@ use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
     gpio::{Level, Output, Speed as PinSpeed},
-    timer::{Channel as TimerChannel},
+    timer::Channel as TimerChannel,
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
@@ -44,6 +43,7 @@ use embassy_sync::pubsub::PubSubChannel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
+use fan::FanController;
 use heapless::{String, Vec};
 use math::{measurements::Temperature, DistanceUnit};
 use parser::gcode::{GCodeParser, GCommand};
@@ -53,6 +53,9 @@ use stepper::stepper::{
     StatefulInputPin, StatefulOutputPin, Stepper, StepperAttachment, StepperOptions,
 };
 use stepper::TimerTrait;
+use thermal_actuator::{
+    controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
+};
 use {defmt_rtt as _, panic_probe as _};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
@@ -214,7 +217,7 @@ async fn command_dispatcher_task() {
                 | GCommand::G91
                 | GCommand::G10
                 | GCommand::G11
-                | GCommand::G28{..}
+                | GCommand::G28 { .. }
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. }
                 | GCommand::M220 { .. }
@@ -270,11 +273,11 @@ async fn hotend_handler(
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
-    
-    let cfg = thermal_actuator::thermistor::ThermistorConfig{
+
+    let cfg = thermal_actuator::thermistor::ThermistorConfig {
         r_series: config.thermistor.options.r_series,
         r0: config.thermistor.options.r0,
-        b: config.thermistor.options.b
+        b: config.thermistor.options.b,
     };
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
@@ -308,7 +311,7 @@ async fn hotend_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace( hotend.read_temperature().await );
+        last_temperature.replace(hotend.read_temperature().await);
 
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
@@ -326,7 +329,7 @@ async fn hotend_handler(
                 | PrinterEvent::HotendUnderheating(_)
                 | PrinterEvent::HeatbedUnderheating(_)
                 | PrinterEvent::HeatbedOverheating(_)
-                | PrinterEvent::Stepper(_) 
+                | PrinterEvent::Stepper(_)
                 | PrinterEvent::PrintCompleted => {
                     let mut pwm = PMW.lock().await;
                     let pwm = pwm.as_mut().expect("PWM not initialized");
@@ -354,7 +357,10 @@ async fn hotend_handler(
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
             match cmd {
                 GCommand::M104 { s } => {
-                    info!("[ThermalActuator HANDLER] Target temperature: {}", s.as_celsius());
+                    info!(
+                        "[ThermalActuator HANDLER] Target temperature: {}",
+                        s.as_celsius()
+                    );
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
@@ -374,7 +380,10 @@ async fn hotend_handler(
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
-                        info!("[ThermalActuator HANDLER] Fan speed: {} revs/s", speed.as_rpm());
+                        info!(
+                            "[ThermalActuator HANDLER] Fan speed: {} revs/s",
+                            speed.as_rpm()
+                        );
                     }
                 }
                 GCommand::M155 { s } => {
@@ -410,10 +419,10 @@ async fn heatbed_handler(
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
-    let cfg = thermal_actuator::thermistor::ThermistorConfig{
+    let cfg = thermal_actuator::thermistor::ThermistorConfig {
         r_series: config.thermistor.options.r_series,
         r0: config.thermistor.options.r0,
-        b: config.thermistor.options.b
+        b: config.thermistor.options.b,
     };
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
@@ -443,7 +452,7 @@ async fn heatbed_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace( heatbed.read_temperature().await );
+        last_temperature.replace(heatbed.read_temperature().await);
 
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
@@ -460,12 +469,12 @@ async fn heatbed_handler(
                 | PrinterEvent::HotendUnderheating(_)
                 | PrinterEvent::HotendOverheating(_)
                 | PrinterEvent::Stepper(_)
-                | PrinterEvent::PrintCompleted =>{
+                | PrinterEvent::PrintCompleted => {
                     let mut pwm = PMW.lock().await;
                     let pwm = pwm.as_mut().expect("PWM not initialized");
                     heatbed.disable(pwm);
                 }
-                _ => ()
+                _ => (),
             }
             HEATBED_CHANNEL.clear();
         }
@@ -789,19 +798,21 @@ async fn planner_handler(
 
     loop {
         if let Some(e) = event_channel_subscriber.try_next_message_pure() {
-            match e{
+            match e {
                 PrinterEvent::EOF => {
                     is_eof = true;
-                },
+                }
                 _ => {
                     PLANNER_CHANNEL.clear();
                 }
             }
         }
 
-        if is_eof && PLANNER_CHANNEL.is_empty(){
+        if is_eof && PLANNER_CHANNEL.is_empty() {
             is_eof = false;
-            event_channel_publisher.publish(PrinterEvent::PrintCompleted).await;
+            event_channel_publisher
+                .publish(PrinterEvent::PrintCompleted)
+                .await;
         }
 
         let cmd = PLANNER_CHANNEL.receive().await;
@@ -814,7 +825,7 @@ async fn planner_handler(
             | GCommand::G4 { .. }
             | GCommand::G10
             | GCommand::G11
-            | GCommand::G28{ .. }
+            | GCommand::G28 { .. }
             | GCommand::G90
             | GCommand::G91
             | GCommand::M207 { .. }
@@ -987,5 +998,4 @@ async fn main(spawner: Spawner) {
         info!("[MAIN LOOP] alive");
         Timer::after(Duration::from_secs(1)).await;
     }
-
 }

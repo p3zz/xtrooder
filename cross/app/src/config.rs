@@ -120,9 +120,9 @@ pub struct SpiConfig<P, C, MO, MI, CS> {
 
 pub type PidConfig = common::PidConfig;
 
-pub struct ThermalActuatorConfig<ADCP, ADCI, ADCD>{
+pub struct ThermalActuatorConfig<ADCP, ADCI, ADCD> {
     pub thermistor: ThermistorConfig<ADCP, ADCI, ADCD>,
-    pub heater: HeaterConfig
+    pub heater: HeaterConfig,
 }
 
 pub struct HeaterConfig {

@@ -2,13 +2,13 @@
 #![no_main]
 
 use app::{config::ThermistorOptionsConfig, AdcWrapper, ResolutionWrapper};
-use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
+use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use {defmt_rtt as _, panic_probe as _};
 
 #[link_section = ".ram_d3"]
@@ -60,11 +60,11 @@ async fn main(_spawner: Spawner) {
         SampleTime::CYCLES32_5,
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
-        ThermistorOptionsConfig{
+        ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(100_000.0),
             r0: Resistance::from_ohms(10_000.0),
-            b: Temperature::from_kelvin(3950.0)
-        }
+            b: Temperature::from_kelvin(3950.0),
+        },
     );
 
     info!("Thermistor example");

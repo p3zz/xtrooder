@@ -164,7 +164,7 @@ mod external {
             self.endstops.clone()
         }
 
-        pub fn get_feedrate_multiplier(&self) -> f64{
+        pub fn get_feedrate_multiplier(&self) -> f64 {
             self.feedrate_multiplier
         }
     }
@@ -419,12 +419,12 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct ThermalActuatorConfig{
+    pub struct ThermalActuatorConfig {
         pub thermistor: ThermistorConfig,
-        pub heater: HeaterConfig
+        pub heater: HeaterConfig,
     }
 
-    impl ThermalActuatorConfig{
+    impl ThermalActuatorConfig {
         pub fn get_thermistor(&self) -> ThermistorConfig {
             self.thermistor.clone()
         }
@@ -433,7 +433,7 @@ mod external {
             self.heater.clone()
         }
     }
-    
+
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct HeaterConfig {
         pub pwm: PwmOutputConfig,
@@ -442,7 +442,7 @@ mod external {
         pub max_temperature_limit: f64,
     }
 
-    impl HeaterConfig{
+    impl HeaterConfig {
         pub fn get_pid(&self) -> PidConfig {
             self.pid
         }
@@ -456,7 +456,7 @@ mod external {
             self.pwm
         }
     }
-    
+
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct ThermistorConfig {
         pub r_series: f64,
@@ -464,7 +464,6 @@ mod external {
         pub b: f64,
         pub adc: AdcConfig,
     }
-
 
     impl ThermistorConfig {
         pub fn get_r_series(&self) -> f64 {
@@ -479,7 +478,7 @@ mod external {
             self.b
         }
 
-        pub fn get_adc(&self) -> AdcConfig{
+        pub fn get_adc(&self) -> AdcConfig {
             self.adc.clone()
         }
     }
