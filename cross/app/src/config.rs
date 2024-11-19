@@ -1,6 +1,6 @@
 use math::{
     common::RotationDirection,
-    measurements::{AngularVelocity, Length, Resistance, Temperature},
+    measurements::{AngularVelocity, Length, Temperature},
 };
 pub use stepper::planner::MotionConfig;
 use stepper::stepper::SteppingMode;

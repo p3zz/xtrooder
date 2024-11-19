@@ -6,7 +6,7 @@ use core::{fmt::Display, marker::PhantomData};
 use common::{MyAdc, MyPwm};
 use math::measurements::Temperature;
 use stepper::stepper::StepperError;
-use embassy_stm32::{adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}, Peripheral};
+use embassy_stm32::{adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}};
 
 pub mod config;
 pub mod ext;
@@ -136,9 +136,9 @@ impl ResolutionWrapper{
     }
 }
 
-impl Into<u64> for ResolutionWrapper{
-    fn into(self) -> u64 {
-        match self.inner{
+impl From<ResolutionWrapper> for u64{
+    fn from(val: ResolutionWrapper) -> Self {
+        match val.inner{
             Resolution::BITS16 => 1 << 16,
             Resolution::BITS14 => 1 << 14,
             Resolution::BITS12 => 1 << 12,

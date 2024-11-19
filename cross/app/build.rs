@@ -492,7 +492,7 @@ mod external {
 
     impl FanConfig {
         pub fn get_pwm(&self) -> PwmOutputConfig {
-            self.pwm.clone()
+            self.pwm
         }
         pub fn get_max_speed(&self) -> f64 {
             self.max_speed
