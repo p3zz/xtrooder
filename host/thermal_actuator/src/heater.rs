@@ -1,16 +1,16 @@
 use core::time::Duration;
 
-use common::{MyPwm, PidConfig};
+use common::{PwmBase, PidConfig};
 use math::measurements::Temperature;
 use pid_lite::Controller;
 
-pub struct Heater<P: MyPwm> {
+pub struct Heater<P: PwmBase> {
     ch: P::Channel,
     pid: Controller,
     target_temperature: Option<Temperature>,
 }
 
-impl<P: MyPwm> Heater<P> {
+impl<P: PwmBase> Heater<P> {
     pub fn new(ch: P::Channel, config: PidConfig) -> Self {
         let pid = Controller::new(
             Temperature::from_celsius(30.0).as_celsius(),
@@ -94,7 +94,7 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl MyPwm for PwmWrapper {
+    impl PwmBase for PwmWrapper {
         type Channel = Channel;
 
         type Pwm = ();

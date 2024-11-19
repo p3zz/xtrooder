@@ -11,7 +11,7 @@ use crate::stepper::{
     Attached, AttachmentMode, Stepper, StepperError,
 };
 
-use common::{StatefulInputPin, StatefulOutputPin, TimerTrait};
+use common::{ExtiInputPinBase, OutputPinBase, TimerBase};
 
 #[derive(Clone, Copy)]
 pub enum Positioning {
@@ -29,7 +29,7 @@ impl From<&str> for Positioning {
     }
 }
 
-pub fn no_move<P: StatefulOutputPin>(
+pub fn no_move<P: OutputPinBase>(
     stepper: &Stepper<P, Attached>,
     positioning: Positioning,
 ) -> Distance {
@@ -41,7 +41,7 @@ pub fn no_move<P: StatefulOutputPin>(
 
 // ---------------------------- LINEAR MOVE 1D ----------------------------
 
-pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_to<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     stepper: &mut Stepper<P, Attached>,
     dest: Distance,
     speed: Speed,
@@ -64,7 +64,7 @@ pub async fn linear_move_to<P: StatefulOutputPin, T: TimerTrait, I: StatefulInpu
 
 // ---------------------------- LINEAR MOVE 2D ----------------------------
 
-async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+async fn linear_move_to_2d_raw<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
     dest: Vector2D<Distance>,
     speed: Vector2D<Speed>,
@@ -82,7 +82,7 @@ async fn linear_move_to_2d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
     }
 }
 
-fn linear_move_to_2d_inner<P: StatefulOutputPin>(
+fn linear_move_to_2d_inner<P: OutputPinBase>(
     steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
     dest: Vector2D<Distance>,
     speed: Speed,
@@ -95,7 +95,7 @@ fn linear_move_to_2d_inner<P: StatefulOutputPin>(
     Ok(Vector2D::new(speed_x, speed_y))
 }
 
-pub async fn linear_move_to_2d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_to_2d<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
     dest: Vector2D<Distance>,
     speed: Speed,
@@ -107,7 +107,7 @@ pub async fn linear_move_to_2d<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
 
 // ---------------------------- LINEAR MOVE 3D ----------------------------
 
-pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_3d<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -128,7 +128,7 @@ pub async fn linear_move_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInpu
     }
 }
 
-async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+async fn linear_move_to_3d_raw<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -151,7 +151,7 @@ async fn linear_move_to_3d_raw<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
     }
 }
 
-pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
+pub fn linear_move_to_3d_inner<P: OutputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -175,7 +175,7 @@ pub fn linear_move_to_3d_inner<P: StatefulOutputPin>(
     Ok(Vector3D::new(speed_x, speed_y, speed_z))
 }
 
-pub async fn linear_move_to_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_to_3d<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -190,7 +190,7 @@ pub async fn linear_move_to_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulI
         .await
 }
 
-pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_for_3d<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -209,7 +209,7 @@ pub async fn linear_move_for_3d<P: StatefulOutputPin, T: TimerTrait, I: Stateful
     linear_move_to_3d::<P, T, I>(steppers, dest, speed, endstops).await
 }
 
-pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -237,7 +237,7 @@ pub async fn linear_move_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulIn
     }
 }
 
-pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -282,7 +282,7 @@ pub async fn linear_move_to_3d_e<P: StatefulOutputPin, T: TimerTrait, I: Statefu
     }
 }
 
-pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn linear_move_for_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -312,7 +312,7 @@ pub async fn linear_move_for_3d_e<P: StatefulOutputPin, T: TimerTrait, I: Statef
 
 // ---------------------------- ARC MOVE 2D ----------------------------
 
-pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn arc_move_2d_arc_length<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (&mut Stepper<P, Attached>, &mut Stepper<P, Attached>),
     arc_length: Distance,
     center: Vector2D<Distance>,
@@ -341,7 +341,7 @@ pub async fn arc_move_2d_arc_length<P: StatefulOutputPin, T: TimerTrait, I: Stat
     Ok(total_duration)
 }
 
-pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn arc_move_3d_e_center<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -398,7 +398,7 @@ pub async fn arc_move_3d_e_center<P: StatefulOutputPin, T: TimerTrait, I: Statef
     }
 }
 
-pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn arc_move_3d_e_radius<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     steppers: (
         &mut Stepper<P, Attached>,
         &mut Stepper<P, Attached>,
@@ -438,9 +438,9 @@ pub async fn arc_move_3d_e_radius<P: StatefulOutputPin, T: TimerTrait, I: Statef
 }
 
 pub async fn arc_move_3d_e_offset_from_center<
-    P: StatefulOutputPin,
-    T: TimerTrait,
-    I: StatefulInputPin,
+    P: OutputPinBase,
+    T: TimerBase,
+    I: ExtiInputPinBase,
 >(
     steppers: (
         &mut Stepper<P, Attached>,
@@ -478,9 +478,9 @@ pub async fn arc_move_3d_e_offset_from_center<
 }
 
 pub async fn auto_home<
-    I: StatefulInputPin,
-    O: StatefulOutputPin,
-    T: TimerTrait,
+    I: ExtiInputPinBase,
+    O: OutputPinBase,
+    T: TimerBase,
     M: AttachmentMode,
 >(
     stepper: &mut Stepper<O, M>,
@@ -508,7 +508,7 @@ pub async fn auto_home<
     Ok(duration)
 }
 
-pub async fn retract<O: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin>(
+pub async fn retract<O: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     e_stepper: &mut Stepper<O, Attached>,
     z_stepper: &mut Stepper<O, Attached>,
     e_speed: Speed,
@@ -558,7 +558,7 @@ mod tests {
         }
     }
 
-    impl StatefulOutputPin for StatefulOutputPinMock {
+    impl OutputPinBase for StatefulOutputPinMock {
         fn set_high(&mut self) {
             self.state = true;
         }
@@ -574,7 +574,7 @@ mod tests {
 
     struct StepperTimer {}
 
-    impl TimerTrait for StepperTimer {
+    impl TimerBase for StepperTimer {
         fn after(duration: Duration) -> impl core::future::Future<Output = ()> {
             sleep(duration)
         }
@@ -598,7 +598,7 @@ mod tests {
         }
     }
 
-    impl StatefulInputPin for InputPinMock {
+    impl ExtiInputPinBase for InputPinMock {
         fn is_high(&self) -> bool {
             self.state
         }

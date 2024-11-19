@@ -11,11 +11,11 @@ use {defmt_rtt as _, panic_probe as _};
 
 use embassy_executor::Spawner;
 use math::{common::RotationDirection, measurements::AngularVelocity};
-use common::{StatefulOutputPin, TimerTrait};
+use common::{OutputPinBase, TimerBase};
 
 struct StepperTimer {}
 
-impl TimerTrait for StepperTimer {
+impl TimerBase for StepperTimer {
     async fn after(duration: core::time::Duration) {
         let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
         Timer::after(duration).await
@@ -26,7 +26,7 @@ struct StepperPin<'a> {
     pin: Output<'a>,
 }
 
-impl StatefulOutputPin for StepperPin<'_> {
+impl OutputPinBase for StepperPin<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }

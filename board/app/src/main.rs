@@ -19,7 +19,7 @@ use app::ext::{
 use app::{Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::{MyAdc, StatefulInputPin, StatefulOutputPin, TimerTrait};
+use common::{AdcBase, ExtiInputPinBase, OutputPinBase, TimerBase};
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;

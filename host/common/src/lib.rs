@@ -12,7 +12,7 @@ pub struct PwmOutputConfig {
     pub channel: u8,
 }
 
-pub trait MyPwm {
+pub trait PwmBase {
     type Channel: Copy + Clone;
     type Pwm;
 
@@ -23,7 +23,7 @@ pub trait MyPwm {
     fn set_duty(&mut self, channel: Self::Channel, duty_cycle: u64);
 }
 
-pub trait MyAdc {
+pub trait AdcBase {
     type PinType;
     type DmaType;
     type PeriType;
@@ -42,17 +42,17 @@ pub trait MyAdc {
     ) -> impl Future<Output = ()>;
 }
 
-pub trait TimerTrait {
+pub trait TimerBase {
     fn after(duration: Duration) -> impl Future<Output = ()>;
 }
 
-pub trait StatefulOutputPin {
+pub trait OutputPinBase {
     fn set_high(&mut self);
     fn set_low(&mut self);
     fn is_high(&self) -> bool;
 }
 
-pub trait StatefulInputPin {
+pub trait ExtiInputPinBase {
     fn is_high(&self) -> bool;
     fn wait_for_high(&mut self) -> impl Future<Output = ()>;
     fn wait_for_low(&mut self) -> impl Future<Output = ()>;

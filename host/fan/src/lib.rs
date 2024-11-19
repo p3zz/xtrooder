@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 
-use common::{MyPwm, PwmOutputConfig};
+use common::{PwmBase, PwmOutputConfig};
 use math::measurements::AngularVelocity;
 
 pub struct FanConfig {
@@ -8,12 +8,12 @@ pub struct FanConfig {
     pub pwm: PwmOutputConfig,
 }
 
-pub struct FanController<P: MyPwm> {
+pub struct FanController<P: PwmBase> {
     ch: P::Channel,
     max_speed: AngularVelocity,
 }
 
-impl<P: MyPwm> FanController<P> {
+impl<P: PwmBase> FanController<P> {
     pub fn new(ch: P::Channel, max_speed: AngularVelocity) -> Self {
         Self { ch, max_speed }
     }

@@ -1,16 +1,16 @@
 use core::time::Duration;
 
-use common::{MyAdc, MyPwm};
+use common::{AdcBase, PwmBase};
 use math::measurements::Temperature;
 
 use crate::{heater::Heater, thermistor::Thermistor};
 
-pub struct ThermalActuator<'a, P: MyPwm, A: MyAdc> {
+pub struct ThermalActuator<'a, P: PwmBase, A: AdcBase> {
     heater: Heater<P>,
     thermistor: Thermistor<'a, A>,
 }
 
-impl<'a, P: MyPwm, A: MyAdc> ThermalActuator<'a, P, A> {
+impl<'a, P: PwmBase, A: AdcBase> ThermalActuator<'a, P, A> {
     pub fn new(heater: Heater<P>, thermistor: Thermistor<'a, A>) -> Self {
         Self { heater, thermistor }
     }
@@ -69,7 +69,7 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl MyPwm for PwmWrapper {
+    impl PwmBase for PwmWrapper {
         type Channel = Channel;
 
         type Pwm = ();
@@ -134,7 +134,7 @@ mod tests {
         value: u16,
     }
 
-    impl MyAdc for AdcWrapper {
+    impl AdcBase for AdcWrapper {
         type PinType = ();
 
         type DmaType = ();

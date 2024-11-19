@@ -7,7 +7,7 @@ use math::common::{
     speed_from_angular_velocity,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
-use common::{StatefulOutputPin, TimerTrait};
+use common::{OutputPinBase, TimerBase};
 
 #[derive(Clone, Copy)]
 pub struct StepperAttachment {
@@ -104,7 +104,7 @@ pub trait AttachmentMode {}
 impl AttachmentMode for Attached {}
 impl AttachmentMode for NotAttached {}
 
-pub struct Stepper<P: StatefulOutputPin, M: AttachmentMode> {
+pub struct Stepper<P: OutputPinBase, M: AttachmentMode> {
     // properties that won't change
     step: P,
     dir: P,
@@ -121,7 +121,7 @@ pub struct Stepper<P: StatefulOutputPin, M: AttachmentMode> {
     _attachment_mode: PhantomData<M>,
 }
 
-impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
+impl<P: OutputPinBase, M: AttachmentMode> Stepper<P, M> {
     fn new_inner(
         step: P,
         dir: P,
@@ -209,7 +209,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
         Ok(())
     }
 
-    pub async fn move_for_steps<T: TimerTrait>(
+    pub async fn move_for_steps<T: TimerBase>(
         &mut self,
         steps: u64,
     ) -> Result<Duration, StepperError> {
@@ -250,7 +250,7 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
     // if the steps are negative and the positive direction is counter-clockwise, we need to go counter-clockwise
     // if the steps are positive and the positive direction is clockwise, we need to go counter-clockwise
     // if the steps are positive and the positive direction is counter-clockwise, we need to go clockwise
-    pub async fn home<T: TimerTrait>(&mut self) -> Result<Duration, StepperError> {
+    pub async fn home<T: TimerBase>(&mut self) -> Result<Duration, StepperError> {
         let sign = self.steps * f64::from(i8::from(self.options.positive_direction));
         let direction = if sign.is_sign_positive() {
             RotationDirection::CounterClockwise
@@ -275,13 +275,13 @@ impl<P: StatefulOutputPin, M: AttachmentMode> Stepper<P, M> {
     }
 }
 
-impl<P: StatefulOutputPin> Stepper<P, NotAttached> {
+impl<P: OutputPinBase> Stepper<P, NotAttached> {
     pub fn new(step: P, dir: P, options: StepperOptions) -> Self {
         Self::new_inner(step, dir, None, options)
     }
 }
 
-impl<P: StatefulOutputPin> Stepper<P, Attached> {
+impl<P: OutputPinBase> Stepper<P, Attached> {
     pub fn new_with_attachment(
         step: P,
         dir: P,
@@ -327,7 +327,7 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
         steps_n
     }
 
-    pub async fn move_for_distance<T: TimerTrait>(
+    pub async fn move_for_distance<T: TimerBase>(
         &mut self,
         distance: Distance,
     ) -> Result<Duration, StepperError> {
@@ -341,7 +341,7 @@ impl<P: StatefulOutputPin> Stepper<P, Attached> {
         destination - p
     }
 
-    pub async fn move_to_destination<T: TimerTrait>(
+    pub async fn move_to_destination<T: TimerBase>(
         &mut self,
         destination: Distance,
     ) -> Result<Duration, StepperError> {
@@ -389,7 +389,7 @@ mod tests {
         }
     }
 
-    impl StatefulOutputPin for StatefulOutputPinMock {
+    impl OutputPinBase for StatefulOutputPinMock {
         fn set_high(&mut self) {
             self.state = true;
         }
@@ -405,7 +405,7 @@ mod tests {
 
     struct StepperTimer {}
 
-    impl TimerTrait for StepperTimer {
+    impl TimerBase for StepperTimer {
         async fn after(duration: core::time::Duration) {
             sleep(duration).await
         }

@@ -3,7 +3,7 @@
 
 use core::{fmt::Display, marker::PhantomData};
 
-use common::{MyAdc, MyPwm, StatefulInputPin, StatefulOutputPin, TimerTrait};
+use common::{AdcBase, PwmBase, ExtiInputPinBase, OutputPinBase, TimerBase};
 use embassy_stm32::{
     adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, exti::ExtiInput, gpio::Output, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}
 };
@@ -64,7 +64,7 @@ impl <'a> OutputPinWrapper<'a>{
     }
 }
 
-impl StatefulOutputPin for OutputPinWrapper<'_> {
+impl OutputPinBase for OutputPinWrapper<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();
     }
@@ -88,7 +88,7 @@ impl <'a> ExtiInputPinWrapper<'a>{
     }
 }
 
-impl StatefulInputPin for ExtiInputPinWrapper<'_> {
+impl ExtiInputPinBase for ExtiInputPinWrapper<'_> {
     fn is_high(&self) -> bool {
         self.pin.is_high()
     }
@@ -103,7 +103,7 @@ impl StatefulInputPin for ExtiInputPinWrapper<'_> {
 
 pub struct StepperTimer {}
 
-impl TimerTrait for StepperTimer {
+impl TimerBase for StepperTimer {
     async fn after(duration: core::time::Duration) {
         let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
         Timer::after(duration).await
@@ -159,7 +159,7 @@ pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel> {
     inner: SimplePwm<'a, T>,
 }
 
-impl<'a, T: GeneralInstance4Channel> MyPwm for SimplePwmWrapper<'a, T> {
+impl<'a, T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'a, T> {
     type Channel = Channel;
     type Pwm = SimplePwm<'a, T>;
 
@@ -215,7 +215,7 @@ pub struct AdcWrapper<'a, T: Instance, DmaType> {
     _dma_type: PhantomData<DmaType>,
 }
 
-impl<'a, T: Instance, DmaType: RxDma<T>> MyAdc for AdcWrapper<'a, T, DmaType> {
+impl<'a, T: Instance, DmaType: RxDma<T>> AdcBase for AdcWrapper<'a, T, DmaType> {
     type PeriType = T;
 
     type PinType = AnyAdcChannel<T>;

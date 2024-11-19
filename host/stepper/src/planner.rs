@@ -12,7 +12,7 @@ use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 
-use common::{TimerTrait, StatefulInputPin, StatefulOutputPin};
+use common::{TimerBase, ExtiInputPinBase, OutputPinBase};
 
 #[derive(Clone, Copy)]
 pub struct RecoverMotionConfig {
@@ -36,7 +36,7 @@ pub struct MotionConfig {
     pub recover: RecoverMotionConfig,
 }
 
-pub struct Planner<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> {
+pub struct Planner<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> {
     x_stepper: Stepper<P, Attached>,
     y_stepper: Stepper<P, Attached>,
     z_stepper: Stepper<P, Attached>,
@@ -46,7 +46,7 @@ pub struct Planner<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> {
     endstops: (Option<I>, Option<I>, Option<I>, Option<I>),
 }
 
-impl<P: StatefulOutputPin, T: TimerTrait, I: StatefulInputPin> Planner<P, T, I> {
+impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
     pub fn new(
         x_stepper: Stepper<P, Attached>,
         y_stepper: Stepper<P, Attached>,

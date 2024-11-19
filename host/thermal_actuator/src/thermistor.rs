@@ -1,4 +1,4 @@
-use common::MyAdc;
+use common::AdcBase;
 use math::common::compute_ntf_thermistor_temperature;
 use math::measurements::{Resistance, Temperature};
 
@@ -17,7 +17,7 @@ pub struct ThermistorConfig {
     pub b: Temperature,
 }
 
-pub struct Thermistor<'a, A: MyAdc> {
+pub struct Thermistor<'a, A: AdcBase> {
     adc: A,
     dma_peri: A::DmaType,
     read_pin: A::PinType,
@@ -26,7 +26,7 @@ pub struct Thermistor<'a, A: MyAdc> {
     resolution: A::Resolution,
 }
 
-impl<'a, A: MyAdc> Thermistor<'a, A> {
+impl<'a, A: AdcBase> Thermistor<'a, A> {
     pub fn new(
         adc_peri: A::PeriType,
         dma_peri: A::DmaType,
@@ -91,7 +91,7 @@ mod tests {
         value: u16,
     }
 
-    impl MyAdc for AdcWrapper {
+    impl AdcBase for AdcWrapper {
         type PinType = ();
 
         type DmaType = ();

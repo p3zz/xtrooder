@@ -3,7 +3,7 @@
 
 use app::config::{PidConfig, ThermistorOptionsConfig};
 use app::{timer_channel, AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::MyPwm;
+use common::PwmBase;
 use defmt::{error, info, println};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
