@@ -3,14 +3,13 @@
 
 use core::{fmt::Display, marker::PhantomData};
 
-use common::{MyAdc, MyPwm};
+use common::{MyAdc, MyPwm, StatefulInputPin, StatefulOutputPin, TimerTrait};
 use embassy_stm32::{
-    adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime},
-    timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
+    adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, exti::ExtiInput, gpio::Output, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}
 };
 use math::measurements::Temperature;
 use stepper::stepper::StepperError;
-use embassy_time::{Duration, Instant};
+use embassy_time::{Duration, Instant, Timer};
 use embedded_sdmmc::{TimeSource, Timestamp};
 
 pub mod config;
@@ -55,28 +54,88 @@ impl Display for PrinterEvent {
     }
 }
 
+pub struct OutputPinWrapper<'a> {
+    pin: Output<'a>,
+}
+
+impl <'a> OutputPinWrapper<'a>{
+    pub fn new(pin: Output<'a>) -> Self {
+        Self{pin}
+    }
+}
+
+impl StatefulOutputPin for OutputPinWrapper<'_> {
+    fn set_high(&mut self) {
+        self.pin.set_high();
+    }
+
+    fn set_low(&mut self) {
+        self.pin.set_low();
+    }
+
+    fn is_high(&self) -> bool {
+        self.pin.is_set_high()
+    }
+}
+
+pub struct ExtiInputPinWrapper<'a> {
+    pin: ExtiInput<'a>,
+}
+
+impl <'a> ExtiInputPinWrapper<'a>{
+    pub fn new(pin: ExtiInput<'a>) -> Self {
+        Self{pin}
+    }
+}
+
+impl StatefulInputPin for ExtiInputPinWrapper<'_> {
+    fn is_high(&self) -> bool {
+        self.pin.is_high()
+    }
+    fn wait_for_high(&mut self) -> impl core::future::Future<Output = ()> {
+        self.pin.wait_for_high()
+    }
+
+    fn wait_for_low(&mut self) -> impl core::future::Future<Output = ()> {
+        self.pin.wait_for_low()
+    }
+}
+
+pub struct StepperTimer {}
+
+impl TimerTrait for StepperTimer {
+    async fn after(duration: core::time::Duration) {
+        let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
+        Timer::after(duration).await
+    }
+}
+
 #[macro_export]
 macro_rules! init_output_pin {
     ($config: ident) => {
-        StepperOutputPin {
-            pin: Output::new($config, Level::Low, PinSpeed::Low),
-        }
+        app::OutputPinWrapper::new(
+            Output::new(
+                $config,
+                Level::Low,
+                PinSpeed::Low
+            )
+        )
     };
 }
 
 #[macro_export]
 macro_rules! init_input_pin {
     ($config: ident) => {
-        StepperInputPin { pin: $config }
+        app::ExtiInputPinWrapper::new($config)
     };
 }
 
 #[macro_export]
 macro_rules! init_stepper {
     ($step_pin: ident, $dir_pin: ident, $options: ident, $attachment: ident) => {
-        Stepper::new_with_attachment(
-            init_output_pin!($step_pin),
-            init_output_pin!($dir_pin),
+        stepper::stepper::Stepper::new_with_attachment(
+            app::init_output_pin!($step_pin),
+            app::init_output_pin!($dir_pin),
             $options,
             $attachment,
         )
@@ -86,12 +145,11 @@ macro_rules! init_stepper {
 #[macro_export]
 macro_rules! timer_channel {
     ($channel: ident) => {{
-        use embassy_stm32::timer::Channel as TimerChannel;
         match $channel {
-            1 => Some(TimerChannel::Ch1),
-            2 => Some(TimerChannel::Ch2),
-            3 => Some(TimerChannel::Ch3),
-            4 => Some(TimerChannel::Ch4),
+            1 => Some(embassy_stm32::timer::Channel::Ch1),
+            2 => Some(embassy_stm32::timer::Channel::Ch2),
+            3 => Some(embassy_stm32::timer::Channel::Ch3),
+            4 => Some(embassy_stm32::timer::Channel::Ch4),
             _ => None,
         }
     }};

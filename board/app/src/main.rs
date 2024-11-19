@@ -16,7 +16,7 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::Clock;
+use app::{Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::{MyAdc, StatefulInputPin, StatefulOutputPin, TimerTrait};
@@ -85,50 +85,6 @@ static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
 });
-
-struct StepperOutputPin<'a> {
-    pin: Output<'a>,
-}
-
-impl StatefulOutputPin for StepperOutputPin<'_> {
-    fn set_high(&mut self) {
-        self.pin.set_high();
-    }
-
-    fn set_low(&mut self) {
-        self.pin.set_low();
-    }
-
-    fn is_high(&self) -> bool {
-        self.pin.is_set_high()
-    }
-}
-
-struct StepperInputPin<'a> {
-    pin: ExtiInput<'a>,
-}
-
-impl StatefulInputPin for StepperInputPin<'_> {
-    fn is_high(&self) -> bool {
-        self.pin.is_high()
-    }
-    fn wait_for_high(&mut self) -> impl core::future::Future<Output = ()> {
-        self.pin.wait_for_high()
-    }
-
-    fn wait_for_low(&mut self) -> impl core::future::Future<Output = ()> {
-        self.pin.wait_for_low()
-    }
-}
-
-struct StepperTimer {}
-
-impl TimerTrait for StepperTimer {
-    async fn after(duration: core::time::Duration) {
-        let duration = embassy_time::Duration::from_micros(duration.as_micros() as u64);
-        Timer::after(duration).await
-    }
-}
 
 #[embassy_executor::task]
 async fn input_handler() {
@@ -776,7 +732,7 @@ async fn planner_handler(
 
     let endstops = (Some(x_endstop), Some(y_endstop), Some(z_endstop), None);
 
-    let mut planner: Planner<StepperOutputPin<'_>, StepperTimer, StepperInputPin> = Planner::new(
+    let mut planner: Planner<OutputPinWrapper<'_>, StepperTimer, ExtiInputPinWrapper> = Planner::new(
         x_stepper,
         y_stepper,
         z_stepper,
