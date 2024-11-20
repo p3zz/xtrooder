@@ -30,6 +30,7 @@ embedded-storage = "0.3.1"
 static_cell = "2"
 chrono = { version = "^0.4", default-features = false }
 pid-lite = {version="1.2.0", default-features = false}
+embedded-sdmmc = {version="0.8.0", default-features=false}
 
 math = {path="../../host/math", features=["defmt-log"]}
 parser = {path="../../host/parser", features=["defmt-log"]}
@@ -37,8 +38,6 @@ stepper = {path="../../host/stepper"}
 thermal_actuator = {path="../../host/thermal_actuator"}
 fan = {path="../../host/fan"}
 common = {path="../../host/common"}
-
-embedded-sdmmc = {version="0.8.0", default-features=false}
 
 [build-dependencies]
 serde = "1.0.214"
