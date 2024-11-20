@@ -105,8 +105,8 @@ pub fn angular_velocity_from_speed(
     if distance_per_revolution.as_millimeters() == 0f64 {
         return AngularVelocity::from_rpm(0.0);
     }
-    AngularVelocity::from_rpm(
-        speed.as_meters_per_second() / distance_per_revolution.as_meters() * 60.0,
+    AngularVelocity::from_hertz(
+        speed.as_meters_per_second() / distance_per_revolution.as_meters()
     )
 }
 
@@ -119,7 +119,7 @@ pub fn angular_velocity_from_steps(
     if second_per_revolution == 0.0 {
         return AngularVelocity::from_rpm(0.0);
     }
-    AngularVelocity::from_rpm((1.0 / second_per_revolution) * 60.0)
+    AngularVelocity::from_hertz(1.0 / second_per_revolution)
 }
 
 pub fn speed_from_angular_velocity(
@@ -129,7 +129,7 @@ pub fn speed_from_angular_velocity(
 ) -> Speed {
     let distance_per_revolution = steps_per_revolution as f64 * distance_per_step;
     Speed::from_meters_per_second(
-        distance_per_revolution.as_meters() * angular_velocity.as_rpm() / 60.0,
+        distance_per_revolution.as_meters() * angular_velocity.as_hertz()
     )
 }
 
