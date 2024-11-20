@@ -192,6 +192,7 @@ pub fn compute_arc_destination(
 // https://circuitdigest.com/microcontroller-projects/interfacing-Thermistor-with-arduino
 // https://www.petervis.com/electronics%20guides/calculators/thermistor/thermistor.html
 // Steinhart–Hart equation simplified for ntc thermistors
+// TODO add tests!!
 pub fn compute_ntf_thermistor_temperature(
     sample: u64,
     max_sample: u64,
@@ -200,7 +201,7 @@ pub fn compute_ntf_thermistor_temperature(
     r0: Resistance,
     r_series: Resistance,
 ) -> Temperature {
-    let r_ntc = r_series * (max_sample / sample - 1) as f64;
+    let r_ntc = r_series * (sample / (max_sample - sample)) as f64;
     let val_inv =
         (1.0 / t0.as_kelvin()) + (1.0 / b.as_kelvin()) * (((r_ntc / r0) as f32).ln() as f64);
     Temperature::from_kelvin(1.0 / val_inv)
