@@ -88,9 +88,10 @@ fn linear_move_to_2d_inner<P: OutputPinBase>(
     speed: Speed,
 ) -> Result<Vector2D<Speed>, StepperError> {
     let src = Vector2D::new(steppers.0.get_position(), steppers.1.get_position());
-    let angle = (dest - src).get_angle();
-    let speed_x = cos(angle) * speed;
-    let speed_y = sin(angle) * speed;
+    let delta = (dest - src).normalize();
+    // TODO what happens if the normalize vector is zero?
+    let speed_x = delta.get_x() * speed;
+    let speed_y = delta.get_y() * speed;
 
     Ok(Vector2D::new(speed_x, speed_y))
 }
@@ -165,12 +166,11 @@ pub fn linear_move_to_3d_inner<P: OutputPinBase>(
         steppers.1.get_position(),
         steppers.2.get_position(),
     );
-    let delta = dest - src;
-    let xy_angle = Vector2D::new(delta.get_x(), delta.get_y()).get_angle();
-    let xz_angle = Vector2D::new(delta.get_x(), delta.get_z()).get_angle();
-    let speed_x = cos(xy_angle) * speed;
-    let speed_y = sin(xy_angle) * speed;
-    let speed_z = sin(xz_angle) * speed;
+    let delta = (dest - src).normalize();
+    // TODO what happens if the normalize vector is zero?
+    let speed_x = delta.get_x() * speed;
+    let speed_y = delta.get_y() * speed;
+    let speed_z = delta.get_z() * speed;
 
     Ok(Vector3D::new(speed_x, speed_y, speed_z))
 }
@@ -254,17 +254,6 @@ pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPin
         &mut Option<I>,
     ),
 ) -> Result<Duration, StepperError> {
-    let src = Vector3D::new(
-        steppers.0.get_position(),
-        steppers.1.get_position(),
-        steppers.2.get_position(),
-    );
-    let distance = dest - src;
-    let time = distance.get_magnitude() / speed;
-
-    let e_delta = e_dest - steppers.3.get_position();
-    let e_speed = e_delta / time;
-
     match join!(
         linear_move_to_3d::<P, T, I>(
             (steppers.0, steppers.1, steppers.2),
@@ -272,7 +261,7 @@ pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPin
             speed,
             (endstops.0, endstops.1, endstops.2)
         ),
-        linear_move_to::<P, T, I>(steppers.3, e_dest, e_speed, endstops.3)
+        linear_move_to::<P, T, I>(steppers.3, e_dest, speed, endstops.3)
     ) {
         (Ok(dabc), Ok(de)) => {
             let max = dabc.max(de);
@@ -374,9 +363,6 @@ pub async fn arc_move_3d_e_center<P: OutputPinBase, T: TimerBase, I: ExtiInputPi
     let z_delta = dest.get_z() - steppers.2.get_position();
     let z_speed = z_delta / time;
 
-    let e_delta = e_dest - steppers.3.get_position();
-    let e_speed = e_delta / time;
-
     match join!(
         arc_move_2d_arc_length::<P, T, I>(
             (steppers.0, steppers.1),
@@ -388,7 +374,7 @@ pub async fn arc_move_3d_e_center<P: OutputPinBase, T: TimerBase, I: ExtiInputPi
             (endstops.0, endstops.1)
         ),
         linear_move_to::<P, T, I>(steppers.2, dest.get_z(), z_speed, endstops.2),
-        linear_move_to::<P, T, I>(steppers.3, e_dest, e_speed, endstops.3)
+        linear_move_to::<P, T, I>(steppers.3, e_dest, speed, endstops.3)
     ) {
         (Ok(dab), Ok(dc), Ok(de)) => {
             let max = dab.max(dc).max(de);
@@ -419,9 +405,10 @@ pub async fn arc_move_3d_e_radius<P: OutputPinBase, T: TimerBase, I: ExtiInputPi
     ),
 ) -> Result<Duration, StepperError> {
     let source = Vector2D::new(steppers.0.get_position(), steppers.1.get_position());
-    let angle = source.get_angle();
-    let center_offset_x = radius * cos(angle);
-    let center_offset_y = radius * sin(angle);
+    let norm = source.normalize();
+    // TODO what happens if the normalize vector is zero?
+    let center_offset_x = radius * norm.get_x();
+    let center_offset_y = radius * norm.get_y();
     let center = source + Vector2D::new(center_offset_x, center_offset_y);
     arc_move_3d_e_center::<P, T, I>(
         steppers,

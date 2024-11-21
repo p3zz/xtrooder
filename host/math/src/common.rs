@@ -177,10 +177,7 @@ pub fn compute_arc_destination(
         return start;
     }
 
-    let l = match direction {
-        RotationDirection::Clockwise => -1f64 * arc_length,
-        RotationDirection::CounterClockwise => arc_length,
-    };
+    let l = -1.0 * f64::from(i8::from(direction)) * arc_length;
 
     let angle = Angle::from_radians(l / radius);
 
@@ -213,11 +210,10 @@ mod tests {
     use core::{f64::consts::PI, time::Duration};
 
     use crate::{
-        common::{
+        angle::{cos, sin}, common::{
             angular_velocity_from_steps, compute_arc_length, compute_step_duration,
             speed_from_angular_velocity, RotationDirection,
-        },
-        vector::Vector2D,
+        }, vector::Vector2D
     };
     use measurements::{AngularVelocity, Distance, Speed};
 
