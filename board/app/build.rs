@@ -1124,7 +1124,7 @@ fn main() {
         }
     };
 
-    let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let out_file = out_dir.join("_abcd.rs").to_string_lossy().to_string();
     fs::write(&out_file, tokens.to_string().as_str()).unwrap();
 }

@@ -461,8 +461,7 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
     // retract
     async fn g10(&mut self) -> Result<core::time::Duration, StepperError> {
         retract::<P, T, I>(
-            &mut self.e_stepper,
-            &mut self.z_stepper,
+            (&mut self.z_stepper, &mut self.e_stepper),
             self.config.retraction.feedrate,
             self.config.retraction.length,
             self.config.retraction.z_lift,

@@ -509,21 +509,23 @@ pub async fn auto_home<
 }
 
 pub async fn retract<O: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
-    e_stepper: &mut Stepper<O, Attached>,
-    z_stepper: &mut Stepper<O, Attached>,
+    steppers: (
+        &mut Stepper<O, Attached>,
+        &mut Stepper<O, Attached>
+    ),
     e_speed: Speed,
     e_distance: Distance,
     z_distance: Distance,
     endstops: (&mut Option<I>, &mut Option<I>),
 ) -> Result<Duration, StepperError> {
-    let e_destination = e_stepper.get_position() - e_distance;
-    let z_destination = z_stepper.get_position() + z_distance;
+    let e_destination = steppers.1.get_position() - e_distance;
+    let z_destination = steppers.0.get_position() + z_distance;
     let e_time = e_distance / e_speed;
     let z_speed = z_distance / e_time;
 
     match join!(
-        linear_move_to::<O, T, I>(e_stepper, e_destination, e_speed, endstops.0),
-        linear_move_to::<O, T, I>(z_stepper, z_destination, z_speed, endstops.1)
+        linear_move_to::<O, T, I>(steppers.1, e_destination, e_speed, endstops.1),
+        linear_move_to::<O, T, I>(steppers.0, z_destination, z_speed, endstops.0)
     ) {
         (Ok(da), Ok(db)) => {
             let duration = da.max(db);
