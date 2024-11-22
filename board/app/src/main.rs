@@ -19,7 +19,6 @@ use app::ext::{
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::{AdcBase, ExtiInputPinBase, OutputPinBase, TimerBase};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, SampleTime};
@@ -149,7 +148,7 @@ async fn output_handler() {
         // retrieve the channel content and copy the message inside the shared memory of DMA to send t
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
-        let len = msg.as_bytes().len().min(tmp.len());
+        let len = msg.as_bytes().len().min(MAX_MESSAGE_LEN);
         tmp[0..len].copy_from_slice(&msg.as_bytes()[0..len]);
         match tx.write(&tmp[0..len]).await {
             Ok(_) => (),
@@ -263,12 +262,10 @@ async fn hotend_handler(
         cfg,
     );
 
-    let channel = fan_config.pwm.channel;
-    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let channel = timer_channel!(fan_config.pwm.channel).expect("Invalid timer channel");
     let mut fan_controller = FanController::new(channel, fan_config.max_speed);
 
-    let channel = config.heater.pwm.channel;
-    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let channel = timer_channel!(config.heater.pwm.channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
     let mut hotend = ThermalActuator::new(heater, thermistor);
 
@@ -402,8 +399,7 @@ async fn heatbed_handler(
         cfg,
     );
 
-    let channel = config.heater.pwm.channel;
-    let channel = timer_channel!(channel).expect("Invalid timer channel");
+    let channel = timer_channel!(config.heater.pwm.channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
     let mut heatbed = ThermalActuator::new(heater, thermistor);
 
@@ -686,62 +682,61 @@ async fn planner_handler(
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut debug = false;
 
-    let x_step = config.x.step_pin;
-    let x_dir = config.x.dir_pin;
+    let x_stepper = init_stepper!(
+        config.x.step_pin,
+        config.x.dir_pin,
+        StepperOptions {
+            steps_per_revolution: config.x.steps_per_revolution,
+            stepping_mode: config.x.stepping_mode,
+            bounds: Some(config.x.bounds),
+            positive_direction: config.x.positive_direction,
+        },
+        StepperAttachment {
+            distance_per_step: config.x.distance_per_step,
+        }
+    );
 
-    let x_options = StepperOptions {
-        steps_per_revolution: config.x.steps_per_revolution,
-        stepping_mode: config.x.stepping_mode,
-        bounds: Some(config.x.bounds),
-        positive_direction: config.x.positive_direction,
-    };
-    let x_attachment = StepperAttachment {
-        distance_per_step: config.x.distance_per_step,
-    };
+    let y_stepper = init_stepper!(
+        config.y.step_pin,
+        config.y.dir_pin,
+        StepperOptions {
+            steps_per_revolution: config.y.steps_per_revolution,
+            stepping_mode: config.y.stepping_mode,
+            bounds: Some(config.y.bounds),
+            positive_direction: config.y.positive_direction,
+        },
+        StepperAttachment {
+            distance_per_step: config.y.distance_per_step,
+        }
+    );
 
-    let x_stepper = init_stepper!(x_step, x_dir, x_options, x_attachment);
+    let z_stepper = init_stepper!(
+        config.z.step_pin,
+        config.z.dir_pin,
+        StepperOptions {
+            steps_per_revolution: config.z.steps_per_revolution,
+            stepping_mode: config.z.stepping_mode,
+            bounds: Some(config.z.bounds),
+            positive_direction: config.z.positive_direction,
+        },
+        StepperAttachment {
+            distance_per_step: config.z.distance_per_step,
+        }
+    );
 
-    let y_step = config.y.step_pin;
-    let y_dir = config.y.dir_pin;
-    let y_options = StepperOptions {
-        steps_per_revolution: config.y.steps_per_revolution,
-        stepping_mode: config.y.stepping_mode,
-        bounds: Some(config.y.bounds),
-        positive_direction: config.y.positive_direction,
-    };
-    let y_attachment = StepperAttachment {
-        distance_per_step: config.y.distance_per_step,
-    };
-
-    let y_stepper = init_stepper!(y_step, y_dir, y_options, y_attachment);
-
-    let z_step = config.z.step_pin;
-    let z_dir = config.z.dir_pin;
-    let z_options = StepperOptions {
-        steps_per_revolution: config.z.steps_per_revolution,
-        stepping_mode: config.z.stepping_mode,
-        bounds: Some(config.z.bounds),
-        positive_direction: config.z.positive_direction,
-    };
-    let z_attachment = StepperAttachment {
-        distance_per_step: config.z.distance_per_step,
-    };
-
-    let z_stepper = init_stepper!(z_step, z_dir, z_options, z_attachment);
-
-    let e_step = config.e.step_pin;
-    let e_dir = config.e.dir_pin;
-    let e_options = StepperOptions {
-        steps_per_revolution: config.e.steps_per_revolution,
-        stepping_mode: config.e.stepping_mode,
-        bounds: Some(config.e.bounds),
-        positive_direction: config.e.positive_direction,
-    };
-    let e_attachment = StepperAttachment {
-        distance_per_step: config.e.distance_per_step,
-    };
-
-    let e_stepper = init_stepper!(e_step, e_dir, e_options, e_attachment);
+    let e_stepper = init_stepper!(
+        config.e.step_pin,
+        config.e.dir_pin,
+        StepperOptions {
+            steps_per_revolution: config.e.steps_per_revolution,
+            stepping_mode: config.e.stepping_mode,
+            bounds: Some(config.e.bounds),
+            positive_direction: config.e.positive_direction,
+        },
+        StepperAttachment {
+            distance_per_step: config.e.distance_per_step,
+        }
+    );
 
     let x_endstop = ExtiInput::new(endstops_config.x.pin, endstops_config.x.exti, Pull::Down);
     let x_endstop = init_input_pin!(x_endstop);

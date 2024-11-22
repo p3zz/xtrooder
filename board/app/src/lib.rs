@@ -112,7 +112,7 @@ impl TimerBase for StepperTimer {
 
 #[macro_export]
 macro_rules! init_output_pin {
-    ($config: ident) => {
+    ($config: expr) => {
         app::OutputPinWrapper::new(
             Output::new(
                 $config,
@@ -125,14 +125,14 @@ macro_rules! init_output_pin {
 
 #[macro_export]
 macro_rules! init_input_pin {
-    ($config: ident) => {
+    ($config: expr) => {
         app::ExtiInputPinWrapper::new($config)
     };
 }
 
 #[macro_export]
 macro_rules! init_stepper {
-    ($step_pin: ident, $dir_pin: ident, $options: ident, $attachment: ident) => {
+    ($step_pin: expr, $dir_pin: expr, $options: expr, $attachment: expr) => {
         stepper::stepper::Stepper::new_with_attachment(
             app::init_output_pin!($step_pin),
             app::init_output_pin!($dir_pin),
@@ -144,7 +144,7 @@ macro_rules! init_stepper {
 
 #[macro_export]
 macro_rules! timer_channel {
-    ($channel: ident) => {{
+    ($channel: expr) => {{
         match $channel {
             1 => Some(embassy_stm32::timer::Channel::Ch1),
             2 => Some(embassy_stm32::timer::Channel::Ch2),
