@@ -16,7 +16,7 @@ use app::ext::{
     XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
     ZEndstopPin, ZStepPin,
 };
-use app::{Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
+use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::{AdcBase, ExtiInputPinBase, OutputPinBase, TimerBase};
@@ -28,7 +28,7 @@ use embassy_stm32::gpio::Pull;
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
-use embassy_stm32::usart::{self, UartRx, UartTx};
+use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
@@ -40,7 +40,7 @@ use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::pubsub::PubSubChannel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Delay, Duration, Instant, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use fan::FanController;
 use heapless::{String, Vec};
@@ -62,19 +62,34 @@ use defmt::{error, info};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
-static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> =
+const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 8;
+const SD_CARD_CHANNEL_LEN: usize = 8;
+const HOTEND_CHANNEL_LEN: usize = 8;
+const HEATBED_CHANNEL_LEN: usize = 8;
+const PLANNER_CHANNEL_LEN: usize = 8;
+const FEEDBACK_CHANNEL_LEN: usize = 8;
+const EVENT_CHANNEL_CAPACITY: usize = 8;
+const EVENT_CHANNEL_SUBSCRIBERS: usize = 8;
+const EVENT_CHANNEL_PUBLISHERS: usize = 8;
+
+const HOTEND_LABEL: &'_ str = "HOTEND";
+const HEATBED_LABEL: &'_ str = "HEATBED";
+const PLANNER_LABEL: &'_ str = "PLANNER";
+const SD_CARD_LABEL: &'_ str = "SD-CARD";
+
+static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, COMMAND_DISPATCHER_CHANNEL_LEN> =
     Channel::new();
-static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static HEATBED_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, 8> = Channel::new();
-static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, 8> = Channel::new();
+static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, SD_CARD_CHANNEL_LEN> = Channel::new();
+static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HOTEND_CHANNEL_LEN> = Channel::new();
+static HEATBED_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HEATBED_CHANNEL_LEN> = Channel::new();
+static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, PLANNER_CHANNEL_LEN> = Channel::new();
+static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, FEEDBACK_CHANNEL_LEN> = Channel::new();
+static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, EVENT_CHANNEL_CAPACITY, EVENT_CHANNEL_SUBSCRIBERS, EVENT_CHANNEL_PUBLISHERS> =
+    PubSubChannel::new();
 
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwmWrapper<'_, PwmTimer>>> = Mutex::new(None);
-static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, 8, 8, 8> =
-    PubSubChannel::new();
 
 #[link_section = ".ram_d3"]
 static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
@@ -95,6 +110,7 @@ async fn input_handler() {
     let tmp = UART_RX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
     let mut rx = UART_RX.lock().await;
     let rx = rx.as_mut().expect("UART RX not initialized");
+    let dt = Duration::from_millis(50);
 
     #[cfg(feature="defmt-log")]
     info!("Starting input handler loop");
@@ -118,40 +134,29 @@ async fn input_handler() {
             #[cfg(feature="defmt-log")]
             error!("Cannot read from UART");
         }
+        Timer::after(dt).await;
     }
 }
 
 #[embassy_executor::task]
 async fn output_handler() {
-    let mut clock = Clock::new();
     let tmp = UART_TX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
     let mut tx = UART_TX.lock().await;
     let tx = tx.as_mut().expect("UART TX not initialized");
     let dt = Duration::from_millis(100);
-    let mut report: String<MAX_MESSAGE_LEN> = String::new();
-
-    clock.start();
 
     loop {
         // retrieve the channel content and copy the message inside the shared memory of DMA to send t
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
-        if core::write!(&mut report, "[{}] {}", clock.measure(), &msg).is_err() {
-            #[cfg(feature="defmt-log")]
-            error!("Message too long");
-        } else {
-            let mut len = 0;
-            for (i, b) in msg.into_bytes().iter().enumerate() {
-                tmp[i] = *b;
-                len += 1;
-            }
-            match tx.write(&tmp[0..len]).await {
-                Ok(_) => (),
-                Err(_) => {
-                    #[cfg(feature="defmt-log")]
-                    error!("Cannot write to UART")
-                },
-            };
+        let len = msg.as_bytes().len().min(tmp.len());
+        tmp[0..len].copy_from_slice(&msg.as_bytes()[0..len]);
+        match tx.write(&tmp[0..len]).await {
+            Ok(_) => (),
+            Err(_) => {
+                #[cfg(feature="defmt-log")]
+                error!("Cannot write to UART")
+            },
         }
         Timer::after(dt).await;
     }
@@ -280,14 +285,13 @@ async fn hotend_handler(
 
     loop {
         last_temperature.replace(hotend.read_temperature().await);
-
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             // SAFETY - unwrap last_temperature because it's set on the previous line
             let e = PrinterEvent::HotendOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
-            write!(&mut report, "[ThermalActuator] {}", e).unwrap();
+            task_write!(&mut report, "HOTEND", "{}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
@@ -313,12 +317,8 @@ async fn hotend_handler(
             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
         {
             report.clear();
-            core::write!(
-                &mut report,
-                "ThermalActuator temperature: {}",
-                last_temperature.unwrap()
-            )
-            .unwrap(); // SAFETY: last temperature is set before this instruction
+            // SAFETY: last temperature is set before this instruction
+            task_write!(&mut report, HOTEND_LABEL, "Temperature: {}", last_temperature.unwrap()).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
@@ -327,19 +327,15 @@ async fn hotend_handler(
                 GCommand::M104 { s } => {
                     #[cfg(feature="defmt-log")]
                     info!(
-                        "[ThermalActuator HANDLER] Target temperature: {}",
+                        "[HOTEND] Target temperature: {}",
                         s.as_celsius()
                     );
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
                     report.clear();
-                    core::write!(
-                        &mut report,
-                        "ThermalActuator temperature: {}",
-                        last_temperature.unwrap()
-                    )
-                    .unwrap(); // SAFETY: last temperature is set before this instruction
+                    // SAFETY: last temperature is set before this instruction
+                    task_write!(&mut report, HOTEND_LABEL, "Temperature: {}", last_temperature.unwrap()).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M106 { s } => {
@@ -429,7 +425,7 @@ async fn heatbed_handler(
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
-            write!(&mut report, "[HEATBED] {}", e).unwrap();
+            task_write!(&mut report, "HEATBED", "{}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
@@ -455,7 +451,7 @@ async fn heatbed_handler(
         {
             let temp = heatbed.read_temperature().await;
             report.clear();
-            core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+            task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
@@ -466,7 +462,7 @@ async fn heatbed_handler(
                 GCommand::M105 => {
                     let temp = heatbed.read_temperature().await;
                     report.clear();
-                    core::write!(&mut report, "Heatbed temperature: {}", temp).unwrap();
+                    task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M155 { s } => {
@@ -636,7 +632,7 @@ async fn sdcard_handler(
                 }
                 GCommand::M31 => {
                     report.clear();
-                    core::write!(&mut report, "Time elapsed: {}", clock.measure()).unwrap();
+                    task_write!(&mut report, SD_CARD_LABEL, "Time elapsed: {}", clock.measure().as_millis()).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                 }
                 _ => todo!(),
@@ -813,30 +809,30 @@ async fn planner_handler(
             | GCommand::M208 { .. } => match planner.execute(cmd.clone()).await {
                 Ok(duration) => {
                     if debug && duration.is_some() {
-                        match cmd {
-                            GCommand::G0 { .. } => {
-                                let x = planner.get_x_position();
-                                let y = planner.get_x_position();
-                                let z = planner.get_x_position();
-                                let t = duration.unwrap();
-                                let res = GCommand::D0 { x, y, z, t };
-                                report.clear();
-                                write!(&mut report, "{}", &res).unwrap();
-                                FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                            }
-                            GCommand::G1 { .. } => {
-                                let x = planner.get_x_position();
-                                let y = planner.get_x_position();
-                                let z = planner.get_x_position();
-                                let e = planner.get_e_position();
-                                let t = duration.unwrap();
-                                let res = GCommand::D1 { x, y, z, e, t };
-                                report.clear();
-                                write!(&mut report, "{}", &res).unwrap();
-                                FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                            }
-                            _ => todo!(),
-                        }
+                        // match cmd {
+                        //     GCommand::G0 { .. } => {
+                        //         let x = planner.get_x_position();
+                        //         let y = planner.get_x_position();
+                        //         let z = planner.get_x_position();
+                        //         let t = duration.unwrap();
+                        //         let res = GCommand::D0 { x, y, z, t };
+                        //         report.clear();
+                        //         write!(&mut report, "{}", &res).unwrap();
+                        //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        //     }
+                        //     GCommand::G1 { .. } => {
+                        //         let x = planner.get_x_position();
+                        //         let y = planner.get_x_position();
+                        //         let z = planner.get_x_position();
+                        //         let e = planner.get_e_position();
+                        //         let t = duration.unwrap();
+                        //         let res = GCommand::D1 { x, y, z, e, t };
+                        //         report.clear();
+                        //         write!(&mut report, "{}", &res).unwrap();
+                        //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                        //     }
+                        //     _ => todo!(),
+                        // }
                     }
                 }
                 Err(e) => {
@@ -844,21 +840,21 @@ async fn planner_handler(
                         .publish(PrinterEvent::Stepper(e))
                         .await;
                     report.clear();
-                    write!(&mut report, "[PLANNER] {}", e).unwrap();
+                    task_write!(&mut report, PLANNER_LABEL, "{}", e).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                 }
             },
             GCommand::M114 => {
                 report.clear();
-                write!(
+                task_write!(
                     &mut report,
-                    "Head position: [X:{}] [Y:{}] [Z:{}] [E:{}]",
+                    PLANNER_LABEL,
+                    "Head position: [X:{}] [Y:{}] [Z:{}]",
                     planner.get_x_position(),
                     planner.get_y_position(),
                     planner.get_z_position(),
-                    planner.get_e_position(),
                 )
-                .unwrap();
+                .unwrap();                
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             }
             GCommand::D114 => {
@@ -924,7 +920,7 @@ async fn main(spawner: Spawner) {
     // let uart = Uart::new(
     //     printer_config.uart.peripheral, printer_config.uart.rx.pin, printer_config.uart.rx.dma, Irqs, printer_config.uart.tx.pin, printer_config.uart.tx.dma, uart_config,
     // )
-    // .unwrap();
+    // .expect("UART configuration not valid");
     // let (tx, rx) = uart.split();
 
     // {

@@ -155,6 +155,23 @@ macro_rules! timer_channel {
     }};
 }
 
+#[macro_export]
+macro_rules! task_write {
+    ($dst: expr, $label: expr, $fmt: expr, $($tokens:tt)*) => {
+        {
+            let time = embassy_time::Instant::now().as_millis();
+             core::write!(
+                $dst,
+                "[{}] [{}] {}",
+                time,
+                $label,
+                core::format_args!($fmt, $($tokens)*)
+            )
+        }
+    };
+}
+
+
 pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel> {
     inner: SimplePwm<'a, T>,
 }
