@@ -2,14 +2,17 @@
 #![no_main]
 
 use app::{config::ThermistorOptionsConfig, AdcWrapper, ResolutionWrapper};
-use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
-use {defmt_rtt as _, panic_probe as _};
+
+use {defmt_rtt as _, panic_probe as _, };
+
+#[cfg(feature="defmt-log")]
+use defmt::info;
 
 #[link_section = ".ram_d3"]
 static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
@@ -67,9 +70,11 @@ async fn main(_spawner: Spawner) {
         },
     );
 
+    #[cfg(feature="defmt-log")]
     info!("Thermistor example");
     loop {
         let t = thermistor.read_temperature().await;
+        #[cfg(feature="defmt-log")]
         info!("Temperature: {}°C", t.as_celsius());
         Timer::after(Duration::from_millis(200)).await;
     }

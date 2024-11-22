@@ -4,7 +4,6 @@
 use app::config::{PidConfig, ThermistorOptionsConfig};
 use app::{timer_channel, AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
-use defmt::{error, info, println};
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_stm32::gpio::OutputType;
@@ -18,6 +17,9 @@ use thermal_actuator::controller::ThermalActuator;
 use thermal_actuator::heater::Heater;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use {defmt_rtt as _, panic_probe as _};
+
+#[cfg(feature="defmt-log")]
+use defmt::{error, info, println};
 
 #[link_section = ".ram_d3"]
 static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
@@ -102,14 +104,21 @@ async fn main(_spawner: Spawner) {
     let mut hotend = ThermalActuator::new(heater, thermistor);
 
     hotend.set_temperature(Temperature::from_celsius(100f64));
-
+    
+    #[cfg(feature="defmt-log")]
     info!("ThermalActuator example");
     let dt = Duration::from_millis(100);
 
     loop {
         match hotend.update(dt.into(), &mut heater_out_wrapper).await {
-            Ok(r) => println!("Duty cycle: {}", r),
-            Err(_) => error!("Target temperature not set"),
+            Ok(r) => {
+                #[cfg(feature="defmt-log")]            
+                println!("Duty cycle: {}", r)
+            },
+            Err(_) => {
+                #[cfg(feature="defmt-log")]
+                error!("Target temperature not set")
+            },
         };
         Timer::after(dt).await;
     }

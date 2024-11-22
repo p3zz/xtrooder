@@ -1,13 +1,15 @@
 #![no_std]
 #![no_main]
 
-use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::usart::{Config as UartConfig, Uart};
 use embassy_stm32::{bind_interrupts, peripherals, usart};
 use heapless::{String, Vec};
 use static_cell::StaticCell;
 use {defmt_rtt as _, panic_probe as _};
+
+#[cfg(feature="defmt-log")]
+use defmt::*;
 
 #[link_section = ".ram_d3"]
 static DMA_BUF: StaticCell<[u8; 32]> = StaticCell::new();
@@ -34,9 +36,13 @@ async fn main_task() {
             Ok(_) => {
                 let vec = Vec::<u8, 32>::from_slice(tmp).unwrap();
                 let str = String::from_utf8(vec).unwrap();
+                #[cfg(feature="defmt-log")]
                 info!("{}", str.as_str());
             }
-            Err(e) => error!("{}", e),
+            Err(e) => {
+                #[cfg(feature="defmt-log")]
+                error!("{}", e)
+            },
         };
         tmp.fill(0u8);
     }
@@ -44,6 +50,7 @@ async fn main_task() {
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
+    #[cfg(feature="defmt-log")]
     info!("Hello World!");
 
     spawner.spawn(main_task()).unwrap();

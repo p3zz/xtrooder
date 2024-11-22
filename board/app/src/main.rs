@@ -20,7 +20,6 @@ use app::{Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::{AdcBase, ExtiInputPinBase, OutputPinBase, TimerBase};
-use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, SampleTime};
@@ -55,7 +54,11 @@ use stepper::stepper::{
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };
-use {defmt_rtt as _, panic_probe as _};
+
+use {panic_probe as _, defmt_rtt as _};
+
+#[cfg(feature="defmt-log")]
+use defmt::{error, info};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
@@ -93,6 +96,7 @@ async fn input_handler() {
     let mut rx = UART_RX.lock().await;
     let rx = rx.as_mut().expect("UART RX not initialized");
 
+    #[cfg(feature="defmt-log")]
     info!("Starting input handler loop");
 
     loop {
@@ -100,15 +104,18 @@ async fn input_handler() {
             for b in 0..n {
                 if tmp[b] == b'\n' {
                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                    #[cfg(feature="defmt-log")]
                     info!("[INPUT_HANDLER] {}", msg.as_str());
                     msg.clear();
                 } else if msg.push(tmp[b].into()).is_err() {
                     msg.clear();
+                    #[cfg(feature="defmt-log")]
                     error!("Message too long");
                 }
             }
             tmp.fill(0u8);
         } else {
+            #[cfg(feature="defmt-log")]
             error!("Cannot read from UART");
         }
     }
@@ -130,6 +137,7 @@ async fn output_handler() {
         // over UART
         let msg = FEEDBACK_CHANNEL.receive().await;
         if core::write!(&mut report, "[{}] {}", clock.measure(), &msg).is_err() {
+            #[cfg(feature="defmt-log")]
             error!("Message too long");
         } else {
             let mut len = 0;
@@ -139,7 +147,10 @@ async fn output_handler() {
             }
             match tx.write(&tmp[0..len]).await {
                 Ok(_) => (),
-                Err(_) => error!("Cannot write to UART"),
+                Err(_) => {
+                    #[cfg(feature="defmt-log")]
+                    error!("Cannot write to UART")
+                },
             };
         }
         Timer::after(dt).await;
@@ -150,15 +161,13 @@ async fn output_handler() {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
-    // let mut response: String<MAX_MESSAGE_LEN> = String::new();
+    #[cfg(feature="defmt-log")]
     info!("Starting command dispatcher loop");
 
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
-        // info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
-        // core::write!(&mut response, "Hello DMA World {}!\r\n", msg.as_str()).unwrap();
-        // FEEDBACK_CHANNEL.send(response.clone()).await;
-        // response.clear();
+        #[cfg(feature="defmt-log")]
+        info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
         if let Some(cmd) = parser.parse(msg.as_str()) {
             // info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
@@ -209,9 +218,13 @@ async fn command_dispatcher_task() {
                 | GCommand::M31 => {
                     SD_CARD_CHANNEL.send(cmd).await;
                 }
-                _ => error!("[COMMAND DISPATCHER] command not handler"),
+                _ => {
+                    #[cfg(feature="defmt-log")]
+                    error!("[COMMAND DISPATCHER] command not handler")
+                },
             }
         } else {
+            #[cfg(feature="defmt-log")]
             error!("[COMMAND DISPATCHER] Invalid command");
         }
 
@@ -312,6 +325,7 @@ async fn hotend_handler(
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
             match cmd {
                 GCommand::M104 { s } => {
+                    #[cfg(feature="defmt-log")]
                     info!(
                         "[ThermalActuator HANDLER] Target temperature: {}",
                         s.as_celsius()
@@ -335,6 +349,7 @@ async fn hotend_handler(
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
+                        #[cfg(feature="defmt-log")]
                         info!(
                             "[ThermalActuator HANDLER] Fan speed: {} revs/s",
                             speed.as_rpm()
@@ -353,6 +368,7 @@ async fn hotend_handler(
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
             if let Ok(duty_cycle) = hotend.update(dt.into(), pwm).await {
+                #[cfg(feature="defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
@@ -465,6 +481,7 @@ async fn heatbed_handler(
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
             if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm).await {
+                #[cfg(feature="defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
@@ -524,14 +541,17 @@ async fn sdcard_handler(
         if event_channel_subscriber.try_next_message_pure().is_some() {
             if let Some(wf) = working_file {
                 volume_manager.close_file(wf).unwrap();
+                #[cfg(feature="defmt-log")]
                 info!("File closed");
             }
             if let Some(wd) = working_dir {
                 volume_manager.close_dir(wd).unwrap();
+                #[cfg(feature="defmt-log")]
                 info!("Directory closed");
             }
             if let Some(wv) = working_volume {
                 volume_manager.close_volume(wv).unwrap();
+                #[cfg(feature="defmt-log")]
                 info!("Volume closed");
             }
             running = false;
@@ -560,27 +580,31 @@ async fn sdcard_handler(
                 GCommand::M21 => {
                     working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)) {
                         Ok(v) => Some(v),
-                        Err(_) => defmt::panic!("Cannot find module"),
+                        Err(_) => panic!("Cannot find module"),
                     };
                     working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
                         Ok(d) => Some(d),
-                        Err(_) => defmt::panic!("Cannot open root dir"),
+                        Err(_) => panic!("Cannot open root dir"),
                     };
+                    #[cfg(feature="defmt-log")]
                     info!("Directory open");
                 }
                 GCommand::M22 => {
                     if working_file.is_some() {
                         volume_manager.close_file(working_file.unwrap()).unwrap();
+                        #[cfg(feature="defmt-log")]
                         info!("File closed");
                     }
                     if working_dir.is_some() {
                         volume_manager.close_dir(working_dir.unwrap()).unwrap();
+                        #[cfg(feature="defmt-log")]
                         info!("Directory closed");
                     }
                     if working_volume.is_some() {
                         volume_manager
                             .close_volume(working_volume.unwrap())
                             .unwrap();
+                        #[cfg(feature="defmt-log")]
                         info!("Volume closed");
                     }
                 }
@@ -592,8 +616,9 @@ async fn sdcard_handler(
                         embedded_sdmmc::Mode::ReadOnly,
                     ) {
                         Ok(f) => Some(f),
-                        Err(_) => defmt::panic!("File not found"),
+                        Err(_) => panic!("File not found"),
                     };
+                    #[cfg(feature="defmt-log")]
                     info!("Working file set");
                 }
                 // ignore the parameters of M24, just start/resume the print
@@ -623,6 +648,7 @@ async fn sdcard_handler(
                 for b in 0..n {
                     if tmp[b] == b'\n' {
                         COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                        #[cfg(feature="defmt-log")]
                         info!("[INPUT_HANDLER] {}", msg.as_str());
                         msg.clear();
                     } else {
@@ -841,8 +867,12 @@ async fn planner_handler(
             GCommand::D115 => {
                 debug = false;
             }
-            _ => error!("[PLANNER HANDLER] command not handled"),
+            _ => {
+                #[cfg(feature="defmt-log")]
+                error!("[PLANNER HANDLER] command not handled")
+            },
         }
+        #[cfg(feature="defmt-log")]
         info!("[PLANNER HANDLER] Move completed");
         Timer::after(dt).await;
     }
@@ -950,6 +980,7 @@ async fn main(spawner: Spawner) {
         .unwrap();
 
     loop {
+        #[cfg(feature="defmt-log")]
         info!("[MAIN LOOP] alive");
         Timer::after(Duration::from_secs(1)).await;
     }

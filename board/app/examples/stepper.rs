@@ -1,17 +1,19 @@
 #![no_std]
 #![no_main]
 
-use defmt::info;
 use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
 use embassy_time::Timer;
 use stepper::stepper::{
     Stepper, StepperAttachment, StepperOptions, SteppingMode,
 };
-use {defmt_rtt as _, panic_probe as _};
-
 use embassy_executor::Spawner;
 use math::{common::RotationDirection, measurements::AngularVelocity};
 use common::{OutputPinBase, TimerBase};
+
+use {defmt_rtt as _, panic_probe as _, };
+
+#[cfg(feature="defmt-log")]
+use defmt::info;
 
 struct StepperTimer {}
 
@@ -78,8 +80,10 @@ async fn main(_spawner: Spawner) {
     loop {
         stepper.set_direction(RotationDirection::CounterClockwise);
         if let Err(_) = stepper.move_for_steps::<StepperTimer>(400).await {
+            #[cfg(feature="defmt-log")]
             info!("Cannot move");
         };
+        #[cfg(feature="defmt-log")]
         info!("Position: {}", stepper.get_position().as_millimeters());
 
         // Timer::after(Duration::from_millis(100)).await;
@@ -87,9 +91,11 @@ async fn main(_spawner: Spawner) {
         stepper.set_direction(RotationDirection::Clockwise);
 
         if let Err(_) = stepper.move_for_steps::<StepperTimer>(400).await {
+            #[cfg(feature="defmt-log")]
             info!("Cannot move");
         };
 
+        #[cfg(feature="defmt-log")]
         info!("Position: {}", stepper.get_position().as_millimeters());
 
         // info!("Moving to {}mm", d.to_mm());

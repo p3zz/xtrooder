@@ -4,7 +4,6 @@
 use core::cell::RefCell;
 
 use app::Clock;
-use defmt::{info, panic};
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::mode::Blocking;
@@ -17,7 +16,11 @@ use embassy_stm32::{spi, Config};
 use embedded_sdmmc::{Mode, SdCard, VolumeIdx, VolumeManager};
 use heapless::{String, Vec};
 use static_cell::StaticCell;
+
 use {defmt_rtt as _, panic_probe as _};
+
+#[cfg(feature="defmt-log")]
+use defmt::{info, panic};
 
 // #[embassy_executor::task]
 // async fn main_task(mut spi: spi::Spi<'static, Blocking>) {
@@ -38,6 +41,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) -> ! {
+    #[cfg(feature="defmt-log")]
     info!("Hello World!");
 
     let mut config = Config::default();
@@ -74,7 +78,10 @@ async fn main(_spawner: Spawner) -> ! {
     let spi = SpiDevice::new(spi_bus, cs_pin);
     let sdcard = SdCard::new(spi, Delay);
     match sdcard.get_card_type() {
-        Some(t) => info!("{}", t as u32),
+        Some(t) => {
+            #[cfg(feature="defmt-log")]
+            info!("{}", t as u32)
+        },
         None => panic!("cannot read card type"),
     };
 
@@ -114,6 +121,7 @@ async fn main(_spawner: Spawner) -> ! {
         }
         let vec: Vec<u8, 64> = Vec::from_slice(&buf).expect("Malformed string");
         let str = String::from_utf8(vec).unwrap();
+        #[cfg(feature="defmt-log")]
         info!("{}", str.as_str());
         // for b in &buf[0..n] {
         // info!("{}", *b as char);
@@ -154,6 +162,7 @@ async fn main(_spawner: Spawner) -> ! {
     // }
 
     loop {
+        #[cfg(feature="defmt-log")]
         info!("main loop");
         Timer::after(Duration::from_secs(1)).await;
     }
