@@ -242,15 +242,7 @@ async fn hotend_handler(
     config: ThermalActuatorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
     fan_config: FanConfig,
 ) {
-    // TODO adjust the period using the dt of the loop
-    let mut temperature_report_dt: Option<Duration> = None;
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
-
-    let cfg = thermal_actuator::thermistor::ThermistorConfig {
-        r_series: config.thermistor.options.r_series,
-        r0: config.thermistor.options.r0,
-        b: config.thermistor.options.b,
-    };
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.adc.peripheral,
@@ -259,7 +251,11 @@ async fn hotend_handler(
         SampleTime::CYCLES32_5,
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
-        cfg,
+        thermal_actuator::thermistor::ThermistorConfig {
+            r_series: config.thermistor.options.r_series,
+            r0: config.thermistor.options.r0,
+            b: config.thermistor.options.b,
+        },
     );
 
     let channel = timer_channel!(fan_config.pwm.channel).expect("Invalid timer channel");
@@ -268,7 +264,9 @@ async fn hotend_handler(
     let channel = timer_channel!(config.heater.pwm.channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
     let mut hotend = ThermalActuator::new(heater, thermistor);
-
+    
+    // TODO adjust the period using the dt of the loop
+    let mut temperature_report_dt: Option<Duration> = None;
     let dt = Duration::from_millis(100);
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
@@ -445,7 +443,7 @@ async fn heatbed_handler(
         if temperature_report_dt.is_some()
             && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
         {
-            let temp = heatbed.read_temperature().await;
+            let temp = last_temperature.unwrap();
             report.clear();
             task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
@@ -456,7 +454,7 @@ async fn heatbed_handler(
             match cmd {
                 GCommand::M140 { s } => heatbed.set_temperature(s),
                 GCommand::M105 => {
-                    let temp = heatbed.read_temperature().await;
+                    let temp = last_temperature.unwrap();
                     report.clear();
                     task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
