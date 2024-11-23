@@ -48,12 +48,16 @@ impl<P: PwmBase> Heater<P> {
         self.pid.get_target()
     }
 
+    pub fn set_duty_cycle(&self, duty_cycle: u64, pwm: &mut P){
+        pwm.set_duty(self.ch, duty_cycle);
+    }
+
     pub fn update(&mut self, tmp: Temperature, dt: Duration, pwm: &mut P) -> Result<u64, ()> {
         self.pid.set_output_bounds(0f64, pwm.get_max_duty() as f64);
         let duty_cycle = self.pid.update(tmp.as_celsius(), dt)?;
         let duty_cycle = duty_cycle as u64;
 
-        pwm.set_duty(self.ch, duty_cycle);
+        self.set_duty_cycle(duty_cycle, pwm);
 
         Ok(duty_cycle)
     }

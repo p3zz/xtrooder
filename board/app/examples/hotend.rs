@@ -7,7 +7,7 @@ use common::PwmBase;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
 use embassy_stm32::gpio::OutputType;
-use embassy_stm32::time::hz;
+use embassy_stm32::time::{hz, khz};
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::{low_level::CountingMode, Channel};
 use embassy_time::{Duration, Timer};
@@ -71,9 +71,10 @@ async fn main(_spawner: Spawner) {
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
         ThermistorOptionsConfig {
-            r_series: Resistance::from_ohms(100_000.0),
-            r0: Resistance::from_ohms(10_000.0),
+            r_series: Resistance::from_ohms(10_000.0),
+            r0: Resistance::from_ohms(100_000.0),
             b: Temperature::from_kelvin(3950.0),
+            samples: 5
         },
     );
 
@@ -83,7 +84,7 @@ async fn main(_spawner: Spawner) {
         None,
         None,
         Some(PwmPin::new_ch4(p.PB9, OutputType::PushPull)),
-        hz(1),
+        khz(1),
         CountingMode::EdgeAlignedUp,
     );
 
@@ -95,13 +96,15 @@ async fn main(_spawner: Spawner) {
     let heater = Heater::new(
         channel,
         PidConfig {
-            k_p: 2.0,
+            k_p: 20.0,
             k_i: 2.0,
-            k_d: 2.0,
+            k_d: 3.0,
         },
     );
 
     let mut hotend = ThermalActuator::new(heater, thermistor);
+
+    hotend.enable(&mut heater_out_wrapper);
 
     hotend.set_temperature(Temperature::from_celsius(100f64));
     
@@ -112,8 +115,8 @@ async fn main(_spawner: Spawner) {
     loop {
         match hotend.update(dt.into(), &mut heater_out_wrapper).await {
             Ok(r) => {
-                #[cfg(feature="defmt-log")]            
-                println!("Duty cycle: {}", r)
+                #[cfg(feature="defmt-log")]
+                println!("Temperaure: {}\tDuty cycle: {}", r.0.as_celsius(), r.1);
             },
             Err(_) => {
                 #[cfg(feature="defmt-log")]

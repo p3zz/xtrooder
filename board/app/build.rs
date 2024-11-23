@@ -462,6 +462,7 @@ mod external {
         pub r_series: f64,
         pub r0: f64,
         pub b: f64,
+        pub samples: u64,
         pub adc: AdcConfig,
     }
 
@@ -476,6 +477,10 @@ mod external {
 
         pub fn get_b(&self) -> f64 {
             self.b
+        }
+
+        pub fn get_samples(&self) -> u64{
+            self.samples
         }
 
         pub fn get_adc(&self) -> AdcConfig {
@@ -784,6 +789,7 @@ fn main() {
     let hotend_heater_r0 = conf.hotend.get_thermistor().get_r0();
     let hotend_heater_r_series = conf.hotend.get_thermistor().get_r_series();
     let hotend_heater_b = conf.hotend.get_thermistor().get_b();
+    let hotend_thermistor_samples = conf.heatbed.get_thermistor().get_samples();
     let hotend_heater_pid = conf.hotend.get_heater().get_pid();
     let hotend_heater_pid_kp = hotend_heater_pid.get_k_p();
     let hotend_heater_pid_ki = hotend_heater_pid.get_k_i();
@@ -821,6 +827,7 @@ fn main() {
     let heatbed_heater_r0 = conf.heatbed.get_thermistor().get_r0();
     let heatbed_heater_r_series = conf.heatbed.get_thermistor().get_r0();
     let heatbed_heater_b = conf.heatbed.get_thermistor().get_r_series();
+    let heatbed_thermistor_samples = conf.heatbed.get_thermistor().get_samples();
     let heatbed_heater_pid = conf.heatbed.get_heater().get_pid();
     let heatbed_heater_pid_kp = heatbed_heater_pid.get_k_p();
     let heatbed_heater_pid_ki = heatbed_heater_pid.get_k_i();
@@ -1059,6 +1066,7 @@ fn main() {
                             r_series: Resistance::from_ohms(#hotend_heater_r_series),
                             r0: Resistance::from_ohms(#hotend_heater_r0),
                             b: Temperature::from_celsius(#hotend_heater_b),
+                            samples: #hotend_thermistor_samples
                         }
                     },
                     heater: HeaterConfig {
@@ -1087,6 +1095,7 @@ fn main() {
                             r_series: Resistance::from_ohms(#heatbed_heater_r_series),
                             r0: Resistance::from_ohms(#heatbed_heater_r0),
                             b: Temperature::from_celsius(#heatbed_heater_b),
+                            samples: #heatbed_thermistor_samples
                         }
 
                     },

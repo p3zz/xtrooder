@@ -251,11 +251,7 @@ async fn hotend_handler(
         SampleTime::CYCLES32_5,
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
-        thermal_actuator::thermistor::ThermistorConfig {
-            r_series: config.thermistor.options.r_series,
-            r0: config.thermistor.options.r0,
-            b: config.thermistor.options.b,
-        },
+        config.thermistor.options
     );
 
     let channel = timer_channel!(fan_config.pwm.channel).expect("Invalid timer channel");
@@ -381,12 +377,6 @@ async fn heatbed_handler(
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
-    let cfg = thermal_actuator::thermistor::ThermistorConfig {
-        r_series: config.thermistor.options.r_series,
-        r0: config.thermistor.options.r0,
-        b: config.thermistor.options.b,
-    };
-
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.adc.peripheral,
         config.thermistor.adc.dma,
@@ -394,7 +384,7 @@ async fn heatbed_handler(
         SampleTime::CYCLES32_5,
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
-        cfg,
+        config.thermistor.options,
     );
 
     let channel = timer_channel!(config.heater.pwm.channel).expect("Invalid timer channel");

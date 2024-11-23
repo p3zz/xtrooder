@@ -64,9 +64,10 @@ async fn main(_spawner: Spawner) {
         ResolutionWrapper::new(Resolution::BITS12),
         readings,
         ThermistorOptionsConfig {
-            r_series: Resistance::from_ohms(100_000.0),
-            r0: Resistance::from_ohms(10_000.0),
+            r_series: Resistance::from_ohms(10_000.0),
+            r0: Resistance::from_ohms(100_000.0),
             b: Temperature::from_kelvin(3950.0),
+            samples: 5
         },
     );
 

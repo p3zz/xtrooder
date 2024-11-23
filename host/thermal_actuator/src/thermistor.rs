@@ -15,6 +15,7 @@ pub struct ThermistorConfig {
     pub r_series: Resistance,
     pub r0: Resistance,
     pub b: Temperature,
+    pub samples: u64
 }
 
 pub struct Thermistor<'a, A: AdcBase> {
@@ -51,15 +52,21 @@ impl<'a, A: AdcBase> Thermistor<'a, A> {
 
     pub async fn read_temperature(&mut self) -> Temperature {
         let readings = self.readings.as_mut();
-        self.adc
+        let mut data = 0u64;
+        for _ in 0..self.config.samples{
+            self.adc
             .read(
                 &mut self.dma_peri,
                 [(&mut self.read_pin, self.adc.sample_time())].into_iter(),
                 readings,
             )
             .await;
+            data += u64::from(readings[0]);
+        }
+        let reading = data / self.config.samples;
+        
         compute_ntf_thermistor_temperature(
-            u64::from(readings[0]),
+            u64::from(reading),
             self.resolution.into(),
             Temperature::from_celsius(25.0),
             self.config.b,
@@ -141,6 +148,7 @@ mod tests {
                 r_series: Resistance::from_ohms(10_000.0),
                 r0: Resistance::from_ohms(10_000.0),
                 b: Temperature::from_kelvin(3950.0),
+                samples: 1
             },
         );
         let t = thermistor.read_temperature().await;

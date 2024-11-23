@@ -123,6 +123,7 @@ k_d = 0
 r_series=0
 r0=0
 b = 0
+samples = 0
 
 [hotend.thermistor.adc]
 peripheral = "ADC1"
@@ -146,6 +147,7 @@ k_d = 0
 r_series=0
 r0=0
 b = 0
+samples = 0
 
 [heatbed.thermistor.adc]
 peripheral = "ADC2"
