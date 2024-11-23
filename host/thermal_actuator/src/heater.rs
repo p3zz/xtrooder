@@ -1,19 +1,16 @@
 use core::time::Duration;
 
 use common::{PwmBase, PidConfig};
-use math::measurements::Temperature;
-use pid_lite::Controller;
+use math::{measurements::Temperature, pid::PID};
 
 pub struct Heater<P: PwmBase> {
     ch: P::Channel,
-    pid: Controller,
-    target_temperature: Option<Temperature>,
+    pid: PID,
 }
 
 impl<P: PwmBase> Heater<P> {
     pub fn new(ch: P::Channel, config: PidConfig) -> Self {
-        let pid = Controller::new(
-            Temperature::from_celsius(30.0).as_celsius(),
+        let pid = PID::new(
             config.k_p,
             config.k_i,
             config.k_d,
@@ -21,11 +18,10 @@ impl<P: PwmBase> Heater<P> {
         Self {
             ch,
             pid,
-            target_temperature: None,
         }
     }
 
-    pub fn enable(&self, pwm: &mut P) {
+    pub fn enable(&mut self, pwm: &mut P) {
         pwm.enable(self.ch);
     }
 
@@ -34,33 +30,28 @@ impl<P: PwmBase> Heater<P> {
     }
 
     pub fn reset_target_temperature(&mut self) {
-        self.target_temperature = None;
-    }
-
-    pub fn get_target_temperature(&self) -> Option<Temperature> {
-        self.target_temperature
-    }
-
-    pub fn set_target_temperature(&mut self, temperature: Temperature) {
-        self.target_temperature.replace(temperature);
-        // SAFETY: unwrap target temperature because it has been set the previous line
-        self.pid
-            .set_target(self.target_temperature.unwrap().as_celsius());
+        self.pid.reset_target();
     }
 
     #[cfg(test)]
-    pub fn get_pid_target(&self) -> f64 {
-        self.pid.target()
+    pub fn get_target_temperature(&self) -> Option<Temperature> {
+        self.pid.get_target().map(|t|Temperature::from_celsius(t))
+    }
+
+    pub fn set_target_temperature(&mut self, temperature: Temperature) {
+        self.pid
+            .set_target(temperature.as_celsius());
+    }
+
+    #[cfg(test)]
+    pub fn get_pid_target(&self) -> Option<f64> {
+        self.pid.get_target()
     }
 
     pub fn update(&mut self, tmp: Temperature, dt: Duration, pwm: &mut P) -> Result<u64, ()> {
-        if self.target_temperature.is_none() {
-            return Err(());
-        }
-
-        let duty_cycle = self.pid.update_elapsed(tmp.as_celsius(), dt);
-
-        let duty_cycle = duty_cycle.max(0.0).min(pwm.get_max_duty() as f64) as u64;
+        self.pid.set_output_bounds(0f64, pwm.get_max_duty() as f64);
+        let duty_cycle = self.pid.update(tmp.as_celsius(), dt)?;
+        let duty_cycle = duty_cycle as u64;
 
         pwm.set_duty(self.ch, duty_cycle);
 
@@ -144,7 +135,7 @@ mod tests {
     #[test]
     fn test_heater_enable() {
         let mut pwm = PwmWrapper::new(());
-        let heater: Heater<PwmWrapper> = Heater::new(
+        let mut heater: Heater<PwmWrapper> = Heater::new(
             Channel::Ch2,
             PidConfig {
                 k_p: 30.0,
@@ -160,7 +151,7 @@ mod tests {
     #[test]
     fn test_heater_disable() {
         let mut pwm = PwmWrapper::new(());
-        let heater: Heater<PwmWrapper> = Heater::new(
+        let mut heater: Heater<PwmWrapper> = Heater::new(
             Channel::Ch2,
             PidConfig {
                 k_p: 30.0,
@@ -187,7 +178,8 @@ mod tests {
         );
         assert!(heater.get_target_temperature().is_none());
         heater.set_target_temperature(target);
-        assert_eq!(target.as_celsius(), heater.get_pid_target());
+        assert!(heater.get_pid_target().is_some());
+        assert_eq!(target.as_celsius(), heater.get_pid_target().unwrap());
         assert!(heater.get_target_temperature().is_some());
         assert_eq!(target, heater.get_target_temperature().unwrap());
     }
@@ -220,12 +212,12 @@ mod tests {
             PidConfig {
                 k_p: 30.0,
                 k_i: 0.0,
-                k_d: 3.0,
+                k_d: 0.1,
             },
         );
         heater.set_target_temperature(target_temp);
         let duty_cycle_new = heater.update(current_temp, Duration::from_millis(30), &mut pwm);
         assert!(duty_cycle_new.is_ok());
-        assert_eq!(1204, duty_cycle_new.unwrap());
+        assert_eq!(1333, duty_cycle_new.unwrap());
     }
 }

@@ -5,6 +5,7 @@ pub use measurements;
 pub mod angle;
 pub mod common;
 pub mod vector;
+pub mod pid;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DurationUnit {

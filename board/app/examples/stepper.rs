@@ -1,8 +1,9 @@
 #![no_std]
 #![no_main]
 
+use defmt::info;
 use embassy_stm32::gpio::{Level, Output, Speed as PinSpeed};
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 use stepper::stepper::{
     Stepper, StepperAttachment, StepperOptions, SteppingMode,
 };
@@ -57,11 +58,11 @@ async fn main(_spawner: Spawner) {
     // );
 
     let step = StepperPin {
-        pin: Output::new(p.PA0, Level::Low, PinSpeed::Low),
+        pin: Output::new(p.PC9, Level::Low, PinSpeed::Low),
     };
 
     let dir = StepperPin {
-        pin: Output::new(p.PB0, Level::Low, PinSpeed::Low),
+        pin: Output::new(p.PC8, Level::Low, PinSpeed::Low),
     };
 
     let mut stepper = Stepper::new_with_attachment(
@@ -71,9 +72,9 @@ async fn main(_spawner: Spawner) {
         StepperAttachment::default(),
     );
 
-    stepper.set_stepping_mode(SteppingMode::HalfStep);
+    stepper.set_stepping_mode(SteppingMode::FullStep);
 
-    stepper.set_speed(AngularVelocity::from_rpm(90.0));
+    stepper.set_speed(AngularVelocity::from_rpm(360.0));
 
     // let mut d = Distance::from_mm(80.0);
 
@@ -86,7 +87,7 @@ async fn main(_spawner: Spawner) {
         #[cfg(feature="defmt-log")]
         info!("Position: {}", stepper.get_position().as_millimeters());
 
-        // Timer::after(Duration::from_millis(100)).await;
+        Timer::after(Duration::from_millis(100)).await;
 
         stepper.set_direction(RotationDirection::Clockwise);
 
@@ -95,8 +96,10 @@ async fn main(_spawner: Spawner) {
             info!("Cannot move");
         };
 
-        #[cfg(feature="defmt-log")]
-        info!("Position: {}", stepper.get_position().as_millimeters());
+        Timer::after(Duration::from_millis(100)).await;
+
+        // #[cfg(feature="defmt-log")]
+        // info!("Position: {}", stepper.get_position().as_millimeters());
 
         // info!("Moving to {}mm", d.to_mm());
         // if let Err(e) = stepper.move_to_destination(d).await {

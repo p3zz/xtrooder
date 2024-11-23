@@ -179,7 +179,7 @@ mod tests {
             PidConfig {
                 k_p: 30.0,
                 k_i: 0.0,
-                k_d: 3.0,
+                k_d: 0.1,
             },
         );
         let mut readings = [0u16; 1];
@@ -201,6 +201,6 @@ mod tests {
         actuator.set_temperature(target_temp);
         let duty_cycle = actuator.update(Duration::from_millis(50), &mut pwm).await;
         assert!(duty_cycle.is_ok());
-        assert_eq!(3456, duty_cycle.unwrap());
+        assert_eq!(3616, duty_cycle.unwrap());
     }
 }

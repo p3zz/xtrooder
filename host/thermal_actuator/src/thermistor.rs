@@ -105,7 +105,7 @@ mod tests {
         fn new(_peripheral: Self::PeriType) -> Self {
             Self {
                 resolution: Resolution::BITS12,
-                value: 2000,
+                value: 2048,
             }
         }
 
