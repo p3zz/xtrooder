@@ -65,11 +65,27 @@ impl PID {
         self.prev_error = error;
 
         // Compute total output
-        let mut output = proportional + self.ki * self.integral + self.kd * derivative;
+        let mut output = out + self.kd * derivative;
         if let Some(bounds) = self.bounds{
             output = output.clamp(bounds.0, bounds.1);
         }
 
         Ok(output)
+    }
+}
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_pid(){
+        let elapsed = Duration::from_millis(40);
+        let mut pid = PID::new(30.0, 0.0, 3.0);
+        pid.set_target(30.0);
+        let res = pid.update(20.0, elapsed);
+        assert!(res.is_ok());
+        assert_eq!(1050.0, res.unwrap());
+        assert_eq!(pid.prev_error, 10.0);
+        assert_eq!(pid.integral, 0.4);
     }
 }
