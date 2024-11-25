@@ -2,7 +2,7 @@
 #![no_main]
 
 use app::config::{PidConfig, ThermistorOptionsConfig};
-use app::{timer_channel, AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use app::{timer_channel, AdcWrapper, Clock, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
@@ -96,9 +96,9 @@ async fn main(_spawner: Spawner) {
     let heater = Heater::new(
         channel,
         PidConfig {
-            k_p: 20.0,
-            k_i: 2.0,
-            k_d: 3.0,
+            k_p: 400.0,
+            k_i: 5.0,
+            k_d: 1.0,
         },
     );
 
@@ -106,17 +106,19 @@ async fn main(_spawner: Spawner) {
 
     hotend.enable(&mut heater_out_wrapper);
 
-    hotend.set_temperature(Temperature::from_celsius(100f64));
+    hotend.set_temperature(Temperature::from_celsius(200f64));
     
     #[cfg(feature="defmt-log")]
     info!("ThermalActuator example");
-    let dt = Duration::from_millis(100);
+    let dt = Duration::from_millis(10);
+    #[cfg(feature="defmt-log")]
+    println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
     loop {
         match hotend.update(dt.into(), &mut heater_out_wrapper).await {
             Ok(r) => {
                 #[cfg(feature="defmt-log")]
-                println!("Temperaure: {}\tDuty cycle: {}", r.0.as_celsius(), r.1);
+                println!("Dt: {}\tTemperaure: {}\tDuty cycle: {}", dt.as_millis(), r.0.as_celsius(), r.1);
             },
             Err(_) => {
                 #[cfg(feature="defmt-log")]
