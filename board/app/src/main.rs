@@ -48,7 +48,7 @@ use fan::FanController;
 use heapless::{String, Vec};
 use math::{measurements::Temperature, DistanceUnit};
 use parser::gcode::{GCodeParser, GCommand};
-use static_cell::StaticCell;
+use static_cell::{ConstStaticCell, StaticCell};
 use stepper::planner::Planner;
 use stepper::stepper::{Stepper, StepperAttachment, StepperOptions};
 use thermal_actuator::{
@@ -106,13 +106,13 @@ static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDm
     Mutex::new(None);
 
 #[link_section = ".ram_d3"]
-static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+static UART_RX_DMA_BUF: ConstStaticCell<[u8; MAX_MESSAGE_LEN]> = ConstStaticCell::new([0u8; MAX_MESSAGE_LEN]);
 #[link_section = ".ram_d3"]
-static UART_TX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
+static UART_TX_DMA_BUF: ConstStaticCell<[u8; MAX_MESSAGE_LEN]> = ConstStaticCell::new([0u8; MAX_MESSAGE_LEN]);
 #[link_section = ".ram_d3"]
-static HOTEND_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
+static HOTEND_DMA_BUF: ConstStaticCell<thermistor::DmaBufType> = ConstStaticCell::new([0u16; 1]);
 #[link_section = ".ram_d3"]
-static HEATBED_DMA_BUF: StaticCell<thermistor::DmaBufType> = StaticCell::new();
+static HEATBED_DMA_BUF: ConstStaticCell<thermistor::DmaBufType> = ConstStaticCell::new([0u16; 1]);
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -121,7 +121,7 @@ bind_interrupts!(struct Irqs {
 #[embassy_executor::task]
 async fn input_handler() {
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let tmp = UART_RX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
+    let tmp = UART_RX_DMA_BUF.take();
     let mut rx = UART_RX.lock().await;
     let rx = rx.as_mut().expect("UART RX not initialized");
     let dt = Duration::from_millis(50);
@@ -130,23 +130,25 @@ async fn input_handler() {
     info!("Starting input handler loop");
 
     loop {
-        if let Ok(n) = rx.read_until_idle(tmp).await {
-            for b in 0..n {
-                if tmp[b] == b'\n' {
-                    COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-                    #[cfg(feature = "defmt-log")]
-                    info!("[INPUT_HANDLER] {}", msg.as_str());
-                    msg.clear();
-                } else if msg.push(tmp[b].into()).is_err() {
-                    msg.clear();
-                    #[cfg(feature = "defmt-log")]
-                    error!("Message too long");
+        match rx.read_until_idle(tmp).await{
+            Ok(n) => {
+                for b in &tmp[0..n] {
+                    if *b == b'\n' {
+                        COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                        #[cfg(feature = "defmt-log")]
+                        info!("[INPUT_HANDLER] {}", msg.as_str());
+                        msg.clear();
+                    } else if msg.push((*b).into()).is_err() {
+                        msg.clear();
+                        #[cfg(feature = "defmt-log")]
+                        error!("Message too long");
+                    }
                 }
             }
-            tmp.fill(0u8);
-        } else {
-            #[cfg(feature = "defmt-log")]
-            error!("Cannot read from UART");
+            Err(e) => {
+                #[cfg(feature = "defmt-log")]
+                error!("Cannot read from UART: {}", e);
+            }
         }
         Timer::after(dt).await;
     }
@@ -154,7 +156,7 @@ async fn input_handler() {
 
 #[embassy_executor::task]
 async fn output_handler() {
-    let tmp = UART_TX_DMA_BUF.init([0u8; MAX_MESSAGE_LEN]);
+    let tmp = UART_TX_DMA_BUF.take();
     let mut tx = UART_TX.lock().await;
     let tx = tx.as_mut().expect("UART TX not initialized");
     let dt = Duration::from_millis(100);
@@ -254,7 +256,7 @@ async fn command_dispatcher_task() {
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_config: FanConfig) {
-    let readings = HOTEND_DMA_BUF.init([0u16; 1]);
+    let readings = HOTEND_DMA_BUF.take();
 
     let thermistor: Thermistor<'_, AdcWrapper<_, _>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
@@ -288,13 +290,16 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
             let adc = adc.as_mut().expect("ADC not initialized");
             last_temperature.replace(hotend.read_temperature(adc).await);
         }
+
+        #[cfg(feature="defmt-log")]
+        info!("[{}] Temperature: {}", HOTEND_LABEL, last_temperature.unwrap().as_celsius());
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             // SAFETY - unwrap last_temperature because it's set on the previous line
             let e = PrinterEvent::HotendOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
-            task_write!(&mut report, "HOTEND", "{}", e).unwrap();
+            task_write!(&mut report, HOTEND_LABEL, "{}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
@@ -377,9 +382,9 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
             let pwm = pwm.as_mut().expect("PWM not initialized");
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
-            if let Ok(duty_cycle) = hotend.update(dt.into(), pwm, adc).await {
+            if let Ok(res) = hotend.update(dt.into(), pwm, adc).await {
                 #[cfg(feature = "defmt-log")]
-                info!("[HEATBED] duty cycle: {}", duty_cycle);
+                info!("[HEATBED] duty cycle: {}", res.1);
             };
         }
 
@@ -396,7 +401,7 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
 async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
-    let readings = HEATBED_DMA_BUF.init([0u16; 1]);
+    let readings = HEATBED_DMA_BUF.take();
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
@@ -426,11 +431,14 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             last_temperature.replace(heatbed.read_temperature(adc).await);
         }
 
+        #[cfg(feature="defmt-log")]
+        info!("[{}] Temperature: {}", HEATBED_LABEL, last_temperature.unwrap().as_celsius());
+
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
             event_channel_publisher.publish(e).await;
             report.clear();
-            task_write!(&mut report, "HEATBED", "{}", e).unwrap();
+            task_write!(&mut report, HEATBED_LABEL, "{}", e).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
         }
 
@@ -483,9 +491,9 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             let pwm = pwm.as_mut().expect("PWM not initialized");
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
-            if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm, adc).await {
+            if let Ok(res) = heatbed.update(dt.into(), pwm, adc).await {
                 #[cfg(feature = "defmt-log")]
-                info!("[HEATBED] duty cycle: {}", duty_cycle);
+                info!("[HEATBED] duty cycle: {}", res.1);
             };
         }
 
@@ -1010,13 +1018,13 @@ async fn main(spawner: Spawner) {
         ))
         .unwrap();
 
-    spawner
-        .spawn(sdcard_handler(printer_config.sdcard))
-        .unwrap();
+    // spawner
+    //     .spawn(sdcard_handler(printer_config.sdcard))
+    //     .unwrap();
 
     loop {
         #[cfg(feature = "defmt-log")]
         info!("[MAIN LOOP] alive");
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(5)).await;
     }
 }

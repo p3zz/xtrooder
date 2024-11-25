@@ -232,6 +232,8 @@ pub struct AdcWrapper<'a, T: Instance, D: RxDma<T>> {
 
 impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
     pub fn new(adc: Adc<'a, T>, dma: D, resolution: ResolutionWrapper) -> Self {
+        let mut adc = adc;
+        adc.set_resolution(resolution.inner);
         Self {
             inner: adc,
             dma,

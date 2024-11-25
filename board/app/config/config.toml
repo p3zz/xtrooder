@@ -72,7 +72,7 @@ dir.pin = "PG3"
 
 [uart]
 peripheral="UART4"
-baudrate=19800
+baudrate = 38400
 rx.pin = "PB8"
 rx.dma.peripheral = "DMA1_CH0"
 tx.pin = "PB9"
@@ -96,39 +96,38 @@ dma.peripheral = "DMA1_CH2"
 
 [hotend.heater]
 pwm.channel = 1
-max_temperature_limit=200
-min_temperature_limit=200
+max_temperature_limit=240
+min_temperature_limit=180
 
 [hotend.heater.pid]
-k_p = 0
-k_i = 0
-k_d = 0
+k_p = 400
+k_i = 5
+k_d = 1
 
 [hotend.thermistor]
-r_series=0
-r0=0
-b = 0
-samples = 0
+r_series = 10000
+r0 = 100000
+b = 3950
+samples = 5
 adc.pin = "PA5"
 
 # ------------- heatbed ---------------
 
 [heatbed.heater]
 pwm.channel = 2
-max_temperature_limit=200
-min_temperature_limit=200
+max_temperature_limit=240
+min_temperature_limit=180
 
 [heatbed.heater.pid]
-k_p = 0
-k_i = 0
-k_d = 0
-
+k_p = 400
+k_i = 5
+k_d = 1
 
 [heatbed.thermistor]
-r_series=0
-r0=0
-b = 0
-samples = 0
+r_series = 10000
+r0 = 120000
+b = 3950
+samples = 5
 adc.pin = "PA6"
 
 # ------------- fan ---------------
