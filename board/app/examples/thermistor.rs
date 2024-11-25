@@ -54,14 +54,14 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
-    let readings = DMA_BUF.init([0u16; 1]);
+    let readings = DMA_BUF.init_with(||[0u16; 1]);
 
     let mut adc = Adc::new(p.ADC1);
     adc.set_sample_time(SampleTime::CYCLES32_5);
     let mut adc = AdcWrapper::new(adc, p.DMA1_CH0, ResolutionWrapper::new(Resolution::BITS12));
 
     let mut thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
-        p.PA0.degrade_adc(),
+        p.PA6.degrade_adc(),
         readings,
         ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(10_000.0),

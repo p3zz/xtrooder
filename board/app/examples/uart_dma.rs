@@ -2,10 +2,10 @@
 #![no_main]
 
 use embassy_executor::Spawner;
-use embassy_stm32::usart::{Config as UartConfig, Uart};
+use embassy_stm32::usart::{Config as UartConfig, Uart, UartRx};
 use embassy_stm32::{bind_interrupts, peripherals, usart};
 use heapless::{String, Vec};
-use static_cell::StaticCell;
+use static_cell::{ConstStaticCell, StaticCell};
 use {defmt_rtt as _, panic_probe as _};
 
 #[cfg(feature = "defmt-log")]
@@ -29,15 +29,15 @@ async fn main_task() {
     )
     .unwrap();
 
-    let tmp = DMA_BUF.init([0u8; 32]);
+    let tmp = DMA_BUF.init_with(||[0u8; 32]);
 
     loop {
         match uart.read_until_idle(tmp).await {
             Ok(_) => {
                 let vec = Vec::<u8, 32>::from_slice(tmp).unwrap();
-                let str = String::from_utf8(vec).unwrap();
+                let s = String::from_utf8(vec).unwrap();
                 #[cfg(feature = "defmt-log")]
-                info!("{}", str.as_str());
+                info!("{}", s.as_str());
             }
             Err(e) => {
                 #[cfg(feature = "defmt-log")]
