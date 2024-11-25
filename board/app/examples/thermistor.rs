@@ -9,9 +9,9 @@ use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 
-use {defmt_rtt as _, panic_probe as _, };
+use {defmt_rtt as _, panic_probe as _};
 
-#[cfg(feature="defmt-log")]
+#[cfg(feature = "defmt-log")]
 use defmt::info;
 
 #[link_section = ".ram_d3"]
@@ -67,15 +67,15 @@ async fn main(_spawner: Spawner) {
             r_series: Resistance::from_ohms(10_000.0),
             r0: Resistance::from_ohms(100_000.0),
             b: Temperature::from_kelvin(3950.0),
-            samples: 5
+            samples: 5,
         },
     );
 
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     info!("Thermistor example");
     loop {
         let t = thermistor.read_temperature(&mut adc).await;
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("Temperature: {}°C", t.as_celsius());
         Timer::after(Duration::from_millis(200)).await;
     }

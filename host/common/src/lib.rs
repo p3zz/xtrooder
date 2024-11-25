@@ -32,11 +32,7 @@ pub trait AdcBase {
     fn sample_time(&self) -> Self::SampleTime;
     fn set_resolution(&mut self, resolution: Self::Resolution);
     fn resolution(&self) -> Self::Resolution;
-    fn read(
-        &mut self,
-        pin: &mut Self::PinType,
-        readings: &mut [u16],
-    ) -> impl Future<Output = ()>;
+    fn read(&mut self, pin: &mut Self::PinType, readings: &mut [u16]) -> impl Future<Output = ()>;
 }
 
 pub trait TimerBase {

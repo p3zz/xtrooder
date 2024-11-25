@@ -19,7 +19,7 @@ use static_cell::StaticCell;
 
 use {defmt_rtt as _, panic_probe as _};
 
-#[cfg(feature="defmt-log")]
+#[cfg(feature = "defmt-log")]
 use defmt::{info, panic};
 
 // #[embassy_executor::task]
@@ -41,7 +41,7 @@ use defmt::{info, panic};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) -> ! {
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     info!("Hello World!");
 
     let mut config = Config::default();
@@ -79,9 +79,9 @@ async fn main(_spawner: Spawner) -> ! {
     let sdcard = SdCard::new(spi, Delay);
     match sdcard.get_card_type() {
         Some(t) => {
-            #[cfg(feature="defmt-log")]
+            #[cfg(feature = "defmt-log")]
             info!("{}", t as u32)
-        },
+        }
         None => panic!("cannot read card type"),
     };
 
@@ -121,7 +121,7 @@ async fn main(_spawner: Spawner) -> ! {
         }
         let vec: Vec<u8, 64> = Vec::from_slice(&buf).expect("Malformed string");
         let str = String::from_utf8(vec).unwrap();
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("{}", str.as_str());
         // for b in &buf[0..n] {
         // info!("{}", *b as char);
@@ -162,7 +162,7 @@ async fn main(_spawner: Spawner) -> ! {
     // }
 
     loop {
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("main loop");
         Timer::after(Duration::from_secs(1)).await;
     }

@@ -474,7 +474,7 @@ mod external {
             self.b
         }
 
-        pub fn get_samples(&self) -> u64{
+        pub fn get_samples(&self) -> u64 {
             self.samples
         }
 
@@ -755,10 +755,17 @@ fn main() {
         .expect("UART TX pin is missing");
     let uart_tx_dma = Ident::new(uart_tx_dma.as_str(), Span::call_site());
 
-    let adc_peripheral = conf.adc.get_peripheral().expect("ADC peripheral is missing");
+    let adc_peripheral = conf
+        .adc
+        .get_peripheral()
+        .expect("ADC peripheral is missing");
     let adc_peripheral = Ident::new(adc_peripheral.as_str(), Span::call_site());
 
-    let adc_dma = conf.adc.get_dma().get_peripheral().expect("ADC DMA is missing");
+    let adc_dma = conf
+        .adc
+        .get_dma()
+        .get_peripheral()
+        .expect("ADC DMA is missing");
     let adc_dma = Ident::new(adc_dma.as_str(), Span::call_site());
 
     let hotend_adc_input_pin = conf

@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use common::{PwmBase, PidConfig};
+use common::{PidConfig, PwmBase};
 use math::{measurements::Temperature, pid::PID};
 
 pub struct Heater<P: PwmBase> {
@@ -10,15 +10,8 @@ pub struct Heater<P: PwmBase> {
 
 impl<P: PwmBase> Heater<P> {
     pub fn new(ch: P::Channel, config: PidConfig) -> Self {
-        let pid = PID::new(
-            config.k_p,
-            config.k_i,
-            config.k_d,
-        );
-        Self {
-            ch,
-            pid,
-        }
+        let pid = PID::new(config.k_p, config.k_i, config.k_d);
+        Self { ch, pid }
     }
 
     pub fn enable(&mut self, pwm: &mut P) {
@@ -39,8 +32,7 @@ impl<P: PwmBase> Heater<P> {
     }
 
     pub fn set_target_temperature(&mut self, temperature: Temperature) {
-        self.pid
-            .set_target(temperature.as_celsius());
+        self.pid.set_target(temperature.as_celsius());
     }
 
     #[cfg(test)]
@@ -48,7 +40,7 @@ impl<P: PwmBase> Heater<P> {
         self.pid.get_target()
     }
 
-    pub fn set_duty_cycle(&self, duty_cycle: u64, pwm: &mut P){
+    pub fn set_duty_cycle(&self, duty_cycle: u64, pwm: &mut P) {
         pwm.set_duty(self.ch, duty_cycle);
     }
 
@@ -89,7 +81,7 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl PwmWrapper{
+    impl PwmWrapper {
         fn new() -> Self {
             Self {
                 ch1: PwmChannel::default(),

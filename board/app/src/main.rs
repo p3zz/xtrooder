@@ -10,10 +10,13 @@ use app::config::{
     ThermistorConfig,
 };
 use app::ext::{
-    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin, HotendAdcInputPin, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin
+    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin,
+    HotendAdcInputPin, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin,
+    SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin,
+    YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin,
 };
-use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
+use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
@@ -47,16 +50,14 @@ use math::{measurements::Temperature, DistanceUnit};
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::StaticCell;
 use stepper::planner::Planner;
-use stepper::stepper::{
-    Stepper, StepperAttachment, StepperOptions,
-};
+use stepper::stepper::{Stepper, StepperAttachment, StepperOptions};
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };
 
-use {panic_probe as _, defmt_rtt as _};
+use {defmt_rtt as _, panic_probe as _};
 
-#[cfg(feature="defmt-log")]
+#[cfg(feature = "defmt-log")]
 use defmt::{error, info};
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
@@ -76,20 +77,33 @@ const HEATBED_LABEL: &'_ str = "HEATBED";
 const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
-static COMMAND_DISPATCHER_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, COMMAND_DISPATCHER_CHANNEL_LEN> =
-    Channel::new();
+static COMMAND_DISPATCHER_CHANNEL: Channel<
+    ThreadModeRawMutex,
+    String<MAX_MESSAGE_LEN>,
+    COMMAND_DISPATCHER_CHANNEL_LEN,
+> = Channel::new();
 static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, SD_CARD_CHANNEL_LEN> = Channel::new();
 static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HOTEND_CHANNEL_LEN> = Channel::new();
 static HEATBED_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HEATBED_CHANNEL_LEN> = Channel::new();
 static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, PLANNER_CHANNEL_LEN> = Channel::new();
-static FEEDBACK_CHANNEL: Channel<ThreadModeRawMutex, String<MAX_MESSAGE_LEN>, FEEDBACK_CHANNEL_LEN> = Channel::new();
-static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, EVENT_CHANNEL_CAPACITY, EVENT_CHANNEL_SUBSCRIBERS, EVENT_CHANNEL_PUBLISHERS> =
-    PubSubChannel::new();
+static FEEDBACK_CHANNEL: Channel<
+    ThreadModeRawMutex,
+    String<MAX_MESSAGE_LEN>,
+    FEEDBACK_CHANNEL_LEN,
+> = Channel::new();
+static EVENT_CHANNEL: PubSubChannel<
+    ThreadModeRawMutex,
+    PrinterEvent,
+    EVENT_CHANNEL_CAPACITY,
+    EVENT_CHANNEL_SUBSCRIBERS,
+    EVENT_CHANNEL_PUBLISHERS,
+> = PubSubChannel::new();
 
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwmWrapper<'_, PwmTimer>>> = Mutex::new(None);
-static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDma>>> = Mutex::new(None);
+static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDma>>> =
+    Mutex::new(None);
 
 #[link_section = ".ram_d3"]
 static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
@@ -112,7 +126,7 @@ async fn input_handler() {
     let rx = rx.as_mut().expect("UART RX not initialized");
     let dt = Duration::from_millis(50);
 
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     info!("Starting input handler loop");
 
     loop {
@@ -120,18 +134,18 @@ async fn input_handler() {
             for b in 0..n {
                 if tmp[b] == b'\n' {
                     COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-                    #[cfg(feature="defmt-log")]
+                    #[cfg(feature = "defmt-log")]
                     info!("[INPUT_HANDLER] {}", msg.as_str());
                     msg.clear();
                 } else if msg.push(tmp[b].into()).is_err() {
                     msg.clear();
-                    #[cfg(feature="defmt-log")]
+                    #[cfg(feature = "defmt-log")]
                     error!("Message too long");
                 }
             }
             tmp.fill(0u8);
         } else {
-            #[cfg(feature="defmt-log")]
+            #[cfg(feature = "defmt-log")]
             error!("Cannot read from UART");
         }
         Timer::after(dt).await;
@@ -154,9 +168,9 @@ async fn output_handler() {
         match tx.write(&tmp[0..len]).await {
             Ok(_) => (),
             Err(_) => {
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 error!("Cannot write to UART")
-            },
+            }
         }
         Timer::after(dt).await;
     }
@@ -166,12 +180,12 @@ async fn output_handler() {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     info!("Starting command dispatcher loop");
 
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
         if let Some(cmd) = parser.parse(msg.as_str()) {
             // info!("[COMMAND DISPATCHER] {}", cmd);
@@ -224,12 +238,12 @@ async fn command_dispatcher_task() {
                     SD_CARD_CHANNEL.send(cmd).await;
                 }
                 _ => {
-                    #[cfg(feature="defmt-log")]
+                    #[cfg(feature = "defmt-log")]
                     error!("[COMMAND DISPATCHER] command not handler")
-                },
+                }
             }
         } else {
-            #[cfg(feature="defmt-log")]
+            #[cfg(feature = "defmt-log")]
             error!("[COMMAND DISPATCHER] Invalid command");
         }
 
@@ -239,16 +253,13 @@ async fn command_dispatcher_task() {
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn hotend_handler(
-    config: ThermalActuatorConfig<HotendAdcInputPin>,
-    fan_config: FanConfig,
-) {
+async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_config: FanConfig) {
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
-    let thermistor: Thermistor<'_, AdcWrapper<_,_>> = Thermistor::new(
+    let thermistor: Thermistor<'_, AdcWrapper<_, _>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
         readings,
-        config.thermistor.options
+        config.thermistor.options,
     );
 
     let channel = timer_channel!(fan_config.pwm.channel).expect("Invalid timer channel");
@@ -257,7 +268,7 @@ async fn hotend_handler(
     let channel = timer_channel!(config.heater.pwm.channel).expect("Invalid timer channel");
     let heater = Heater::new(channel, config.heater.pid);
     let mut hotend = ThermalActuator::new(heater, thermistor);
-    
+
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let dt = Duration::from_millis(100);
@@ -274,7 +285,7 @@ async fn hotend_handler(
     loop {
         {
             let mut adc = ADC.lock().await;
-            let adc  = adc.as_mut().expect("ADC not initialized");
+            let adc = adc.as_mut().expect("ADC not initialized");
             last_temperature.replace(hotend.read_temperature(adc).await);
         }
         // SAFETY - unwrap last_temperature because it's set on the previous line
@@ -310,24 +321,33 @@ async fn hotend_handler(
         {
             report.clear();
             // SAFETY: last temperature is set before this instruction
-            task_write!(&mut report, HOTEND_LABEL, "Temperature: {}", last_temperature.unwrap()).unwrap();
+            task_write!(
+                &mut report,
+                HOTEND_LABEL,
+                "Temperature: {}",
+                last_temperature.unwrap()
+            )
+            .unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
         if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
             match cmd {
                 GCommand::M104 { s } => {
-                    #[cfg(feature="defmt-log")]
-                    info!(
-                        "[HOTEND] Target temperature: {}",
-                        s.as_celsius()
-                    );
+                    #[cfg(feature = "defmt-log")]
+                    info!("[HOTEND] Target temperature: {}", s.as_celsius());
                     hotend.set_temperature(s);
                 }
                 GCommand::M105 => {
                     report.clear();
                     // SAFETY: last temperature is set before this instruction
-                    task_write!(&mut report, HOTEND_LABEL, "Temperature: {}", last_temperature.unwrap()).unwrap();
+                    task_write!(
+                        &mut report,
+                        HOTEND_LABEL,
+                        "Temperature: {}",
+                        last_temperature.unwrap()
+                    )
+                    .unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                 }
                 GCommand::M106 { s } => {
@@ -337,7 +357,7 @@ async fn hotend_handler(
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
-                        #[cfg(feature="defmt-log")]
+                        #[cfg(feature = "defmt-log")]
                         info!(
                             "[ThermalActuator HANDLER] Fan speed: {} revs/s",
                             speed.as_rpm()
@@ -358,7 +378,7 @@ async fn hotend_handler(
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
             if let Ok(duty_cycle) = hotend.update(dt.into(), pwm, adc).await {
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
@@ -373,9 +393,7 @@ async fn hotend_handler(
 
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn heatbed_handler(
-    config: ThermalActuatorConfig<HeatbedAdcInputPin>,
-) {
+async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
@@ -404,7 +422,7 @@ async fn heatbed_handler(
     loop {
         {
             let mut adc = ADC.lock().await;
-            let adc  = adc.as_mut().expect("ADC not initialized");
+            let adc = adc.as_mut().expect("ADC not initialized");
             last_temperature.replace(heatbed.read_temperature(adc).await);
         }
 
@@ -466,7 +484,7 @@ async fn heatbed_handler(
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
             if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm, adc).await {
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
         }
@@ -526,17 +544,17 @@ async fn sdcard_handler(
         if event_channel_subscriber.try_next_message_pure().is_some() {
             if let Some(wf) = working_file {
                 volume_manager.close_file(wf).unwrap();
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 info!("File closed");
             }
             if let Some(wd) = working_dir {
                 volume_manager.close_dir(wd).unwrap();
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 info!("Directory closed");
             }
             if let Some(wv) = working_volume {
                 volume_manager.close_volume(wv).unwrap();
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 info!("Volume closed");
             }
             running = false;
@@ -571,25 +589,25 @@ async fn sdcard_handler(
                         Ok(d) => Some(d),
                         Err(_) => panic!("Cannot open root dir"),
                     };
-                    #[cfg(feature="defmt-log")]
+                    #[cfg(feature = "defmt-log")]
                     info!("Directory open");
                 }
                 GCommand::M22 => {
                     if working_file.is_some() {
                         volume_manager.close_file(working_file.unwrap()).unwrap();
-                        #[cfg(feature="defmt-log")]
+                        #[cfg(feature = "defmt-log")]
                         info!("File closed");
                     }
                     if working_dir.is_some() {
                         volume_manager.close_dir(working_dir.unwrap()).unwrap();
-                        #[cfg(feature="defmt-log")]
+                        #[cfg(feature = "defmt-log")]
                         info!("Directory closed");
                     }
                     if working_volume.is_some() {
                         volume_manager
                             .close_volume(working_volume.unwrap())
                             .unwrap();
-                        #[cfg(feature="defmt-log")]
+                        #[cfg(feature = "defmt-log")]
                         info!("Volume closed");
                     }
                 }
@@ -603,7 +621,7 @@ async fn sdcard_handler(
                         Ok(f) => Some(f),
                         Err(_) => panic!("File not found"),
                     };
-                    #[cfg(feature="defmt-log")]
+                    #[cfg(feature = "defmt-log")]
                     info!("Working file set");
                 }
                 // ignore the parameters of M24, just start/resume the print
@@ -621,7 +639,13 @@ async fn sdcard_handler(
                 }
                 GCommand::M31 => {
                     report.clear();
-                    task_write!(&mut report, SD_CARD_LABEL, "Time elapsed: {}", clock.measure().as_millis()).unwrap();
+                    task_write!(
+                        &mut report,
+                        SD_CARD_LABEL,
+                        "Time elapsed: {}",
+                        clock.measure().as_millis()
+                    )
+                    .unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                 }
                 _ => todo!(),
@@ -633,7 +657,7 @@ async fn sdcard_handler(
                 for b in 0..n {
                     if tmp[b] == b'\n' {
                         COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
-                        #[cfg(feature="defmt-log")]
+                        #[cfg(feature = "defmt-log")]
                         info!("[INPUT_HANDLER] {}", msg.as_str());
                         msg.clear();
                     } else {
@@ -742,14 +766,15 @@ async fn planner_handler(
 
     let endstops = (Some(x_endstop), Some(y_endstop), Some(z_endstop), None);
 
-    let mut planner: Planner<OutputPinWrapper<'_>, StepperTimer, ExtiInputPinWrapper> = Planner::new(
-        x_stepper,
-        y_stepper,
-        z_stepper,
-        e_stepper,
-        motion_config,
-        endstops,
-    );
+    let mut planner: Planner<OutputPinWrapper<'_>, StepperTimer, ExtiInputPinWrapper> =
+        Planner::new(
+            x_stepper,
+            y_stepper,
+            z_stepper,
+            e_stepper,
+            motion_config,
+            endstops,
+        );
 
     let dt = Duration::from_millis(500);
     let mut event_channel_subscriber = EVENT_CHANNEL
@@ -842,7 +867,7 @@ async fn planner_handler(
                     planner.get_y_position(),
                     planner.get_z_position(),
                 )
-                .unwrap();                
+                .unwrap();
                 FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             }
             GCommand::D114 => {
@@ -852,11 +877,11 @@ async fn planner_handler(
                 debug = false;
             }
             _ => {
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 error!("[PLANNER HANDLER] command not handled")
-            },
+            }
         }
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("[PLANNER HANDLER] Move completed");
         Timer::after(dt).await;
     }
@@ -912,7 +937,8 @@ async fn main(spawner: Spawner) {
         printer_config.uart.tx.dma,
         printer_config.uart.rx.dma,
         uart_config,
-    ).expect("UART configuration not valid");
+    )
+    .expect("UART configuration not valid");
 
     let (tx, rx) = uart.split();
 
@@ -926,14 +952,23 @@ async fn main(spawner: Spawner) {
         uart_tx.replace(tx);
     }
 
-    let pwm= SimplePwm::new(
+    let pwm = SimplePwm::new(
         printer_config.pwm.timer,
-        Some(PwmPin::new_ch1(printer_config.pwm.ch1, OutputType::PushPull)),
-        Some(PwmPin::new_ch2(printer_config.pwm.ch2, OutputType::PushPull)),
-        Some(PwmPin::new_ch3(printer_config.pwm.ch3, OutputType::PushPull)),
+        Some(PwmPin::new_ch1(
+            printer_config.pwm.ch1,
+            OutputType::PushPull,
+        )),
+        Some(PwmPin::new_ch2(
+            printer_config.pwm.ch2,
+            OutputType::PushPull,
+        )),
+        Some(PwmPin::new_ch3(
+            printer_config.pwm.ch3,
+            OutputType::PushPull,
+        )),
         None,
         khz(1),
-        CountingMode::EdgeAlignedUp
+        CountingMode::EdgeAlignedUp,
     );
     let pwm = SimplePwmWrapper::new(pwm);
 
@@ -943,7 +978,11 @@ async fn main(spawner: Spawner) {
     }
 
     let adc = Adc::new(printer_config.adc.peripheral);
-    let adc = AdcWrapper::new(adc, printer_config.adc.dma, ResolutionWrapper::new(Resolution::BITS12));
+    let adc = AdcWrapper::new(
+        adc,
+        printer_config.adc.dma,
+        ResolutionWrapper::new(Resolution::BITS12),
+    );
     {
         let mut adc_global = ADC.lock().await;
         adc_global.replace(adc);
@@ -976,7 +1015,7 @@ async fn main(spawner: Spawner) {
         .unwrap();
 
     loop {
-        #[cfg(feature="defmt-log")]
+        #[cfg(feature = "defmt-log")]
         info!("[MAIN LOOP] alive");
         Timer::after(Duration::from_secs(1)).await;
     }

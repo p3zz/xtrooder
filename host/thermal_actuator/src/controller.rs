@@ -27,7 +27,12 @@ impl<'a, P: PwmBase, A: AdcBase> ThermalActuator<'a, P, A> {
         self.heater.set_target_temperature(temperature);
     }
 
-    pub async fn update(&mut self, dt: Duration, pwm: &mut P, adc: &mut A) -> Result<(Temperature, u64), ()> {
+    pub async fn update(
+        &mut self,
+        dt: Duration,
+        pwm: &mut P,
+        adc: &mut A,
+    ) -> Result<(Temperature, u64), ()> {
         let curr_tmp = self.read_temperature(adc).await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
         let duty_cycle = self.heater.update(curr_tmp, dt, pwm)?;
@@ -70,7 +75,7 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl PwmWrapper{
+    impl PwmWrapper {
         fn new() -> Self {
             Self {
                 ch1: PwmChannel::default(),
@@ -135,7 +140,7 @@ mod tests {
         value: u16,
     }
 
-    impl AdcWrapper{
+    impl AdcWrapper {
         pub fn new() -> Self {
             Self {
                 resolution: Resolution::BITS12,
@@ -159,18 +164,13 @@ mod tests {
             self.resolution = resolution;
         }
 
-        async fn read(
-            &mut self,
-            _pin: &mut (),
-            readings: &mut [u16],
-        ) {
+        async fn read(&mut self, _pin: &mut (), readings: &mut [u16]) {
             readings[0] = self.value
         }
-        
+
         fn resolution(&self) -> Self::Resolution {
             self.resolution
         }
-        
     }
 
     #[tokio::test]
@@ -194,13 +194,15 @@ mod tests {
                 r_series: Resistance::from_ohms(10_000.0),
                 r0: Resistance::from_ohms(10_000.0),
                 b: Temperature::from_kelvin(3950.0),
-                samples: 1
+                samples: 1,
             },
         );
         let mut actuator = ThermalActuator::new(heater, thermistor);
         actuator.enable(&mut pwm);
         actuator.set_temperature(target_temp);
-        let temp = actuator.update(Duration::from_millis(50), &mut pwm, &mut adc).await;
+        let temp = actuator
+            .update(Duration::from_millis(50), &mut pwm, &mut adc)
+            .await;
         assert_eq!(26.984236773480745, temp.unwrap().0.as_celsius());
         assert_eq!(3616, temp.unwrap().1);
     }

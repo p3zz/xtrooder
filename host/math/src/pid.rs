@@ -19,15 +19,15 @@ impl PID {
             prev_error: 0.0,
             integral: 0.0,
             bounds: None,
-            target: None
+            target: None,
         }
     }
 
-    pub fn set_target(&mut self, target: f64){
+    pub fn set_target(&mut self, target: f64) {
         self.target = Some(target);
     }
 
-    pub fn reset_target(&mut self){
+    pub fn reset_target(&mut self) {
         self.target = None;
     }
 
@@ -35,12 +35,12 @@ impl PID {
         self.target
     }
 
-    pub fn set_output_bounds(&mut self, min: f64, max: f64){
+    pub fn set_output_bounds(&mut self, min: f64, max: f64) {
         self.bounds = Some((min, max));
     }
 
     pub fn update(&mut self, current: f64, dt: Duration) -> Result<f64, ()> {
-        if self.target.is_none(){
+        if self.target.is_none() {
             return Err(());
         }
         let target = self.target.unwrap();
@@ -51,12 +51,11 @@ impl PID {
 
         // Integral term (only update if within output bounds)
         let out = proportional + self.ki * self.integral;
-        if let Some(bounds) = self.bounds{
-            if out >= bounds.0 && out <= bounds.1{
+        if let Some(bounds) = self.bounds {
+            if out >= bounds.0 && out <= bounds.1 {
                 self.integral += error * dt.as_secs_f64();
             }
-        }
-        else{
+        } else {
             self.integral += error * dt.as_secs_f64();
         }
 
@@ -66,7 +65,7 @@ impl PID {
 
         // Compute total output
         let mut output = out + self.kd * derivative;
-        if let Some(bounds) = self.bounds{
+        if let Some(bounds) = self.bounds {
             output = output.clamp(bounds.0, bounds.1);
         }
 
@@ -74,11 +73,11 @@ impl PID {
     }
 }
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
-    fn test_pid(){
+    fn test_pid() {
         let elapsed = Duration::from_millis(40);
         let mut pid = PID::new(30.0, 0.0, 3.0);
         pid.set_target(30.0);

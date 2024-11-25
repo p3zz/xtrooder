@@ -6,9 +6,7 @@ use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDir
 use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
-use crate::stepper::{
-    Attached, AttachmentMode, Stepper, StepperError,
-};
+use crate::stepper::{Attached, AttachmentMode, Stepper, StepperError};
 
 use common::{ExtiInputPinBase, OutputPinBase, TimerBase};
 
@@ -463,12 +461,7 @@ pub async fn arc_move_3d_e_offset_from_center<
     .await
 }
 
-pub async fn auto_home<
-    I: ExtiInputPinBase,
-    O: OutputPinBase,
-    T: TimerBase,
-    M: AttachmentMode,
->(
+pub async fn auto_home<I: ExtiInputPinBase, O: OutputPinBase, T: TimerBase, M: AttachmentMode>(
     stepper: &mut Stepper<O, M>,
     trigger: &I,
 ) -> Result<Duration, StepperError> {
@@ -495,10 +488,7 @@ pub async fn auto_home<
 }
 
 pub async fn retract<O: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
-    steppers: (
-        &mut Stepper<O, Attached>,
-        &mut Stepper<O, Attached>
-    ),
+    steppers: (&mut Stepper<O, Attached>, &mut Stepper<O, Attached>),
     e_speed: Speed,
     e_distance: Distance,
     z_distance: Distance,

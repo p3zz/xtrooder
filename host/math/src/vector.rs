@@ -53,7 +53,7 @@ where
         let n = self.dot(other);
         let mag = self.get_magnitude();
         let d = mag.as_base_units() * mag.as_base_units();
-        if d == 0f64{
+        if d == 0f64 {
             return Angle::from_radians(0f64);
         }
         let res = n / d;
@@ -67,7 +67,7 @@ where
 
     pub fn normalize(&self) -> Vector2D<f64> {
         let mag = self.get_magnitude();
-        if mag.as_base_units() == 0f64{
+        if mag.as_base_units() == 0f64 {
             return Vector2D::new(0f64, 0f64);
         }
         let x = self.x.as_base_units() / mag.as_base_units();
@@ -103,7 +103,9 @@ where
 }
 
 impl<M> Mul<f64> for Vector2D<M>
-where M: Mul<f64, Output = M> + Clone + Copy{
+where
+    M: Mul<f64, Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
@@ -114,7 +116,9 @@ where M: Mul<f64, Output = M> + Clone + Copy{
 }
 
 impl<M> Div<f64> for Vector2D<M>
-where M: Div<f64, Output = M> + Clone + Copy{
+where
+    M: Div<f64, Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn div(self, rhs: f64) -> Self::Output {
@@ -166,7 +170,7 @@ where
 
     pub fn normalize(&self) -> Vector3D<f64> {
         let mag = self.get_magnitude();
-        if mag.as_base_units() == 0f64{
+        if mag.as_base_units() == 0f64 {
             return Vector3D::new(0f64, 0f64, 0f64);
         }
         let x = self.x.as_base_units() / mag.as_base_units();
@@ -205,7 +209,9 @@ where
 }
 
 impl<M> Mul<f64> for Vector3D<M>
-where M: Mul<f64, Output = M> + Clone + Copy{
+where
+    M: Mul<f64, Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
@@ -217,7 +223,9 @@ where M: Mul<f64, Output = M> + Clone + Copy{
 }
 
 impl<M> Div<f64> for Vector3D<M>
-where M: Div<f64, Output = M> + Clone + Copy{
+where
+    M: Div<f64, Output = M> + Clone + Copy,
+{
     type Output = Self;
 
     fn div(self, rhs: f64) -> Self::Output {

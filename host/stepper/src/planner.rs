@@ -12,7 +12,7 @@ use math::measurements::{Distance, Length, Speed};
 use math::vector::{Vector2D, Vector3D};
 use parser::gcode::GCommand;
 
-use common::{TimerBase, ExtiInputPinBase, OutputPinBase};
+use common::{ExtiInputPinBase, OutputPinBase, TimerBase};
 
 #[derive(Clone, Copy)]
 pub struct RecoverMotionConfig {

@@ -15,7 +15,7 @@ pub struct ThermistorConfig {
     pub r_series: Resistance,
     pub r0: Resistance,
     pub b: Temperature,
-    pub samples: u64
+    pub samples: u64,
 }
 
 pub struct Thermistor<'a, A: AdcBase> {
@@ -44,17 +44,12 @@ impl<'a, A: AdcBase> Thermistor<'a, A> {
     pub async fn read_temperature(&mut self, adc: &mut A) -> Temperature {
         let readings = self.readings.as_mut();
         let mut data = 0u64;
-        for _ in 0..self.config.samples{
-            adc
-            .read(
-                &mut self.read_pin,
-                readings,
-            )
-            .await;
+        for _ in 0..self.config.samples {
+            adc.read(&mut self.read_pin, readings).await;
             data += u64::from(readings[0]);
         }
         let reading = data / self.config.samples;
-        
+
         compute_ntf_thermistor_temperature(
             reading,
             adc.resolution().into(),
@@ -88,9 +83,9 @@ mod tests {
         value: u16,
     }
 
-    impl AdcWrapper{
-        pub fn new() -> Self{
-            Self{
+    impl AdcWrapper {
+        pub fn new() -> Self {
+            Self {
                 resolution: Resolution::BITS12,
                 value: 2048,
             }
@@ -114,18 +109,13 @@ mod tests {
             self.resolution = resolution;
         }
 
-        async fn read(
-            &mut self,
-            _pin: &mut (),
-            readings: &mut [u16],
-        ) {
+        async fn read(&mut self, _pin: &mut (), readings: &mut [u16]) {
             readings[0] = self.value
         }
-        
+
         fn resolution(&self) -> Self::Resolution {
             self.resolution
         }
-        
     }
 
     #[tokio::test]
@@ -139,7 +129,7 @@ mod tests {
                 r_series: Resistance::from_ohms(10_000.0),
                 r0: Resistance::from_ohms(10_000.0),
                 b: Temperature::from_kelvin(3950.0),
-                samples: 1
+                samples: 1,
             },
         );
         let t = thermistor.read_temperature(&mut adc).await;

@@ -3,14 +3,17 @@
 
 use core::fmt::Display;
 
-use common::{AdcBase, PwmBase, ExtiInputPinBase, OutputPinBase, TimerBase};
+use common::{AdcBase, ExtiInputPinBase, OutputPinBase, PwmBase, TimerBase};
 use embassy_stm32::{
-    adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime}, exti::ExtiInput, gpio::Output, timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel}
+    adc::{Adc, AnyAdcChannel, Instance, Resolution, RxDma, SampleTime},
+    exti::ExtiInput,
+    gpio::Output,
+    timer::{simple_pwm::SimplePwm, Channel, GeneralInstance4Channel},
 };
-use math::measurements::Temperature;
-use stepper::stepper::StepperError;
 use embassy_time::{Duration, Instant, Timer};
 use embedded_sdmmc::{TimeSource, Timestamp};
+use math::measurements::Temperature;
+use stepper::stepper::StepperError;
 
 pub mod config;
 pub mod ext;
@@ -58,9 +61,9 @@ pub struct OutputPinWrapper<'a> {
     pin: Output<'a>,
 }
 
-impl <'a> OutputPinWrapper<'a>{
+impl<'a> OutputPinWrapper<'a> {
     pub fn new(pin: Output<'a>) -> Self {
-        Self{pin}
+        Self { pin }
     }
 }
 
@@ -82,9 +85,9 @@ pub struct ExtiInputPinWrapper<'a> {
     pin: ExtiInput<'a>,
 }
 
-impl <'a> ExtiInputPinWrapper<'a>{
+impl<'a> ExtiInputPinWrapper<'a> {
     pub fn new(pin: ExtiInput<'a>) -> Self {
-        Self{pin}
+        Self { pin }
     }
 }
 
@@ -113,13 +116,7 @@ impl TimerBase for StepperTimer {
 #[macro_export]
 macro_rules! init_output_pin {
     ($config: expr) => {
-        app::OutputPinWrapper::new(
-            Output::new(
-                $config,
-                Level::Low,
-                PinSpeed::Low
-            )
-        )
+        app::OutputPinWrapper::new(Output::new($config, Level::Low, PinSpeed::Low))
     };
 }
 
@@ -171,7 +168,6 @@ macro_rules! task_write {
     };
 }
 
-
 pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel> {
     inner: SimplePwm<'a, T>,
 }
@@ -181,7 +177,6 @@ impl<'a, T: GeneralInstance4Channel> SimplePwmWrapper<'a, T> {
         Self { inner: p }
     }
 }
-
 
 impl<T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'_, T> {
     type Channel = Channel;
@@ -232,7 +227,7 @@ impl From<ResolutionWrapper> for u64 {
 pub struct AdcWrapper<'a, T: Instance, D: RxDma<T>> {
     inner: Adc<'a, T>,
     dma: D,
-    resolution: ResolutionWrapper
+    resolution: ResolutionWrapper,
 }
 
 impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
@@ -240,14 +235,12 @@ impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
         Self {
             inner: adc,
             dma,
-            resolution
+            resolution,
         }
     }
 }
 
-
 impl<'a, T: Instance, D: RxDma<T>> AdcBase for AdcWrapper<'a, T, D> {
-    
     type PinType = AnyAdcChannel<T>;
 
     type SampleTime = SampleTime;
@@ -273,13 +266,13 @@ impl<'a, T: Instance, D: RxDma<T>> AdcBase for AdcWrapper<'a, T, D> {
         readings: &mut [u16],
     ) -> impl core::future::Future<Output = ()> {
         let sample_time = self.sample_time();
-        self.inner.read(&mut self.dma, [(pin, sample_time)].into_iter(), readings)
+        self.inner
+            .read(&mut self.dma, [(pin, sample_time)].into_iter(), readings)
     }
-    
+
     fn resolution(&self) -> Self::Resolution {
         self.resolution
     }
-    
 }
 
 #[derive(Clone, Copy)]

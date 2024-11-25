@@ -18,7 +18,7 @@ use thermal_actuator::heater::Heater;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 use {defmt_rtt as _, panic_probe as _};
 
-#[cfg(feature="defmt-log")]
+#[cfg(feature = "defmt-log")]
 use defmt::{error, info, println};
 
 #[link_section = ".ram_d3"]
@@ -74,7 +74,7 @@ async fn main(_spawner: Spawner) {
             r_series: Resistance::from_ohms(10_000.0),
             r0: Resistance::from_ohms(100_000.0),
             b: Temperature::from_kelvin(3950.0),
-            samples: 5
+            samples: 5,
         },
     );
 
@@ -107,23 +107,31 @@ async fn main(_spawner: Spawner) {
     hotend.enable(&mut heater_out_wrapper);
 
     hotend.set_temperature(Temperature::from_celsius(200f64));
-    
-    #[cfg(feature="defmt-log")]
+
+    #[cfg(feature = "defmt-log")]
     info!("ThermalActuator example");
     let dt = Duration::from_millis(10);
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
     loop {
-        match hotend.update(dt.into(), &mut heater_out_wrapper, &mut adc).await {
+        match hotend
+            .update(dt.into(), &mut heater_out_wrapper, &mut adc)
+            .await
+        {
             Ok(r) => {
-                #[cfg(feature="defmt-log")]
-                println!("Dt: {}\tTemperaure: {}\tDuty cycle: {}", dt.as_millis(), r.0.as_celsius(), r.1);
-            },
+                #[cfg(feature = "defmt-log")]
+                println!(
+                    "Dt: {}\tTemperaure: {}\tDuty cycle: {}",
+                    dt.as_millis(),
+                    r.0.as_celsius(),
+                    r.1
+                );
+            }
             Err(_) => {
-                #[cfg(feature="defmt-log")]
+                #[cfg(feature = "defmt-log")]
                 error!("Target temperature not set")
-            },
+            }
         };
         Timer::after(dt).await;
     }

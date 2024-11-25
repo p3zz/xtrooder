@@ -91,9 +91,7 @@ pub fn angular_velocity_from_speed(
     if distance_per_revolution.as_millimeters() == 0f64 {
         return AngularVelocity::from_rpm(0.0);
     }
-    AngularVelocity::from_hertz(
-        speed.as_meters_per_second() / distance_per_revolution.as_meters()
-    )
+    AngularVelocity::from_hertz(speed.as_meters_per_second() / distance_per_revolution.as_meters())
 }
 
 pub fn angular_velocity_from_steps(
@@ -114,9 +112,7 @@ pub fn speed_from_angular_velocity(
     distance_per_step: Distance,
 ) -> Speed {
     let distance_per_revolution = steps_per_revolution as f64 * distance_per_step;
-    Speed::from_meters_per_second(
-        distance_per_revolution.as_meters() * angular_velocity.as_hertz()
-    )
+    Speed::from_meters_per_second(distance_per_revolution.as_meters() * angular_velocity.as_hertz())
 }
 
 pub fn compute_arc_length(
@@ -199,7 +195,8 @@ mod tests {
         common::{
             angular_velocity_from_steps, compute_arc_length, compute_step_duration,
             speed_from_angular_velocity, RotationDirection,
-        }, vector::Vector2D
+        },
+        vector::Vector2D,
     };
     use measurements::{AngularVelocity, Distance, Speed};
 

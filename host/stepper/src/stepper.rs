@@ -1,3 +1,4 @@
+use common::{OutputPinBase, TimerBase};
 use core::fmt::Display;
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -7,7 +8,6 @@ use math::common::{
     speed_from_angular_velocity,
 };
 use math::measurements::{AngularVelocity, Distance, Speed};
-use common::{OutputPinBase, TimerBase};
 
 #[derive(Clone, Copy)]
 pub struct StepperAttachment {
@@ -314,7 +314,8 @@ impl<P: OutputPinBase> Stepper<P, Attached> {
         // distance as well
         let steps_n = steps_n * u64::from(u8::from(self.options.stepping_mode));
 
-        let direction = distance.as_millimeters() * f64::from(i8::from(self.options.positive_direction));
+        let direction =
+            distance.as_millimeters() * f64::from(i8::from(self.options.positive_direction));
 
         let direction = if direction.is_sign_positive() {
             RotationDirection::Clockwise
@@ -502,7 +503,7 @@ mod tests {
     async fn test_stepper_move_counterclockwise_option() {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
-        let options = StepperOptions{
+        let options = StepperOptions {
             steps_per_revolution: 200,
             stepping_mode: SteppingMode::FullStep,
             bounds: None,
@@ -883,7 +884,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_stepper_move_to(){
+    async fn test_stepper_move_to() {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
         let options = StepperOptions::default();
@@ -894,19 +895,20 @@ mod tests {
         s.set_speed_from_attachment(speed);
         let t = s.move_to_destination::<StepperTimer>(dest).await;
         assert!(t.is_ok());
-        assert_abs_diff_eq!(
-            80.0,
-            s.get_position().as_millimeters(),
-            epsilon = 0.0000001
-        );
+        assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
         assert_eq!(80.0, s.get_steps());
     }
 
     #[tokio::test]
-    async fn test_stepper_move_to_counterclockwise(){
+    async fn test_stepper_move_to_counterclockwise() {
         let step = StatefulOutputPinMock::new();
         let direction = StatefulOutputPinMock::new();
-        let options = StepperOptions { steps_per_revolution: 200, stepping_mode: SteppingMode::FullStep, bounds: None, positive_direction: RotationDirection::CounterClockwise };
+        let options = StepperOptions {
+            steps_per_revolution: 200,
+            stepping_mode: SteppingMode::FullStep,
+            bounds: None,
+            positive_direction: RotationDirection::CounterClockwise,
+        };
         let speed = Speed::from_meters_per_second(3.0);
         let dest = Distance::from_millimeters(80.0);
         let mut s =
@@ -914,11 +916,7 @@ mod tests {
         s.set_speed_from_attachment(speed);
         let t = s.move_to_destination::<StepperTimer>(dest).await;
         assert!(t.is_ok());
-        assert_abs_diff_eq!(
-            80.0,
-            s.get_position().as_millimeters(),
-            epsilon = 0.0000001
-        );
+        assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
         assert_eq!(80.0, s.get_steps());
         let t = s.move_to_destination::<StepperTimer>(-1.0 * dest).await;
         assert!(t.is_ok());

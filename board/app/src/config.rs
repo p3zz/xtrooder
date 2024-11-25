@@ -96,7 +96,7 @@ pub struct PrinterConfig<
 
 pub struct AdcConfig<I, D> {
     pub peripheral: I,
-    pub dma: D
+    pub dma: D,
 }
 
 pub struct PwmConfig<T, CH1, CH2, CH3> {
