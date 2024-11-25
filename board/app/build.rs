@@ -974,7 +974,7 @@ fn main() {
                         stepping_mode: SteppingMode::from(#steppers_x_stepping_mode),
                         distance_per_step: Distance::from_millimeters(#steppers_x_distance_per_step),
                         steps_per_revolution: #steppers_x_steps_per_revolution,
-                        bounds: (#steppers_x_bounds_min, #steppers_x_bounds_max),
+                        bounds: (Distance::from_millimeters(#steppers_x_bounds_min), Distance::from_millimeters(#steppers_x_bounds_max)),
                         positive_direction: RotationDirection::from(#steppers_x_positive_direction),
                     },
                     y: StepperConfig{
@@ -983,7 +983,7 @@ fn main() {
                         stepping_mode: SteppingMode::from(#steppers_y_stepping_mode),
                         distance_per_step: Distance::from_millimeters(#steppers_y_distance_per_step),
                         steps_per_revolution: #steppers_y_steps_per_revolution,
-                        bounds: (#steppers_y_bounds_min, #steppers_y_bounds_max),
+                        bounds: (Distance::from_millimeters(#steppers_y_bounds_min), Distance::from_millimeters(#steppers_y_bounds_max)),
                         positive_direction: RotationDirection::from(#steppers_y_positive_direction),
                     },
                     z: StepperConfig{
@@ -992,7 +992,7 @@ fn main() {
                         stepping_mode: SteppingMode::from(#steppers_z_stepping_mode),
                         distance_per_step: Distance::from_millimeters(#steppers_z_distance_per_step),
                         steps_per_revolution: #steppers_z_steps_per_revolution,
-                        bounds: (#steppers_z_bounds_min, #steppers_z_bounds_max),
+                        bounds: (Distance::from_millimeters(#steppers_z_bounds_min), Distance::from_millimeters(#steppers_z_bounds_max)),
                         positive_direction: RotationDirection::from(#steppers_z_positive_direction),
                     },
                     e: StepperConfig{
@@ -1001,7 +1001,7 @@ fn main() {
                         stepping_mode: SteppingMode::from(#steppers_e_stepping_mode),
                         distance_per_step: Distance::from_millimeters(#steppers_e_distance_per_step),
                         steps_per_revolution: #steppers_e_steps_per_revolution,
-                        bounds: (#steppers_e_bounds_min, #steppers_e_bounds_max),
+                        bounds: (Distance::from_millimeters(#steppers_e_bounds_min), Distance::from_millimeters(#steppers_e_bounds_max)),
                         positive_direction: RotationDirection::from(#steppers_e_positive_direction),
                     },
                 },

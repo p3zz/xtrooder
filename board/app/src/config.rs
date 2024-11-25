@@ -1,6 +1,6 @@
 use math::{
     common::RotationDirection,
-    measurements::{AngularVelocity, Length, Temperature},
+    measurements::{AngularVelocity, Distance, Length, Temperature},
 };
 pub use stepper::planner::MotionConfig;
 use stepper::stepper::SteppingMode;
@@ -25,7 +25,7 @@ pub struct StepperConfig<S, D> {
     pub stepping_mode: SteppingMode,
     pub distance_per_step: Length,
     pub steps_per_revolution: u64,
-    pub bounds: (f64, f64),
+    pub bounds: (Distance, Distance),
     pub positive_direction: RotationDirection,
 }
 

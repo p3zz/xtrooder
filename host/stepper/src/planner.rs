@@ -490,15 +490,15 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
         let mut duration = Duration::ZERO;
         if enabled.0 {
             let e = self.endstops.0.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_, _, T, _>(&mut self.x_stepper, e).await?;
+            duration += auto_home::<_, _, T>(&mut self.x_stepper, e).await?;
         }
         if enabled.1 {
             let e = self.endstops.1.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_, _, T, _>(&mut self.y_stepper, e).await?;
+            duration += auto_home::<_, _, T>(&mut self.y_stepper, e).await?;
         }
         if enabled.2 {
             let e = self.endstops.2.as_ref().ok_or(StepperError::MoveNotValid)?;
-            duration += auto_home::<_, _, T, _>(&mut self.z_stepper, e).await?;
+            duration += auto_home::<_, _, T>(&mut self.z_stepper, e).await?;
         }
         Ok(duration)
     }

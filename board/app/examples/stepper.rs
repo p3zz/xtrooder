@@ -41,27 +41,73 @@ async fn main(_spawner: Spawner) {
             steps_per_revolution: 200,
             stepping_mode: SteppingMode::FullStep,
             bounds: None,
-            positive_direction: RotationDirection::CounterClockwise
+            positive_direction: RotationDirection::CounterClockwise,
+            acceleration: Some(AngularVelocity::from_rpm(6.0))
         },
         StepperAttachment {
             distance_per_step: Length::from_millimeters(0.15)
         }
     );
-    stepper_x.set_speed(AngularVelocity::from_rpm(180.0));
+    stepper_x.set_speed(AngularVelocity::from_rpm(200.0));
     let mut stepper_y = init_stepper!(
         p.PC11,
         p.PC10,
-        StepperOptions::default(),
+        StepperOptions {
+            steps_per_revolution: 200,
+            stepping_mode: SteppingMode::FullStep,
+            bounds: None,
+            positive_direction: RotationDirection::CounterClockwise,
+            acceleration: Some(AngularVelocity::from_rpm(6.0))
+        },
         StepperAttachment {
             distance_per_step: Length::from_millimeters(0.15)
         }
     );
+    stepper_y.set_speed(AngularVelocity::from_rpm(200.0));
     // let mut stepper_z = init_stepper!(p.PD2, p.PC12, StepperOptions::default(), StepperAttachment {
     //     distance_per_step: Length::from_millimeters(0.15)
     // });
     Timer::after_millis(1000).await;
 
     loop {
+        stepper_x.set_direction(RotationDirection::Clockwise);
+        if let Ok(d) = stepper_x.move_for_steps_accelerated::<StepperTimer>(
+            500, 
+            AngularVelocity::from_rpm(30.0)).await{
+            #[cfg(feature="defmt-log")]
+            info!("duration: {}", d);
+        }
+        stepper_x.set_direction(RotationDirection::CounterClockwise);
+        if let Ok(d) = stepper_x.move_for_steps_accelerated::<StepperTimer>(
+            500, 
+            AngularVelocity::from_rpm(30.0)).await{
+            #[cfg(feature="defmt-log")]
+            info!("duration: {}", d);
+        }
+
+        stepper_y.set_direction(RotationDirection::Clockwise);
+        if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
+            500, 
+            AngularVelocity::from_rpm(30.0)).await{
+            #[cfg(feature="defmt-log")]
+            info!("duration: {}", d);
+        }
+        stepper_y.set_direction(RotationDirection::CounterClockwise);
+        if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
+            500,
+            AngularVelocity::from_rpm(30.0)).await{
+            #[cfg(feature="defmt-log")]
+            info!("duration: {}", d);
+        }
+
+        // if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(500).await{
+        // }
+
+        // stepper_x.set_direction(RotationDirection::CounterClockwise);
+
+        // if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(500).await{
+        // }
+
         // stepper_x.set_direction(RotationDirection::Clockwise);
         // stepper_x.move_for_steps::<StepperTimer>(400).await;
         // stepper_x.set_direction(RotationDirection::CounterClockwise);
@@ -121,35 +167,35 @@ async fn main(_spawner: Spawner) {
         //     info!("duration: {}", d.as_millis());
         // }
 
-        if let Ok(d) = linear_move_to_2d::<_, StepperTimer, ExtiInputPinWrapper>(
-            (&mut stepper_x, &mut stepper_y),
-            Vector2D::new(
-                Distance::from_centimeters(5.0),
-                Distance::from_centimeters(4.0),
-            ),
-            Speed::from_meters_per_second(0.18),
-            (&mut None, &mut None),
-        )
-        .await
-        {
-            #[cfg(feature = "defmt-log")]
-            info!("duration: {}", d.as_millis());
-        }
+        // if let Ok(d) = linear_move_to_2d::<_, StepperTimer, ExtiInputPinWrapper>(
+        //     (&mut stepper_x, &mut stepper_y),
+        //     Vector2D::new(
+        //         Distance::from_centimeters(5.0),
+        //         Distance::from_centimeters(4.0),
+        //     ),
+        //     Speed::from_meters_per_second(0.18),
+        //     (&mut None, &mut None),
+        // )
+        // .await
+        // {
+        //     #[cfg(feature = "defmt-log")]
+        //     info!("duration: {}", d.as_millis());
+        // }
 
-        if let Ok(d) = linear_move_to_2d::<_, StepperTimer, ExtiInputPinWrapper>(
-            (&mut stepper_x, &mut stepper_y),
-            Vector2D::new(
-                Distance::from_centimeters(-5.0),
-                Distance::from_centimeters(-4.0),
-            ),
-            Speed::from_meters_per_second(0.18),
-            (&mut None, &mut None),
-        )
-        .await
-        {
-            #[cfg(feature = "defmt-log")]
-            info!("duration: {}", d.as_millis());
-        }
+        // if let Ok(d) = linear_move_to_2d::<_, StepperTimer, ExtiInputPinWrapper>(
+        //     (&mut stepper_x, &mut stepper_y),
+        //     Vector2D::new(
+        //         Distance::from_centimeters(-5.0),
+        //         Distance::from_centimeters(-4.0),
+        //     ),
+        //     Speed::from_meters_per_second(0.18),
+        //     (&mut None, &mut None),
+        // )
+        // .await
+        // {
+        //     #[cfg(feature = "defmt-log")]
+        //     info!("duration: {}", d.as_millis());
+        // }
         // #[cfg(feature="defmt-log")]
         // info!("Position: {}", stepper.get_position().as_millimeters());
 

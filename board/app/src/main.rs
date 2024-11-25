@@ -715,6 +715,7 @@ async fn planner_handler(
             stepping_mode: config.x.stepping_mode,
             bounds: Some(config.x.bounds),
             positive_direction: config.x.positive_direction,
+            acceleration: None
         },
         StepperAttachment {
             distance_per_step: config.x.distance_per_step,
@@ -729,6 +730,7 @@ async fn planner_handler(
             stepping_mode: config.y.stepping_mode,
             bounds: Some(config.y.bounds),
             positive_direction: config.y.positive_direction,
+            acceleration: None
         },
         StepperAttachment {
             distance_per_step: config.y.distance_per_step,
@@ -743,6 +745,7 @@ async fn planner_handler(
             stepping_mode: config.z.stepping_mode,
             bounds: Some(config.z.bounds),
             positive_direction: config.z.positive_direction,
+            acceleration: None
         },
         StepperAttachment {
             distance_per_step: config.z.distance_per_step,
@@ -757,6 +760,7 @@ async fn planner_handler(
             stepping_mode: config.e.stepping_mode,
             bounds: Some(config.e.bounds),
             positive_direction: config.e.positive_direction,
+            acceleration: None
         },
         StepperAttachment {
             distance_per_step: config.e.distance_per_step,
