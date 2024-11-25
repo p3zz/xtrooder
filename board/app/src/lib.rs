@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use core::{fmt::Display, marker::PhantomData};
+use core::fmt::Display;
 
 use common::{AdcBase, PwmBase, ExtiInputPinBase, OutputPinBase, TimerBase};
 use embassy_stm32::{
@@ -183,7 +183,7 @@ impl<'a, T: GeneralInstance4Channel> SimplePwmWrapper<'a, T> {
 }
 
 
-impl<'a, T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'a, T> {
+impl<T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'_, T> {
     type Channel = Channel;
 
     fn enable(&mut self, channel: Self::Channel) {
