@@ -245,7 +245,7 @@ async fn hotend_handler(
 ) {
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
-    let thermistor: Thermistor<'_, AdcWrapper<AdcPeripheral,AdcDma>> = Thermistor::new(
+    let thermistor: Thermistor<'_, AdcWrapper<_,_>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
         readings,
         config.thermistor.options
