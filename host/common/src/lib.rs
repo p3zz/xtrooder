@@ -14,9 +14,9 @@ pub struct PwmOutputConfig {
 
 pub trait PwmBase {
     type Channel: Copy + Clone;
-    type Pwm;
+    // type Pwm;
 
-    fn new(p: Self::Pwm) -> Self;
+    // fn new(p: Self::Pwm) -> Self;
     fn enable(&mut self, channel: Self::Channel);
     fn disable(&mut self, channel: Self::Channel);
     fn get_max_duty(&self) -> u64;
@@ -25,19 +25,16 @@ pub trait PwmBase {
 
 pub trait AdcBase {
     type PinType;
-    type DmaType;
-    type PeriType;
     type SampleTime: Copy + Clone;
     type Resolution: Copy + Clone + Into<u64>;
 
-    fn new(peripheral: Self::PeriType) -> Self;
     fn set_sample_time(&mut self, sample_time: Self::SampleTime);
     fn sample_time(&self) -> Self::SampleTime;
     fn set_resolution(&mut self, resolution: Self::Resolution);
+    fn resolution(&self) -> Self::Resolution;
     fn read(
         &mut self,
-        dma: &mut Self::DmaType,
-        pin: IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
+        pin: &mut Self::PinType,
         readings: &mut [u16],
     ) -> impl Future<Output = ()>;
 }

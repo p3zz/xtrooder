@@ -86,6 +86,12 @@ ch1 = "PA0"
 ch2 = "PB3"
 ch3 = "PB10"
 
+# ------------- adc ----------------
+
+[adc]
+peripheral = "ADC1"
+dma.peripheral = "DMA1_CH2"
+
 # ------------- hotend ---------------
 
 [hotend.heater]
@@ -103,11 +109,7 @@ r_series=0
 r0=0
 b = 0
 samples = 0
-
-[hotend.thermistor.adc]
-peripheral = "ADC1"
-input.pin = "PA5"
-dma.peripheral = "DMA1_CH2"
+adc.pin = "PA5"
 
 # ------------- heatbed ---------------
 
@@ -127,11 +129,7 @@ r_series=0
 r0=0
 b = 0
 samples = 0
-
-[heatbed.thermistor.adc]
-peripheral = "ADC2"
-input.pin = "PA6"
-dma.peripheral = "DMA1_CH3"
+adc.pin = "PA6"
 
 # ------------- fan ---------------
 

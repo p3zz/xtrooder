@@ -5,6 +5,9 @@ use math::{
 pub use stepper::planner::MotionConfig;
 use stepper::stepper::SteppingMode;
 
+pub type ThermistorOptionsConfig = thermal_actuator::thermistor::ThermistorConfig;
+pub type PidConfig = common::PidConfig;
+
 pub struct EndstopPartConfig<P, E> {
     pub pin: P,
     pub exti: E,
@@ -63,12 +66,10 @@ pub struct PrinterConfig<
     RXD,
     TXP,
     TXD,
-    HOP,
+    ADCP,
+    ADCD,
     HOI,
-    HOD,
-    HEP,
     HEI,
-    HED,
     SPIP,
     SPIT,
     SPIMO,
@@ -84,18 +85,18 @@ pub struct PrinterConfig<
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
     pub uart: UartConfig<UP, RXP, RXD, TXP, TXD>,
-    pub hotend: ThermalActuatorConfig<HOP, HOI, HOD>,
-    pub heatbed: ThermalActuatorConfig<HEP, HEI, HED>,
+    pub adc: AdcConfig<ADCP, ADCD>,
+    pub hotend: ThermalActuatorConfig<HOI>,
+    pub heatbed: ThermalActuatorConfig<HEI>,
     pub fan: FanConfig,
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
     pub motion: MotionConfig,
     pub endstops: EndstopsConfig<XEP, XEE, YEP, YEE, ZEP, ZEE>,
 }
 
-pub struct AdcConfig<P, I, D> {
-    pub peripheral: P,
-    pub input: I,
-    pub dma: D,
+pub struct AdcConfig<I, D> {
+    pub peripheral: I,
+    pub dma: D
 }
 
 pub struct PwmConfig<T, CH1, CH2, CH3> {
@@ -118,10 +119,8 @@ pub struct SpiConfig<P, C, MO, MI, CS> {
     pub cs: CS,
 }
 
-pub type PidConfig = common::PidConfig;
-
-pub struct ThermalActuatorConfig<ADCP, ADCI, ADCD> {
-    pub thermistor: ThermistorConfig<ADCP, ADCI, ADCD>,
+pub struct ThermalActuatorConfig<I> {
+    pub thermistor: ThermistorConfig<I>,
     pub heater: HeaterConfig,
 }
 
@@ -131,11 +130,9 @@ pub struct HeaterConfig {
     pub temperature_limit: (Temperature, Temperature),
 }
 
-pub type ThermistorOptionsConfig = thermal_actuator::thermistor::ThermistorConfig;
-
-pub struct ThermistorConfig<ADCP, ADCI, ADCD> {
+pub struct ThermistorConfig<I> {
     pub options: ThermistorOptionsConfig,
-    pub adc: AdcConfig<ADCP, ADCI, ADCD>,
+    pub input: I,
 }
 
 pub struct FanConfig {

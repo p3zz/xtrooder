@@ -89,12 +89,8 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl PwmBase for PwmWrapper {
-        type Channel = Channel;
-
-        type Pwm = ();
-
-        fn new(_p: Self::Pwm) -> Self {
+    impl PwmWrapper{
+        fn new() -> Self {
             Self {
                 ch1: PwmChannel::default(),
                 ch2: PwmChannel::default(),
@@ -103,6 +99,10 @@ mod tests {
                 max_duty: 4096,
             }
         }
+    }
+
+    impl PwmBase for PwmWrapper {
+        type Channel = Channel;
 
         fn enable(&mut self, channel: Self::Channel) {
             match channel {
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_heater_enable() {
-        let mut pwm = PwmWrapper::new(());
+        let mut pwm = PwmWrapper::new();
         let mut heater: Heater<PwmWrapper> = Heater::new(
             Channel::Ch2,
             PidConfig {
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_heater_disable() {
-        let mut pwm = PwmWrapper::new(());
+        let mut pwm = PwmWrapper::new();
         let mut heater: Heater<PwmWrapper> = Heater::new(
             Channel::Ch2,
             PidConfig {
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_heater_update() {
-        let mut pwm = PwmWrapper::new(());
+        let mut pwm = PwmWrapper::new();
         let target_temp = Temperature::from_celsius(150.0);
         let current_temp = Temperature::from_celsius(110.0);
         let mut heater: Heater<PwmWrapper> = Heater::new(

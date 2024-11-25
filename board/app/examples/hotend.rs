@@ -5,7 +5,7 @@ use app::config::{PidConfig, ThermistorOptionsConfig};
 use app::{timer_channel, AdcWrapper, Clock, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
+use embassy_stm32::adc::{Adc, AdcChannel, Resolution, SampleTime};
 use embassy_stm32::gpio::OutputType;
 use embassy_stm32::time::{hz, khz};
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
@@ -63,12 +63,12 @@ async fn main(_spawner: Spawner) {
 
     let readings = DMA_BUF.init([0u16; 1]);
 
-    let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
-        p.ADC1,
-        p.DMA1_CH0,
+    let mut adc = Adc::new(p.ADC1);
+    adc.set_sample_time(SampleTime::CYCLES32_5);
+    let mut adc = AdcWrapper::new(adc, p.DMA1_CH0, ResolutionWrapper::new(Resolution::BITS12));
+
+    let thermistor: Thermistor<'_, _> = Thermistor::new(
         p.PA0.degrade_adc(),
-        SampleTime::CYCLES32_5,
-        ResolutionWrapper::new(Resolution::BITS12),
         readings,
         ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(10_000.0),
@@ -115,7 +115,7 @@ async fn main(_spawner: Spawner) {
     println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
     loop {
-        match hotend.update(dt.into(), &mut heater_out_wrapper).await {
+        match hotend.update(dt.into(), &mut heater_out_wrapper, &mut adc).await {
             Ok(r) => {
                 #[cfg(feature="defmt-log")]
                 println!("Dt: {}\tTemperaure: {}\tDuty cycle: {}", dt.as_millis(), r.0.as_celsius(), r.1);

@@ -19,45 +19,35 @@ pub struct ThermistorConfig {
 }
 
 pub struct Thermistor<'a, A: AdcBase> {
-    adc: A,
-    dma_peri: A::DmaType,
     read_pin: A::PinType,
     readings: &'a mut DmaBufType,
     config: ThermistorConfig,
-    resolution: A::Resolution,
 }
 
 impl<'a, A: AdcBase> Thermistor<'a, A> {
     pub fn new(
-        adc_peri: A::PeriType,
-        dma_peri: A::DmaType,
         read_pin: A::PinType,
-        sample_time: A::SampleTime,
-        resolution: A::Resolution,
         readings: &'a mut DmaBufType,
         config: ThermistorConfig,
     ) -> Self {
-        let mut adc = A::new(adc_peri);
-        adc.set_sample_time(sample_time);
-        adc.set_resolution(resolution);
+        // let mut adc = A::new(adc_peri);
+        // adc.set_sample_time(sample_time);
+        // adc.set_resolution(resolution);
         Self {
-            adc,
+            // adc,
             read_pin,
-            dma_peri,
             readings,
             config,
-            resolution,
         }
     }
 
-    pub async fn read_temperature(&mut self) -> Temperature {
+    pub async fn read_temperature(&mut self, adc: &mut A) -> Temperature {
         let readings = self.readings.as_mut();
         let mut data = 0u64;
         for _ in 0..self.config.samples{
-            self.adc
+            adc
             .read(
-                &mut self.dma_peri,
-                [(&mut self.read_pin, self.adc.sample_time())].into_iter(),
+                &mut self.read_pin,
                 readings,
             )
             .await;
@@ -67,7 +57,7 @@ impl<'a, A: AdcBase> Thermistor<'a, A> {
         
         compute_ntf_thermistor_temperature(
             u64::from(reading),
-            self.resolution.into(),
+            adc.resolution().into(),
             Temperature::from_celsius(25.0),
             self.config.b,
             self.config.r0,
@@ -98,23 +88,23 @@ mod tests {
         value: u16,
     }
 
-    impl AdcBase for AdcWrapper {
-        type PinType = ();
-
-        type DmaType = ();
-
-        type PeriType = ();
-
-        type SampleTime = ();
-
-        type Resolution = Resolution;
-
-        fn new(_peripheral: Self::PeriType) -> Self {
-            Self {
+    impl AdcWrapper{
+        pub fn new() -> Self{
+            Self{
                 resolution: Resolution::BITS12,
                 value: 2048,
             }
         }
+    }
+
+    struct Pin;
+
+    impl AdcBase for AdcWrapper {
+        type SampleTime = ();
+
+        type Resolution = Resolution;
+
+        type PinType = ();
 
         fn set_sample_time(&mut self, _sample_time: Self::SampleTime) {}
 
@@ -126,23 +116,24 @@ mod tests {
 
         async fn read(
             &mut self,
-            _dma: &mut Self::DmaType,
-            _pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
+            _pin: &mut (),
             readings: &mut [u16],
         ) {
             readings[0] = self.value
         }
+        
+        fn resolution(&self) -> Self::Resolution {
+            self.resolution
+        }
+        
     }
 
     #[tokio::test]
     async fn test_thermistor() {
         let mut readings = [0u16; 1];
-        let mut thermistor: Thermistor<'_, AdcWrapper> = Thermistor::new(
+        let mut adc = AdcWrapper::new();
+        let mut thermistor: Thermistor<'_, _> = Thermistor::new(
             (),
-            (),
-            (),
-            (),
-            Resolution::BITS12,
             &mut readings,
             ThermistorConfig {
                 r_series: Resistance::from_ohms(10_000.0),
@@ -151,7 +142,7 @@ mod tests {
                 samples: 1
             },
         );
-        let t = thermistor.read_temperature().await;
+        let t = thermistor.read_temperature(&mut adc).await;
         assert_eq!(25.0, t.as_celsius());
     }
 }

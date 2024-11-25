@@ -27,15 +27,15 @@ impl<'a, P: PwmBase, A: AdcBase> ThermalActuator<'a, P, A> {
         self.heater.set_target_temperature(temperature);
     }
 
-    pub async fn update(&mut self, dt: Duration, pwm: &mut P) -> Result<(Temperature, u64), ()> {
-        let curr_tmp = self.read_temperature().await;
+    pub async fn update(&mut self, dt: Duration, pwm: &mut P, adc: &mut A) -> Result<(Temperature, u64), ()> {
+        let curr_tmp = self.read_temperature(adc).await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
         let duty_cycle = self.heater.update(curr_tmp, dt, pwm)?;
         Ok((curr_tmp, duty_cycle))
     }
 
-    pub async fn read_temperature(&mut self) -> Temperature {
-        self.thermistor.read_temperature().await
+    pub async fn read_temperature(&mut self, adc: &mut A) -> Temperature {
+        self.thermistor.read_temperature(adc).await
     }
 }
 
@@ -70,12 +70,8 @@ mod tests {
         pub max_duty: u64,
     }
 
-    impl PwmBase for PwmWrapper {
-        type Channel = Channel;
-
-        type Pwm = ();
-
-        fn new(_p: Self::Pwm) -> Self {
+    impl PwmWrapper{
+        fn new() -> Self {
             Self {
                 ch1: PwmChannel::default(),
                 ch2: PwmChannel::default(),
@@ -84,6 +80,10 @@ mod tests {
                 max_duty: 4096,
             }
         }
+    }
+
+    impl PwmBase for PwmWrapper {
+        type Channel = Channel;
 
         fn enable(&mut self, channel: Self::Channel) {
             match channel {
@@ -135,23 +135,21 @@ mod tests {
         value: u16,
     }
 
-    impl AdcBase for AdcWrapper {
-        type PinType = ();
-
-        type DmaType = ();
-
-        type PeriType = ();
-
-        type SampleTime = ();
-
-        type Resolution = Resolution;
-
-        fn new(_peripheral: Self::PeriType) -> Self {
+    impl AdcWrapper{
+        pub fn new() -> Self {
             Self {
                 resolution: Resolution::BITS12,
                 value: 2000,
             }
         }
+    }
+
+    impl AdcBase for AdcWrapper {
+        type PinType = ();
+
+        type SampleTime = ();
+
+        type Resolution = Resolution;
 
         fn set_sample_time(&mut self, _sample_time: Self::SampleTime) {}
 
@@ -163,18 +161,23 @@ mod tests {
 
         async fn read(
             &mut self,
-            _dma: &mut Self::DmaType,
-            _pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
+            _pin: &mut (),
             readings: &mut [u16],
         ) {
             readings[0] = self.value
         }
+        
+        fn resolution(&self) -> Self::Resolution {
+            self.resolution
+        }
+        
     }
 
     #[tokio::test]
     async fn test_thermal_actuator() {
         let target_temp = Temperature::from_celsius(140.0);
-        let mut pwm = PwmWrapper::new(());
+        let mut pwm = PwmWrapper::new();
+        let mut adc = AdcWrapper::new();
         let heater: Heater<PwmWrapper> = Heater::new(
             Channel::Ch2,
             PidConfig {
@@ -184,12 +187,8 @@ mod tests {
             },
         );
         let mut readings = [0u16; 1];
-        let thermistor: Thermistor<'_, AdcWrapper> = Thermistor::new(
+        let thermistor: Thermistor<'_, _> = Thermistor::new(
             (),
-            (),
-            (),
-            (),
-            Resolution::BITS12,
             &mut readings,
             ThermistorConfig {
                 r_series: Resistance::from_ohms(10_000.0),
@@ -201,8 +200,8 @@ mod tests {
         let mut actuator = ThermalActuator::new(heater, thermistor);
         actuator.enable(&mut pwm);
         actuator.set_temperature(target_temp);
-        let temp = actuator.update(Duration::from_millis(50), &mut pwm).await;
-        // assert!(duty_cycle.is_ok());
-        // assert_eq!(3616, duty_cycle.unwrap());
+        let temp = actuator.update(Duration::from_millis(50), &mut pwm, &mut adc).await;
+        assert_eq!(26.984236773480745, temp.unwrap().0.as_celsius());
+        assert_eq!(3616, temp.unwrap().1);
     }
 }

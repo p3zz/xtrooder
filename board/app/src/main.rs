@@ -10,11 +10,7 @@ use app::config::{
     ThermistorConfig,
 };
 use app::ext::{
-    peripherals_init, EDirPin, EStepPin, HeatbedAdcDma, HeatbedAdcInputPin, HeatbedAdcPeripheral,
-    HotendAdcDma, HotendAdcInputPin, HotendAdcPeripheral, PwmTimer, SdCardSpiCsPin,
-    SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti,
-    XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti,
-    ZEndstopPin, ZStepPin,
+    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin, HotendAdcInputPin, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin
 };
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
@@ -22,7 +18,7 @@ use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{AdcChannel, SampleTime};
+use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
@@ -93,6 +89,7 @@ static EVENT_CHANNEL: PubSubChannel<ThreadModeRawMutex, PrinterEvent, EVENT_CHAN
 static UART_RX: Mutex<ThreadModeRawMutex, Option<UartRx<'_, Async>>> = Mutex::new(None);
 static UART_TX: Mutex<ThreadModeRawMutex, Option<UartTx<'_, Async>>> = Mutex::new(None);
 static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwmWrapper<'_, PwmTimer>>> = Mutex::new(None);
+static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDma>>> = Mutex::new(None);
 
 #[link_section = ".ram_d3"]
 static UART_RX_DMA_BUF: StaticCell<[u8; MAX_MESSAGE_LEN]> = StaticCell::new();
@@ -243,17 +240,13 @@ async fn command_dispatcher_task() {
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn hotend_handler(
-    config: ThermalActuatorConfig<HotendAdcPeripheral, HotendAdcInputPin, HotendAdcDma>,
+    config: ThermalActuatorConfig<HotendAdcInputPin>,
     fan_config: FanConfig,
 ) {
     let readings = HOTEND_DMA_BUF.init([0u16; 1]);
 
-    let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
-        config.thermistor.adc.peripheral,
-        config.thermistor.adc.dma,
-        config.thermistor.adc.input.degrade_adc(),
-        SampleTime::CYCLES32_5,
-        ResolutionWrapper::new(Resolution::BITS12),
+    let thermistor: Thermistor<'_, AdcWrapper<AdcPeripheral,AdcDma>> = Thermistor::new(
+        config.thermistor.input.degrade_adc(),
         readings,
         config.thermistor.options
     );
@@ -279,7 +272,11 @@ async fn hotend_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace(hotend.read_temperature().await);
+        {
+            let mut adc = ADC.lock().await;
+            let adc  = adc.as_mut().expect("ADC not initialized");
+            last_temperature.replace(hotend.read_temperature(adc).await);
+        }
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             // SAFETY - unwrap last_temperature because it's set on the previous line
@@ -358,7 +355,9 @@ async fn hotend_handler(
         {
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
-            if let Ok(duty_cycle) = hotend.update(dt.into(), pwm).await {
+            let mut adc = ADC.lock().await;
+            let adc = adc.as_mut().expect("ADC not initialized");
+            if let Ok(duty_cycle) = hotend.update(dt.into(), pwm, adc).await {
                 #[cfg(feature="defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
@@ -375,18 +374,14 @@ async fn hotend_handler(
 // // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
 async fn heatbed_handler(
-    config: ThermalActuatorConfig<HeatbedAdcPeripheral, HeatbedAdcInputPin, HeatbedAdcDma>,
+    config: ThermalActuatorConfig<HeatbedAdcInputPin>,
 ) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
     let readings = HEATBED_DMA_BUF.init([0u16; 1]);
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
-        config.thermistor.adc.peripheral,
-        config.thermistor.adc.dma,
-        config.thermistor.adc.input.degrade_adc(),
-        SampleTime::CYCLES32_5,
-        ResolutionWrapper::new(Resolution::BITS12),
+        config.thermistor.input.degrade_adc(),
         readings,
         config.thermistor.options,
     );
@@ -407,7 +402,11 @@ async fn heatbed_handler(
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
-        last_temperature.replace(heatbed.read_temperature().await);
+        {
+            let mut adc = ADC.lock().await;
+            let adc  = adc.as_mut().expect("ADC not initialized");
+            last_temperature.replace(heatbed.read_temperature(adc).await);
+        }
 
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
@@ -464,7 +463,9 @@ async fn heatbed_handler(
         {
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
-            if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm).await {
+            let mut adc = ADC.lock().await;
+            let adc = adc.as_mut().expect("ADC not initialized");
+            if let Ok(duty_cycle) = heatbed.update(dt.into(), pwm, adc).await {
                 #[cfg(feature="defmt-log")]
                 info!("[HEATBED] duty cycle: {}", duty_cycle);
             };
@@ -939,6 +940,13 @@ async fn main(spawner: Spawner) {
     {
         let mut pwm_global = PMW.lock().await;
         pwm_global.replace(pwm);
+    }
+
+    let adc = Adc::new(printer_config.adc.peripheral);
+    let adc = AdcWrapper::new(adc, printer_config.adc.dma, ResolutionWrapper::new(Resolution::BITS12));
+    {
+        let mut adc_global = ADC.lock().await;
+        adc_global.replace(adc);
     }
 
     spawner.spawn(input_handler()).unwrap();

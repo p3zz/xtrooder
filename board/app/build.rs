@@ -288,17 +288,12 @@ mod external {
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
     pub struct AdcConfig {
         pub peripheral: String,
-        pub input: PinConfig,
         pub dma: PeripheralConfig,
     }
 
     impl AdcConfig {
         pub fn get_peripheral(&self) -> Option<String> {
             get_string_value(self.peripheral.clone())
-        }
-
-        pub fn get_input(&self) -> PinConfig {
-            self.input.clone()
         }
 
         pub fn get_dma(&self) -> PeripheralConfig {
@@ -463,7 +458,7 @@ mod external {
         pub r0: f64,
         pub b: f64,
         pub samples: u64,
-        pub adc: AdcConfig,
+        pub adc: PinConfig,
     }
 
     impl ThermistorConfig {
@@ -483,7 +478,7 @@ mod external {
             self.samples
         }
 
-        pub fn get_adc(&self) -> AdcConfig {
+        pub fn get_adc(&self) -> PinConfig {
             self.adc.clone()
         }
     }
@@ -519,6 +514,7 @@ mod external {
         pub steppers: StepperConfigs,
         pub pwm: PwmConfig,
         pub uart: UartConfig,
+        pub adc: AdcConfig,
         pub hotend: ThermalActuatorConfig,
         pub heatbed: ThermalActuatorConfig,
         pub fan: FanConfig,
@@ -759,31 +755,19 @@ fn main() {
         .expect("UART TX pin is missing");
     let uart_tx_dma = Ident::new(uart_tx_dma.as_str(), Span::call_site());
 
-    let hotend_adc_peripheral = conf
-        .hotend
-        .get_thermistor()
-        .get_adc()
-        .get_peripheral()
-        .expect("hotend ADC peripheral is missing");
-    let hotend_adc_peripheral = Ident::new(hotend_adc_peripheral.as_str(), Span::call_site());
+    let adc_peripheral = conf.adc.get_peripheral().expect("ADC peripheral is missing");
+    let adc_peripheral = Ident::new(adc_peripheral.as_str(), Span::call_site());
+
+    let adc_dma = conf.adc.get_dma().get_peripheral().expect("ADC DMA is missing");
+    let adc_dma = Ident::new(adc_dma.as_str(), Span::call_site());
 
     let hotend_adc_input_pin = conf
         .hotend
         .get_thermistor()
         .get_adc()
-        .get_input()
         .get_pin()
         .expect("hotend ADC input pin is missing");
     let hotend_adc_input_pin = Ident::new(hotend_adc_input_pin.as_str(), Span::call_site());
-
-    let hotend_adc_dma = conf
-        .hotend
-        .get_thermistor()
-        .get_adc()
-        .get_dma()
-        .get_peripheral()
-        .expect("hotend ADC DMA peripheral is missing");
-    let hotend_adc_dma = Ident::new(hotend_adc_dma.as_str(), Span::call_site());
 
     let hotend_pwm_output_channel = conf.hotend.get_heater().get_pwm().get_channel();
     let hotend_heater_r0 = conf.hotend.get_thermistor().get_r0();
@@ -797,31 +781,13 @@ fn main() {
     let hotend_heater_min_temp = conf.hotend.get_heater().get_min_temperature_limit();
     let hotend_heater_max_temp = conf.hotend.get_heater().get_max_temperature_limit();
 
-    let heatbed_adc_peripheral = conf
-        .heatbed
-        .get_thermistor()
-        .get_adc()
-        .get_peripheral()
-        .expect("Heatbed ADC peripheral is missing");
-    let heatbed_adc_peripheral = Ident::new(heatbed_adc_peripheral.as_str(), Span::call_site());
-
     let heatbed_adc_input_pin = conf
         .heatbed
         .get_thermistor()
         .get_adc()
-        .get_input()
         .get_pin()
         .expect("Heatbed ADC input pin is missing");
     let heatbed_adc_input_pin = Ident::new(heatbed_adc_input_pin.as_str(), Span::call_site());
-
-    let heatbed_adc_dma = conf
-        .heatbed
-        .get_thermistor()
-        .get_adc()
-        .get_dma()
-        .get_peripheral()
-        .expect("Heatbed ADC DMA peripheral is missing");
-    let heatbed_adc_dma = Ident::new(heatbed_adc_dma.as_str(), Span::call_site());
 
     let heatbed_pwm_output_channel = conf.heatbed.get_heater().get_pwm().get_channel();
     let heatbed_heater_r0 = conf.heatbed.get_thermistor().get_r0();
@@ -914,12 +880,10 @@ fn main() {
         pub type UartRxDma = #uart_rx_dma;
         pub type UartTxPin = #uart_tx_pin;
         pub type UartTxDma = #uart_tx_dma;
-        pub type HotendAdcPeripheral = #hotend_adc_peripheral;
+        pub type AdcPeripheral = #adc_peripheral;
+        pub type AdcDma = #adc_dma;
         pub type HotendAdcInputPin = #hotend_adc_input_pin;
-        pub type HotendAdcDma = #hotend_adc_dma;
-        pub type HeatbedAdcPeripheral = #heatbed_adc_peripheral;
         pub type HeatbedAdcInputPin = #heatbed_adc_input_pin;
-        pub type HeatbedAdcDma = #heatbed_adc_dma;
         pub type SdCardSpiPeripheral = #sdcard_spi_peripheral;
         pub type SdCardSpiTimer = #sdcard_spi_timer;
         pub type SdCardSpiMosiPin = #sdcard_spi_mosi;
@@ -950,12 +914,10 @@ fn main() {
             UartRxDma,
             UartTxPin,
             UartTxDma,
-            HotendAdcPeripheral,
+            AdcPeripheral,
+            AdcDma,
             HotendAdcInputPin,
-            HotendAdcDma,
-            HeatbedAdcPeripheral,
             HeatbedAdcInputPin,
-            HeatbedAdcDma,
             SdCardSpiPeripheral,
             SdCardSpiTimer,
             SdCardSpiMosiPin,
@@ -1043,6 +1005,10 @@ fn main() {
                     ch2: p.#pwm_ch2,
                     ch3: p.#pwm_ch3,
                 },
+                adc: AdcConfig{
+                    peripheral: p.#adc_peripheral,
+                    dma: p.#adc_dma,
+                },
                 uart: UartConfig{
                     peripheral: p.#uart_peripheral,
                     baudrate: #uart_baudrate,
@@ -1057,11 +1023,7 @@ fn main() {
                 },
                 hotend: ThermalActuatorConfig {
                     thermistor: ThermistorConfig {
-                        adc: AdcConfig {
-                            peripheral: p.#hotend_adc_peripheral,
-                            input: p.#hotend_adc_input_pin,
-                            dma: p.#hotend_adc_dma,
-                        },
+                        input: p.#hotend_adc_input_pin,
                         options: ThermistorOptionsConfig{
                             r_series: Resistance::from_ohms(#hotend_heater_r_series),
                             r0: Resistance::from_ohms(#hotend_heater_r0),
@@ -1086,11 +1048,7 @@ fn main() {
                 },
                 heatbed: ThermalActuatorConfig{
                     thermistor: ThermistorConfig {
-                        adc: AdcConfig {
-                            peripheral: p.#heatbed_adc_peripheral,
-                            input: p.#heatbed_adc_input_pin,
-                            dma: p.#heatbed_adc_dma,
-                        },
+                        input: p.#heatbed_adc_input_pin,
                         options: ThermistorOptionsConfig{
                             r_series: Resistance::from_ohms(#heatbed_heater_r_series),
                             r0: Resistance::from_ohms(#heatbed_heater_r0),

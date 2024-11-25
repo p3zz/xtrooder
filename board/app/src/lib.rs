@@ -176,13 +176,15 @@ pub struct SimplePwmWrapper<'a, T: GeneralInstance4Channel> {
     inner: SimplePwm<'a, T>,
 }
 
-impl<'a, T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'a, T> {
-    type Channel = Channel;
-    type Pwm = SimplePwm<'a, T>;
-
-    fn new(p: Self::Pwm) -> Self {
+impl<'a, T: GeneralInstance4Channel> SimplePwmWrapper<'a, T> {
+    pub fn new(p: SimplePwm<'a, T>) -> Self {
         Self { inner: p }
     }
+}
+
+
+impl<'a, T: GeneralInstance4Channel> PwmBase for SimplePwmWrapper<'a, T> {
+    type Channel = Channel;
 
     fn enable(&mut self, channel: Self::Channel) {
         self.inner.enable(channel);
@@ -227,28 +229,30 @@ impl From<ResolutionWrapper> for u64 {
     }
 }
 
-pub struct AdcWrapper<'a, T: Instance, DmaType> {
+pub struct AdcWrapper<'a, T: Instance, D: RxDma<T>> {
     inner: Adc<'a, T>,
-    _dma_type: PhantomData<DmaType>,
+    dma: D,
+    resolution: ResolutionWrapper
 }
 
-impl<'a, T: Instance, DmaType: RxDma<T>> AdcBase for AdcWrapper<'a, T, DmaType> {
-    type PeriType = T;
+impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
+    pub fn new(adc: Adc<'a, T>, dma: D, resolution: ResolutionWrapper) -> Self {
+        Self {
+            inner: adc,
+            dma,
+            resolution
+        }
+    }
+}
 
+
+impl<'a, T: Instance, D: RxDma<T>> AdcBase for AdcWrapper<'a, T, D> {
+    
     type PinType = AnyAdcChannel<T>;
-
-    type DmaType = DmaType;
 
     type SampleTime = SampleTime;
 
     type Resolution = ResolutionWrapper;
-
-    fn new(peripheral: Self::PeriType) -> Self {
-        Self {
-            inner: Adc::new(peripheral),
-            _dma_type: PhantomData,
-        }
-    }
 
     fn set_sample_time(&mut self, sample_time: Self::SampleTime) {
         self.inner.set_sample_time(sample_time);
@@ -259,17 +263,23 @@ impl<'a, T: Instance, DmaType: RxDma<T>> AdcBase for AdcWrapper<'a, T, DmaType> 
     }
 
     fn set_resolution(&mut self, resolution: Self::Resolution) {
+        self.resolution = resolution;
         self.inner.set_resolution(resolution.inner);
     }
 
     fn read(
         &mut self,
-        dma: &mut Self::DmaType,
-        pin: core::array::IntoIter<(&mut Self::PinType, Self::SampleTime), 1>,
+        pin: &mut Self::PinType,
         readings: &mut [u16],
     ) -> impl core::future::Future<Output = ()> {
-        self.inner.read(dma, pin, readings)
+        let sample_time = self.sample_time();
+        self.inner.read(&mut self.dma, [(pin, sample_time)].into_iter(), readings)
     }
+    
+    fn resolution(&self) -> Self::Resolution {
+        self.resolution
+    }
+    
 }
 
 #[derive(Clone, Copy)]

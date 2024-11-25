@@ -3,7 +3,7 @@
 
 use app::{config::ThermistorOptionsConfig, AdcWrapper, ResolutionWrapper};
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{AdcChannel, Resolution, SampleTime};
+use embassy_stm32::adc::{Adc, AdcChannel, Resolution, SampleTime};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
 use static_cell::StaticCell;
@@ -56,12 +56,12 @@ async fn main(_spawner: Spawner) {
 
     let readings = DMA_BUF.init([0u16; 1]);
 
+    let mut adc = Adc::new(p.ADC1);
+    adc.set_sample_time(SampleTime::CYCLES32_5);
+    let mut adc = AdcWrapper::new(adc, p.DMA1_CH0, ResolutionWrapper::new(Resolution::BITS12));
+
     let mut thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
-        p.ADC1,
-        p.DMA1_CH0,
         p.PA0.degrade_adc(),
-        SampleTime::CYCLES32_5,
-        ResolutionWrapper::new(Resolution::BITS12),
         readings,
         ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(10_000.0),
@@ -74,7 +74,7 @@ async fn main(_spawner: Spawner) {
     #[cfg(feature="defmt-log")]
     info!("Thermistor example");
     loop {
-        let t = thermistor.read_temperature().await;
+        let t = thermistor.read_temperature(&mut adc).await;
         #[cfg(feature="defmt-log")]
         info!("Temperature: {}°C", t.as_celsius());
         Timer::after(Duration::from_millis(200)).await;
