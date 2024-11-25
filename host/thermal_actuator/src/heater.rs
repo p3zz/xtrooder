@@ -35,7 +35,7 @@ impl<P: PwmBase> Heater<P> {
 
     #[cfg(test)]
     pub fn get_target_temperature(&self) -> Option<Temperature> {
-        self.pid.get_target().map(|t|Temperature::from_celsius(t))
+        self.pid.get_target().map(Temperature::from_celsius)
     }
 
     pub fn set_target_temperature(&mut self, temperature: Temperature) {

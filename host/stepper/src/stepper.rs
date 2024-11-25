@@ -1,7 +1,7 @@
 use core::fmt::Display;
 use core::marker::PhantomData;
 use core::time::Duration;
-use math::common::{abs, floor, RotationDirection};
+use math::common::{abs, RotationDirection};
 use math::common::{
     angular_velocity_from_speed, angular_velocity_from_steps, compute_step_duration,
     speed_from_angular_velocity,
@@ -373,7 +373,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use math::{
         common::RotationDirection,
-        measurements::{Distance, Speed}, vector::Vector2D,
+        measurements::{Distance, Speed},
     };
     use tokio::time::sleep;
 

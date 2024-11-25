@@ -1,6 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 
-use core::{array::IntoIter, future::Future, time::Duration};
+use core::{future::Future, time::Duration};
 
 pub struct PidConfig {
     pub k_p: f64,

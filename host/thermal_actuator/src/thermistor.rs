@@ -56,7 +56,7 @@ impl<'a, A: AdcBase> Thermistor<'a, A> {
         let reading = data / self.config.samples;
         
         compute_ntf_thermistor_temperature(
-            u64::from(reading),
+            reading,
             adc.resolution().into(),
             Temperature::from_celsius(25.0),
             self.config.b,

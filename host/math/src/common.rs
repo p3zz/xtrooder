@@ -32,26 +32,12 @@ impl From<&str> for RotationDirection {
     }
 }
 
-pub fn max<T: PartialEq + PartialOrd>(other: &[T]) -> Option<&T> {
-    let mut max = other.first()?;
-    for e in other {
-        if *e > *max {
-            max = e;
-        }
-    }
-    Some(max)
-}
-
 pub fn abs(value: f64) -> f64 {
     let mut v = value;
     if value.is_sign_negative() {
         v = -value;
     }
     v
-}
-
-pub fn floor(value: f64) -> f64 {
-    (value as f32).floor() as f64
 }
 
 pub fn sqrt(value: f64) -> f64 {
@@ -210,7 +196,7 @@ mod tests {
     use core::{f64::consts::PI, time::Duration};
 
     use crate::{
-        angle::{cos, sin}, common::{
+        common::{
             angular_velocity_from_steps, compute_arc_length, compute_step_duration,
             speed_from_angular_velocity, RotationDirection,
         }, vector::Vector2D

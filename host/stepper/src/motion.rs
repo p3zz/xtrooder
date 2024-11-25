@@ -2,8 +2,7 @@ use core::time::Duration;
 
 use futures::future::select;
 use futures::{join, pin_mut};
-use math::angle::{cos, sin};
-use math::common::{abs, compute_arc_destination, compute_arc_length, floor, RotationDirection};
+use math::common::{abs, compute_arc_destination, compute_arc_length, RotationDirection};
 use math::measurements::{AngularVelocity, Distance, Speed};
 use math::vector::{Vector2D, Vector3D};
 
@@ -314,7 +313,7 @@ pub async fn arc_move_2d_arc_length<P: OutputPinBase, T: TimerBase, I: ExtiInput
         return Err(StepperError::MoveTooShort);
     }
     let source = Vector2D::new(steppers.0.get_position(), steppers.1.get_position());
-    let arcs_n = floor(arc_length / arc_unit_length) as u64;
+    let arcs_n = (arc_length / arc_unit_length) as u64;
     let mut total_duration = Duration::ZERO;
     for n in 0..(arcs_n + 1) {
         let arc_length = arc_unit_length * n as f64;
