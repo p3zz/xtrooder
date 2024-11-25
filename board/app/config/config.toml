@@ -1,6 +1,6 @@
 # ------------- motion ---------------
 [motion]
-arc_unit_length = 0.0
+arc_unit_length = 1.0
 feedrate = 0.0
 positioning = "absolute"
 feedrate_multiplier = 1
@@ -15,97 +15,76 @@ feedrate = 0.0
 length = 0.0
 
 [motion.endstops.x]
-pin = "PB6"
-exti = "EXTI6"
+pin = "PF0"
+exti = "EXTI0"
 
 [motion.endstops.y]
-pin = "PB7"
-exti = "EXTI7"
+pin = "PF1"
+exti = "EXTI1"
 
 [motion.endstops.z]
-pin = "PB8"
-exti = "EXTI8"
+pin = "PF2"
+exti = "EXTI2"
 
 # ------------- steppers ---------------
 
 [steppers.x]
 stepping_mode = "full"
-distance_per_step = 1
+distance_per_step = 0.15
 steps_per_revolution = 200
-bounds = [-10, 10]
-positive_direction = "clockwise"
-
-[steppers.x.step]
-pin = "PA0"
-
-[steppers.x.dir]
-pin = "PA1"
+bounds.min = -200
+bounds.max = 200
+positive_direction = "counterclockwise"
+step.pin = "PC11"
+dir.pin = "PC10"
 
 [steppers.y]
 stepping_mode = "full"
-distance_per_step = 1
+distance_per_step = 0.15
 steps_per_revolution = 200
-bounds.min = -10
-bounds.max = 10
-positive_direction = "clockwise"
-
-[steppers.y.step]
-pin = "PA12"
-
-[steppers.y.dir]
-pin = "PA10"
+bounds.min = -200
+bounds.max = 200
+positive_direction = "counterclockwise"
+step.pin = "PC9"
+dir.pin = "PC8"
 
 [steppers.z]
 stepping_mode = "full"
-distance_per_step = 1
+distance_per_step = 0.15
 steps_per_revolution = 200
-bounds = [-10, 10]
+bounds.min = 0
+bounds.max = 200
 positive_direction = "clockwise"
-
-[steppers.z.step]
-pin = "PA4"
-
-[steppers.z.dir]
-pin = "PA5"
+step.pin = "PD2"
+dir.pin = "PC12"
 
 [steppers.e]
 stepping_mode = "full"
-distance_per_step = 1
+distance_per_step = 0.1
 steps_per_revolution = 200
-bounds = [-10, 10]
-positive_direction = "clockwise"
-
-[steppers.e.step]
-pin = "PA6"
-
-[steppers.e.dir]
-pin = "PA7"
+bounds.min = 0
+bounds.max = 0
+positive_direction = "counterclockwise"
+step.pin = "PG2"
+dir.pin = "PG3"
 
 # ------------- uart ---------------
 
 [uart]
 peripheral="UART4"
 baudrate=19800
-
-[uart.rx]
-pin="PA8"
-
-[uart.rx.dma]
-peripheral="DMA1_CH0"
-
-[uart.tx]
-pin="PA9"
-
-[uart.tx.dma]
-peripheral="DMA1_CH1"
+rx.pin = "PB8"
+rx.dma.peripheral = "DMA1_CH0"
+tx.pin = "PB9"
+tx.dma.peripheral = "DMA1_CH1"
 
 # ------------- pwm --------------
 [pwm]
 frequency = 0
 timer = "TIM2"
-ch1 = "PA11"
-ch2 = "PA13"
-ch3 = "PA14"
+ch1 = "PA0"
+ch2 = "PB3"
+ch3 = "PB10"
 
 # ------------- hotend ---------------
 
@@ -127,7 +106,7 @@ samples = 0
 
 [hotend.thermistor.adc]
 peripheral = "ADC1"
-input.pin = "PA3"
+input.pin = "PA5"
 dma.peripheral = "DMA1_CH2"
 
 # ------------- heatbed ---------------
@@ -151,7 +130,7 @@ samples = 0
 
 [heatbed.thermistor.adc]
 peripheral = "ADC2"
-input.pin = "PA2"
+input.pin = "PA6"
 dma.peripheral = "DMA1_CH3"
 
 # ------------- fan ---------------
@@ -165,16 +144,16 @@ channel = 3
 # ------------- sdcard ---------------
 
 [sdcard.spi]
-peripheral = "SPI1"
+peripheral = "SPI2"
 
 [sdcard.spi.clk]
-peripheral = "PB3"
+peripheral = "PD3"
 
 [sdcard.spi.mosi]
-pin = "PB5"
+pin = "PC3"
 
 [sdcard.spi.miso]
-pin = "PB4"
+pin = "PC2"
 
 [sdcard.spi.cs]
-pin = "PC12"
+pin = "PD7"

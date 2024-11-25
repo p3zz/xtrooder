@@ -19,14 +19,18 @@ use app::ext::{
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use common::PwmBase;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::Pull;
+use embassy_stm32::gpio::{OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
+use embassy_stm32::time::khz;
+use embassy_stm32::timer::low_level::CountingMode;
+use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::Config;
 use embassy_stm32::{
@@ -899,38 +903,43 @@ async fn main(spawner: Spawner) {
     let mut uart_config = embassy_stm32::usart::Config::default();
     uart_config.baudrate = printer_config.uart.baudrate as u32;
 
-    // FIXME UART pins
-    // let uart = Uart::new(
-    //     printer_config.uart.peripheral, printer_config.uart.rx.pin, printer_config.uart.rx.dma, Irqs, printer_config.uart.tx.pin, printer_config.uart.tx.dma, uart_config,
-    // )
-    // .expect("UART configuration not valid");
-    // let (tx, rx) = uart.split();
+    let uart = Uart::new(
+        printer_config.uart.peripheral,
+        printer_config.uart.rx.pin,
+        printer_config.uart.tx.pin,
+        Irqs,
+        printer_config.uart.tx.dma,
+        printer_config.uart.rx.dma,
+        uart_config,
+    ).expect("UART configuration not valid");
 
-    // {
-    //     let mut uart_rx = UART_RX.lock().await;
-    //     uart_rx.replace(rx);
-    // }
+    let (tx, rx) = uart.split();
 
-    // {
-    //     let mut uart_tx = UART_TX.lock().await;
-    //     uart_tx.replace(tx);
-    // }
+    {
+        let mut uart_rx = UART_RX.lock().await;
+        uart_rx.replace(rx);
+    }
 
-    // FIXME PWM pins
-    // let pwm= SimplePwm::new(
-    //     printer_config.pwm.timer,
-    //     Some(PwmPin::new_ch1(printer_config.pwm.ch1, OutputType::PushPull)),
-    //     Some(PwmPin::new_ch2(printer_config.pwm.ch2, OutputType::PushPull)),
-    //     Some(PwmPin::new_ch3(printer_config.pwm.ch3, OutputType::PushPull)),
-    //     None,
-    //     hz(1000),
-    //     CountingMode::EdgeAlignedUp
-    // );
+    {
+        let mut uart_tx = UART_TX.lock().await;
+        uart_tx.replace(tx);
+    }
 
-    // {
-    //     let mut pwm_global = PMW.lock().await;
-    //     pwm_global.replace(pwm);
-    // }
+    let pwm= SimplePwm::new(
+        printer_config.pwm.timer,
+        Some(PwmPin::new_ch1(printer_config.pwm.ch1, OutputType::PushPull)),
+        Some(PwmPin::new_ch2(printer_config.pwm.ch2, OutputType::PushPull)),
+        Some(PwmPin::new_ch3(printer_config.pwm.ch3, OutputType::PushPull)),
+        None,
+        khz(1),
+        CountingMode::EdgeAlignedUp
+    );
+    let pwm = SimplePwmWrapper::new(pwm);
+
+    {
+        let mut pwm_global = PMW.lock().await;
+        pwm_global.replace(pwm);
+    }
 
     spawner.spawn(input_handler()).unwrap();
 
