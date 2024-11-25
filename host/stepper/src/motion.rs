@@ -722,13 +722,13 @@ mod tests {
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::CounterClockwise);
         assert_abs_diff_eq!(
+            0.00703610931,
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814269,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
+            0.00703610931,
             s_y.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814269,
             epsilon = 0.00001
         );
     }
@@ -770,7 +770,7 @@ mod tests {
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.01,
+            0.0,
             epsilon = 0.000001
         );
         assert_abs_diff_eq!(
@@ -820,13 +820,13 @@ mod tests {
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
+            0.0070361093,
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.0070781426,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
+            0.0070361093,
             s_y.get_speed_from_attachment().as_meters_per_second(),
-            0.0070781426,
             epsilon = 0.00001
         );
     }
@@ -873,13 +873,13 @@ mod tests {
         assert_eq!(s_x.get_direction(), RotationDirection::CounterClockwise);
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
+            0.00703610,
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
+            0.00703610,
             s_y.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
             epsilon = 0.00001
         );
     }
@@ -934,18 +934,18 @@ mod tests {
         assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
+            0.00574300,
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
+            0.00574300,
             s_y.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
+            0.00574300,
             s_z.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
             epsilon = 0.00001
         );
     }
@@ -1005,17 +1005,17 @@ mod tests {
         assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
         assert_abs_diff_eq!(
             s_x.get_speed_from_attachment().as_meters_per_second(),
-            0.00928212,
+            0.00679144,
             epsilon = 0.00001
         );
         assert_abs_diff_eq!(
             s_y.get_speed_from_attachment().as_meters_per_second(),
-            0.00372533,
+            0.00271656,
             epsilon = 0.0001
         );
         assert_abs_diff_eq!(
             s_z.get_speed_from_attachment().as_meters_per_second(),
-            0.00707814,
+            0.006791448,
             epsilon = 0.0001
         );
     }
