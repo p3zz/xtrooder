@@ -19,6 +19,7 @@ use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterE
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
+use defmt::error;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
@@ -255,7 +256,10 @@ async fn command_dispatcher_task() {
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_config: FanConfig) {
+async fn hotend_handler(
+    config: ThermalActuatorConfig<HotendAdcInputPin>,
+    fan_config: FanConfig
+) {
     let readings = HOTEND_DMA_BUF.take();
 
     let thermistor: Thermistor<'_, AdcWrapper<_, _>> = Thermistor::new(
@@ -285,10 +289,16 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
+
         {
+            let mut pwm = PMW.lock().await;
+            let pwm = pwm.as_mut().expect("PWM not initialized");
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
-            last_temperature.replace(hotend.read_temperature(adc).await);
+            let data = hotend.update(dt.into(), pwm, adc).await;
+            last_temperature.replace(data.0);
+            #[cfg(feature = "defmt-log")]
+            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0, data.1);
         }
 
         #[cfg(feature="defmt-log")]
@@ -362,12 +372,12 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
                         let mut pwm = PMW.lock().await;
                         let pwm = pwm.as_mut().expect("PWM not initialized");
                         fan_controller.set_speed(speed, pwm);
-                        #[cfg(feature = "defmt-log")]
-                        info!(
-                            "[ThermalActuator HANDLER] Fan speed: {} revs/s",
-                            speed.as_rpm()
-                        );
                     }
+                    #[cfg(feature = "defmt-log")]
+                    info!(
+                        "[ThermalActuator HANDLER] Fan speed: {} revs/s",
+                        speed.as_rpm()
+                    );
                 }
                 GCommand::M155 { s } => {
                     let duration = Duration::from_millis(s.as_millis() as u64);
@@ -375,17 +385,6 @@ async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_co
                 }
                 _ => (),
             }
-        }
-
-        {
-            let mut pwm = PMW.lock().await;
-            let pwm = pwm.as_mut().expect("PWM not initialized");
-            let mut adc = ADC.lock().await;
-            let adc = adc.as_mut().expect("ADC not initialized");
-            if let Ok(res) = hotend.update(dt.into(), pwm, adc).await {
-                #[cfg(feature = "defmt-log")]
-                info!("[HEATBED] duty cycle: {}", res.1);
-            };
         }
 
         Timer::after(dt).await;
@@ -426,9 +425,14 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
 
     loop {
         {
+            let mut pwm = PMW.lock().await;
+            let pwm = pwm.as_mut().expect("PWM not initialized");
             let mut adc = ADC.lock().await;
             let adc = adc.as_mut().expect("ADC not initialized");
-            last_temperature.replace(heatbed.read_temperature(adc).await);
+            let data = heatbed.update(dt.into(), pwm, adc).await;
+            last_temperature.replace(data.0);
+            #[cfg(feature = "defmt-log")]
+            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0, data.1);
         }
 
         #[cfg(feature="defmt-log")]
@@ -485,17 +489,6 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
                 _ => (),
             }
         };
-
-        {
-            let mut pwm = PMW.lock().await;
-            let pwm = pwm.as_mut().expect("PWM not initialized");
-            let mut adc = ADC.lock().await;
-            let adc = adc.as_mut().expect("ADC not initialized");
-            if let Ok(res) = heatbed.update(dt.into(), pwm, adc).await {
-                #[cfg(feature = "defmt-log")]
-                info!("[HEATBED] duty cycle: {}", res.1);
-            };
-        }
 
         Timer::after(dt).await;
         if counter.checked_add(dt).is_none() {
@@ -661,21 +654,29 @@ async fn sdcard_handler(
         }
 
         if running && working_file.is_some() {
-            if let Ok(n) = volume_manager.read(working_file.unwrap(), &mut tmp) {
-                for b in 0..n {
-                    if tmp[b] == b'\n' {
+            let n = volume_manager.read(
+                working_file.unwrap(),
+                &mut tmp
+            ).expect("Something went wrong during the SD-Card file reading");
+            if n == 0{
+                event_channel_publisher.publish(PrinterEvent::EOF).await;
+            }
+            else{
+                for b in &tmp[0..n] {
+                    if *b == b'\n' {
                         COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
                         #[cfg(feature = "defmt-log")]
-                        info!("[INPUT_HANDLER] {}", msg.as_str());
+                        info!("[{}] {}", SD_CARD_LABEL, msg.as_str());
                         msg.clear();
                     } else {
                         // TODO handle buffer overflow
-                        msg.push(tmp[b].into()).unwrap();
+                        if msg.push((*b).into()).is_err(){
+                            msg.clear();
+                            #[cfg(feature = "defmt-log")]
+                            error!("[{}] Message too long", SD_CARD_LABEL);
+                        }
                     }
                 }
-                tmp.fill(0u8);
-            } else {
-                event_channel_publisher.publish(PrinterEvent::EOF).await;
             }
         }
         Timer::after(dt).await;

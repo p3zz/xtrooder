@@ -32,11 +32,11 @@ impl<'a, P: PwmBase, A: AdcBase> ThermalActuator<'a, P, A> {
         dt: Duration,
         pwm: &mut P,
         adc: &mut A,
-    ) -> Result<(Temperature, u64), ()> {
+    ) -> (Temperature, Option<u64>) {
         let curr_tmp = self.read_temperature(adc).await;
         // info!("Temperature: {}", curr_tmp.to_celsius());
-        let duty_cycle = self.heater.update(curr_tmp, dt, pwm)?;
-        Ok((curr_tmp, duty_cycle))
+        let duty_cycle = self.heater.update(curr_tmp, dt, pwm).ok();
+        (curr_tmp, duty_cycle)
     }
 
     pub async fn read_temperature(&mut self, adc: &mut A) -> Temperature {
@@ -203,7 +203,8 @@ mod tests {
         let temp = actuator
             .update(Duration::from_millis(50), &mut pwm, &mut adc)
             .await;
-        assert_eq!(26.984236773480745, temp.unwrap().0.as_celsius());
-        assert_eq!(3616, temp.unwrap().1);
+        assert_eq!(26.984236773480745, temp.0.as_celsius());
+        assert!(temp.1.is_some());
+        assert_eq!(3616, temp.1.unwrap());
     }
 }
