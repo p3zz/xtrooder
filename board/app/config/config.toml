@@ -107,7 +107,7 @@ k_d = 1
 [hotend.thermistor]
 r_series = 10000
 r0 = 100000
-b = 3950
+b = 3676.85
 samples = 5
 adc.pin = "PA5"
 
@@ -126,7 +126,7 @@ k_d = 1
 [heatbed.thermistor]
 r_series = 10000
 r0 = 120000
-b = 3950
+b = 3676.85
 samples = 5
 adc.pin = "PA6"
 
