@@ -24,7 +24,7 @@ use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::{OutputType, Pull};
+use embassy_stm32::gpio::{OutputType, Pin, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
@@ -1023,9 +1023,9 @@ async fn main(spawner: Spawner) {
         ))
         .unwrap();
 
-    // spawner
-    //     .spawn(sdcard_handler(printer_config.sdcard))
-    //     .unwrap();
+    spawner
+        .spawn(sdcard_handler(printer_config.sdcard))
+        .unwrap();
 
     loop {
         #[cfg(feature = "defmt-log")]

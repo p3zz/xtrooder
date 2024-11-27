@@ -115,24 +115,16 @@ async fn main(_spawner: Spawner) {
     println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
     loop {
-        match hotend
+        let data = hotend
             .update(dt.into(), &mut heater_out_wrapper, &mut adc)
-            .await
-        {
-            Ok(r) => {
-                #[cfg(feature = "defmt-log")]
-                println!(
-                    "Dt: {}\tTemperaure: {}\tDuty cycle: {}",
-                    dt.as_millis(),
-                    r.0.as_celsius(),
-                    r.1
-                );
-            }
-            Err(_) => {
-                #[cfg(feature = "defmt-log")]
-                error!("Target temperature not set")
-            }
-        };
+            .await;
+        #[cfg(feature = "defmt-log")]
+        println!(
+            "Dt: {}\tTemperaure: {}\tDuty cycle: {:?}",
+            dt.as_millis(),
+            data.0.as_celsius(),
+            data.1
+        );
         Timer::after(dt).await;
     }
 }

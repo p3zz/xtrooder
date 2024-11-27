@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "math",
     "parser",
-    "tools",
     "stepper",
     "fan",
     "thermal_actuator",
