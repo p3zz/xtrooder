@@ -14,9 +14,7 @@ pub struct PwmOutputConfig {
 
 pub trait PwmBase {
     type Channel: Copy + Clone;
-    // type Pwm;
 
-    // fn new(p: Self::Pwm) -> Self;
     fn enable(&mut self, channel: Self::Channel);
     fn disable(&mut self, channel: Self::Channel);
     fn get_max_duty(&self) -> u64;

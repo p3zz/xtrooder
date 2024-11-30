@@ -30,11 +30,7 @@ impl<'a, A: AdcBase> Thermistor<'a, A> {
         readings: &'a mut DmaBufType,
         config: ThermistorConfig,
     ) -> Self {
-        // let mut adc = A::new(adc_peri);
-        // adc.set_sample_time(sample_time);
-        // adc.set_resolution(resolution);
         Self {
-            // adc,
             read_pin,
             readings,
             config,

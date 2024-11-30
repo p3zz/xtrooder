@@ -29,7 +29,7 @@ exti = "EXTI2"
 # ------------- steppers ---------------
 
 [steppers.x]
-stepping_mode = "full"
+stepping_mode = "half"
 distance_per_step = 0.15
 steps_per_revolution = 200
 bounds.min = -100
@@ -39,7 +39,7 @@ step.pin = "PC11"
 dir.pin = "PC10"
 
 [steppers.y]
-stepping_mode = "full"
+stepping_mode = "half"
 distance_per_step = 0.15
 steps_per_revolution = 200
 bounds.min = -100

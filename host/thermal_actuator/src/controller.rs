@@ -34,7 +34,6 @@ impl<'a, P: PwmBase, A: AdcBase> ThermalActuator<'a, P, A> {
         adc: &mut A,
     ) -> (Temperature, Option<u64>) {
         let curr_tmp = self.read_temperature(adc).await;
-        // info!("Temperature: {}", curr_tmp.to_celsius());
         let duty_cycle = self.heater.update(curr_tmp, dt, pwm).ok();
         (curr_tmp, duty_cycle)
     }

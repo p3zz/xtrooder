@@ -789,7 +789,7 @@ async fn planner_handler(
             endstops,
         );
 
-    let dt = Duration::from_millis(500);
+    let dt = Duration::from_millis(20);
     let mut event_channel_subscriber = EVENT_CHANNEL
         .dyn_subscriber()
         .expect("Cannot retrieve error subscriber");

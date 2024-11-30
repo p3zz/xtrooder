@@ -40,16 +40,14 @@ impl PID {
     }
 
     pub fn update(&mut self, current: f64, dt: Duration) -> Result<f64, ()> {
-        if self.target.is_none() {
-            return Err(());
-        }
-        let target = self.target.unwrap();
+        let target = self.target.ok_or(())?;
         let error = target - current;
 
         // Proportional term
         let proportional = self.kp * error;
 
         // Integral term (only update if within output bounds)
+        // windup check
         let out = proportional + self.ki * self.integral;
         if let Some(bounds) = self.bounds {
             if out >= bounds.0 && out <= bounds.1 {
