@@ -501,37 +501,20 @@ mod tests {
         assert_abs_diff_eq!(s.get_steps(), 1.0, epsilon = 0.000001);
     }
 
-    // // FIXME
-    // // #[test]
-    // // fn test_stepper_step_out_of_bounds() {
-    // //     let step = StatefulOutputPinMock::new();
-    // //     let direction = StatefulOutputPinMock::new();
-    // //     let mut options = StepperOptions::default();
-    // //     options.bounds = Some((-1.0, 1.0));
-    // //     let mut s = Stepper::new(step, direction, options);
-    // //     s.set_direction(RotationDirection::Clockwise);
-    // //     let res = s.step();
-    // //     assert!(res.is_ok());
-    // //     assert_abs_diff_eq!(s.get_steps(), 1.0, epsilon = 0.000001);
-    // //     let res = s.step();
-    // //     assert!(res.is_err());
-    // //     assert_abs_diff_eq!(s.get_steps(), 1.0, epsilon = 0.000001);
-    // // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_for_steps_fail() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     let angular_velocity = AngularVelocity::from_rpm(0.0);
-    //     s.set_speed(angular_velocity);
-    //     let steps = 20;
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001)
-    // }
+    #[tokio::test]
+    async fn test_stepper_move_for_steps_fail() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        s.set_direction(RotationDirection::Clockwise);
+        let angular_velocity = AngularVelocity::from_rpm(0.0);
+        s.set_speed(angular_velocity);
+        let steps = 20;
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001)
+    }
 
     #[tokio::test]
     async fn test_stepper_move_for_steps_success() {
@@ -553,456 +536,456 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_stepper_move_counterclockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_direction(RotationDirection::CounterClockwise);
+        let angular_velocity = AngularVelocity::from_rpm(300.0);
+        s.set_speed(angular_velocity);
+        let m = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(m.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
+        assert_eq!(
+            m.unwrap().as_micros(),
+            Duration::from_millis(20).as_micros()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_counterclockwise_option() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions {
+            steps_per_revolution: 200,
+            stepping_mode: SteppingMode::FullStep,
+            bounds: None,
+            positive_direction: RotationDirection::CounterClockwise,
+            acceleration: None
+        };
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        let angular_velocity = AngularVelocity::from_rpm(300.0);
+        s.set_speed(angular_velocity);
+        s.set_direction(RotationDirection::CounterClockwise);
+        let m = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(m.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
+        assert_eq!(
+            m.unwrap().as_micros(),
+            Duration::from_millis(20).as_micros()
+        );
+        s.set_direction(RotationDirection::Clockwise);
+        let m = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(m.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_eq!(
+            m.unwrap().as_micros(),
+            Duration::from_millis(20).as_micros()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_microstepping_clockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        let angular_velocity = AngularVelocity::from_rpm(300.0);
+        s.set_stepping_mode(SteppingMode::HalfStep);
+        s.set_direction(RotationDirection::Clockwise);
+        s.set_speed(angular_velocity);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_microstepping_counterclockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_stepping_mode(SteppingMode::HalfStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_clockwise_positive_direction_clockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::Clockwise);
+        let mut options = StepperOptions::default();
+        options.positive_direction = RotationDirection::Clockwise;
+        s.set_options(options);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_clockwise_positive_direction_counterclockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::Clockwise);
+        let mut options = StepperOptions::default();
+        options.positive_direction = RotationDirection::CounterClockwise;
+        s.set_options(options);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_counterclockwise_positive_direction_clockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        let mut options = StepperOptions::default();
+        options.positive_direction = RotationDirection::Clockwise;
+        s.set_options(options);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_counterclockwise_positive_direction_counterclockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let steps = 20;
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::CounterClockwise);
+        let mut options = StepperOptions::default();
+        options.positive_direction = RotationDirection::CounterClockwise;
+        s.set_options(options);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        let distance = Distance::from_millimeters(10.0);
+        let m = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(m.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
+        assert_eq!(m.unwrap().as_micros(), Duration::from_secs(10).as_micros());
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_space_wasted() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        let distance = Distance::from_millimeters(10.5);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_space_wasted_2() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        let distance = Distance::from_millimeters(0.5);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_space_wasted_3() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        let distance = Distance::from_millimeters(-0.5);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_lower_distance_per_step() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new_with_attachment(
+            step,
+            direction,
+            options,
+            StepperAttachment {
+                distance_per_step: Distance::from_millimeters(0.5),
+            },
+        );
+        let distance = Distance::from_millimeters(10.5);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 21.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.5, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_negative() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new_with_attachment(
+            step,
+            direction,
+            options,
+            StepperAttachment {
+                distance_per_step: Distance::from_millimeters(0.5),
+            },
+        );
+        let distance = Distance::from_millimeters(-10.5);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), -21.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.5, epsilon = 0.000001);
+    }
+
+    #[tokio::test]
+    async fn test_stepper_move_for_distance_zero() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new_with_attachment(
+            step,
+            direction,
+            options,
+            StepperAttachment {
+                distance_per_step: Distance::from_millimeters(0.5),
+            },
+        );
+        let distance = Distance::from_millimeters(0.0);
+        let res = s.move_for_distance::<StepperTimer>(distance).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+        assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
+    }
+
+    // FIXME
     // #[tokio::test]
-    // async fn test_stepper_move_counterclockwise() {
+    // async fn test_stepper_move_for_steps_outofbounds() {
     //     let step = StatefulOutputPinMock::new();
     //     let direction = StatefulOutputPinMock::new();
     //     let options = StepperOptions::default();
     //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
+    //     let steps = 10;
+    //     s.set_stepping_mode(SteppingMode::FullStep);
     //     s.set_direction(RotationDirection::CounterClockwise);
-    //     let angular_velocity = AngularVelocity::from_rpm(300.0);
-    //     s.set_speed(angular_velocity);
-    //     let m = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(m.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
-    //     assert_eq!(
-    //         m.unwrap().as_micros(),
-    //         Duration::from_millis(20).as_micros()
-    //     );
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_counterclockwise_option() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions {
-    //         steps_per_revolution: 200,
-    //         stepping_mode: SteppingMode::FullStep,
-    //         bounds: None,
-    //         positive_direction: RotationDirection::CounterClockwise,
-    //         acceleration: None
-    //     };
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     let angular_velocity = AngularVelocity::from_rpm(300.0);
-    //     s.set_speed(angular_velocity);
-    //     s.set_direction(RotationDirection::CounterClockwise);
-    //     let m = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(m.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
-    //     assert_eq!(
-    //         m.unwrap().as_micros(),
-    //         Duration::from_millis(20).as_micros()
-    //     );
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     let m = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(m.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
-    //     assert_eq!(
-    //         m.unwrap().as_micros(),
-    //         Duration::from_millis(20).as_micros()
-    //     );
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_microstepping_clockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     let angular_velocity = AngularVelocity::from_rpm(300.0);
-    //     s.set_stepping_mode(SteppingMode::HalfStep);
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     s.set_speed(angular_velocity);
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_microstepping_counterclockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     s.set_stepping_mode(SteppingMode::HalfStep);
-    //     s.set_direction(RotationDirection::CounterClockwise);
+    //     let mut options = StepperOptions::default();
+    //     options.bounds = Some((-10.0, 10.0));
+    //     s.set_options(options);
     //     let res = s.move_for_steps::<StepperTimer>(steps).await;
     //     assert!(res.is_ok());
     //     assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
-    // }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_clockwise_positive_direction_clockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     let mut options = StepperOptions::default();
-    //     options.positive_direction = RotationDirection::Clockwise;
-    //     s.set_options(options);
+    //     let steps = 15;
     //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
+    //     assert!(res.is_err());
+    //     assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
     // }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_clockwise_positive_direction_counterclockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     let mut options = StepperOptions::default();
-    //     options.positive_direction = RotationDirection::CounterClockwise;
-    //     s.set_options(options);
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
-    // }
+    #[tokio::test]
+    async fn test_stepper_home() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        let steps = 10;
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_direction(RotationDirection::Clockwise);
+        let res = s.move_for_steps::<StepperTimer>(steps).await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 10.0);
 
-    // #[tokio::test]
-    // async fn test_stepper_move_counterclockwise_positive_direction_clockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_direction(RotationDirection::CounterClockwise);
-    //     let mut options = StepperOptions::default();
-    //     options.positive_direction = RotationDirection::Clockwise;
-    //     s.set_options(options);
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), -20.0, epsilon = 0.000001);
-    // }
+        let res = s.home::<StepperTimer>().await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_counterclockwise_positive_direction_counterclockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let steps = 20;
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_direction(RotationDirection::CounterClockwise);
-    //     let mut options = StepperOptions::default();
-    //     options.positive_direction = RotationDirection::CounterClockwise;
-    //     s.set_options(options);
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 20.0, epsilon = 0.000001);
-    // }
+    #[tokio::test]
+    async fn test_stepper_home_no_attachment() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        s.set_stepping_mode(SteppingMode::FullStep);
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     let distance = Distance::from_millimeters(10.0);
-    //     let m = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(m.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
-    //     assert_eq!(m.unwrap().as_micros(), Duration::from_secs(10).as_micros());
-    // }
+        let res = s.home::<StepperTimer>().await;
+        assert!(res.is_ok());
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_space_wasted() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     let distance = Distance::from_millimeters(10.5);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 10.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.0, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_positive() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let angular_velocity = AngularVelocity::from_rpm(60.0);
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_speed(angular_velocity);
+        assert_eq!(s.get_speed(), angular_velocity);
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_space_wasted_2() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     let distance = Distance::from_millimeters(0.5);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_zero() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let angular_velocity = AngularVelocity::from_rpm(0.0);
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_speed(angular_velocity);
+        assert_eq!(s.get_speed(), angular_velocity);
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_space_wasted_3() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     let distance = Distance::from_millimeters(-0.5);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_negative() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let mut s = Stepper::new(step, direction, options);
+        let angular_velocity = AngularVelocity::from_rpm(-600.0);
+        s.set_stepping_mode(SteppingMode::FullStep);
+        s.set_speed(angular_velocity);
+        assert_eq!(s.get_speed(), AngularVelocity::from_rpm(0.0));
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_lower_distance_per_step() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new_with_attachment(
-    //         step,
-    //         direction,
-    //         options,
-    //         StepperAttachment {
-    //             distance_per_step: Distance::from_millimeters(0.5),
-    //         },
-    //     );
-    //     let distance = Distance::from_millimeters(10.5);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 21.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 10.5, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_from_attachment_positive() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let speed = Speed::from_meters_per_second(0.003);
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        s.set_speed_from_attachment(speed);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            speed.as_meters_per_second(),
+            epsilon = 0.000001
+        );
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_negative() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new_with_attachment(
-    //         step,
-    //         direction,
-    //         options,
-    //         StepperAttachment {
-    //             distance_per_step: Distance::from_millimeters(0.5),
-    //         },
-    //     );
-    //     let distance = Distance::from_millimeters(-10.5);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), -21.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), -10.5, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_from_attachment_negative() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let speed = Speed::from_meters_per_second(-3.0);
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        s.set_speed_from_attachment(speed);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            0.0,
+            epsilon = 0.000001
+        );
+    }
 
-    // #[tokio::test]
-    // async fn test_stepper_move_for_distance_zero() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new_with_attachment(
-    //         step,
-    //         direction,
-    //         options,
-    //         StepperAttachment {
-    //             distance_per_step: Distance::from_millimeters(0.5),
-    //         },
-    //     );
-    //     let distance = Distance::from_millimeters(0.0);
-    //     let res = s.move_for_distance::<StepperTimer>(distance).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
-    //     assert_abs_diff_eq!(s.get_position().as_millimeters(), 0.0, epsilon = 0.000001);
-    // }
+    #[test]
+    fn test_stepper_set_speed_from_attachment_zero() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let speed = Speed::from_meters_per_second(-3.0);
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        s.set_speed_from_attachment(speed);
+        assert_abs_diff_eq!(
+            s.get_speed_from_attachment().as_metres_per_second(),
+            0.0,
+            epsilon = 0.000001
+        );
+    }
 
-    // // FIXME
-    // // #[tokio::test]
-    // // async fn test_stepper_move_for_steps_outofbounds() {
-    // //     let step = StatefulOutputPinMock::new();
-    // //     let direction = StatefulOutputPinMock::new();
-    // //     let options = StepperOptions::default();
-    // //     let mut s = Stepper::new(step, direction, options);
-    // //     let steps = 10;
-    // //     s.set_stepping_mode(SteppingMode::FullStep);
-    // //     s.set_direction(RotationDirection::CounterClockwise);
-    // //     let mut options = StepperOptions::default();
-    // //     options.bounds = Some((-10.0, 10.0));
-    // //     s.set_options(options);
-    // //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    // //     assert!(res.is_ok());
-    // //     assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
+    #[tokio::test]
+    async fn test_stepper_move_to() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions::default();
+        let speed = Speed::from_meters_per_second(3.0);
+        let dest = Distance::from_millimeters(80.0);
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        s.set_speed_from_attachment(speed);
+        let t = s.move_to_destination::<StepperTimer>(dest).await;
+        assert!(t.is_ok());
+        assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
+        assert_eq!(80.0, s.get_steps());
+    }
 
-    // //     let steps = 15;
-    // //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    // //     assert!(res.is_err());
-    // //     assert_abs_diff_eq!(s.get_steps(), -10.0, epsilon = 0.000001);
-    // // }
-
-    // #[tokio::test]
-    // async fn test_stepper_home() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     let steps = 10;
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_direction(RotationDirection::Clockwise);
-    //     let res = s.move_for_steps::<StepperTimer>(steps).await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 10.0);
-
-    //     let res = s.home::<StepperTimer>().await;
-    //     assert!(res.is_ok());
-    //     assert_abs_diff_eq!(s.get_steps(), 0.0, epsilon = 0.000001);
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_home_no_attachment() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-
-    //     let res = s.home::<StepperTimer>().await;
-    //     assert!(res.is_ok());
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_positive() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let angular_velocity = AngularVelocity::from_rpm(60.0);
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_speed(angular_velocity);
-    //     assert_eq!(s.get_speed(), angular_velocity);
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_zero() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let angular_velocity = AngularVelocity::from_rpm(0.0);
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_speed(angular_velocity);
-    //     assert_eq!(s.get_speed(), angular_velocity);
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_negative() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let mut s = Stepper::new(step, direction, options);
-    //     let angular_velocity = AngularVelocity::from_rpm(-600.0);
-    //     s.set_stepping_mode(SteppingMode::FullStep);
-    //     s.set_speed(angular_velocity);
-    //     assert_eq!(s.get_speed(), AngularVelocity::from_rpm(0.0));
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_from_attachment_positive() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let speed = Speed::from_meters_per_second(0.003);
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     s.set_speed_from_attachment(speed);
-    //     assert_abs_diff_eq!(
-    //         s.get_speed_from_attachment().as_metres_per_second(),
-    //         speed.as_meters_per_second(),
-    //         epsilon = 0.000001
-    //     );
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_from_attachment_negative() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let speed = Speed::from_meters_per_second(-3.0);
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     s.set_speed_from_attachment(speed);
-    //     assert_abs_diff_eq!(
-    //         s.get_speed_from_attachment().as_metres_per_second(),
-    //         0.0,
-    //         epsilon = 0.000001
-    //     );
-    // }
-
-    // #[test]
-    // fn test_stepper_set_speed_from_attachment_zero() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let speed = Speed::from_meters_per_second(-3.0);
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     s.set_speed_from_attachment(speed);
-    //     assert_abs_diff_eq!(
-    //         s.get_speed_from_attachment().as_metres_per_second(),
-    //         0.0,
-    //         epsilon = 0.000001
-    //     );
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_to() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions::default();
-    //     let speed = Speed::from_meters_per_second(3.0);
-    //     let dest = Distance::from_millimeters(80.0);
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     s.set_speed_from_attachment(speed);
-    //     let t = s.move_to_destination::<StepperTimer>(dest).await;
-    //     assert!(t.is_ok());
-    //     assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
-    //     assert_eq!(80.0, s.get_steps());
-    // }
-
-    // #[tokio::test]
-    // async fn test_stepper_move_to_counterclockwise() {
-    //     let step = StatefulOutputPinMock::new();
-    //     let direction = StatefulOutputPinMock::new();
-    //     let options = StepperOptions {
-    //         steps_per_revolution: 200,
-    //         stepping_mode: SteppingMode::FullStep,
-    //         bounds: None,
-    //         positive_direction: RotationDirection::CounterClockwise,
-    //         acceleration: None
-    //     };
-    //     let speed = Speed::from_meters_per_second(3.0);
-    //     let dest = Distance::from_millimeters(80.0);
-    //     let mut s =
-    //         Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
-    //     s.set_speed_from_attachment(speed);
-    //     let t = s.move_to_destination::<StepperTimer>(dest).await;
-    //     assert!(t.is_ok());
-    //     assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
-    //     assert_eq!(80.0, s.get_steps());
-    //     let t = s.move_to_destination::<StepperTimer>(-1.0 * dest).await;
-    //     assert!(t.is_ok());
-    //     assert_abs_diff_eq!(
-    //         -80.0,
-    //         s.get_position().as_millimeters(),
-    //         epsilon = 0.0000001
-    //     );
-    //     assert_eq!(-80.0, s.get_steps());
-    // }
+    #[tokio::test]
+    async fn test_stepper_move_to_counterclockwise() {
+        let step = StatefulOutputPinMock::new();
+        let direction = StatefulOutputPinMock::new();
+        let options = StepperOptions {
+            steps_per_revolution: 200,
+            stepping_mode: SteppingMode::FullStep,
+            bounds: None,
+            positive_direction: RotationDirection::CounterClockwise,
+            acceleration: None
+        };
+        let speed = Speed::from_meters_per_second(3.0);
+        let dest = Distance::from_millimeters(80.0);
+        let mut s =
+            Stepper::new_with_attachment(step, direction, options, StepperAttachment::default());
+        s.set_speed_from_attachment(speed);
+        let t = s.move_to_destination::<StepperTimer>(dest).await;
+        assert!(t.is_ok());
+        assert_abs_diff_eq!(80.0, s.get_position().as_millimeters(), epsilon = 0.0000001);
+        assert_eq!(80.0, s.get_steps());
+        let t = s.move_to_destination::<StepperTimer>(-1.0 * dest).await;
+        assert!(t.is_ok());
+        assert_abs_diff_eq!(
+            -80.0,
+            s.get_position().as_millimeters(),
+            epsilon = 0.0000001
+        );
+        assert_eq!(-80.0, s.get_steps());
+    }
 
     #[tokio::test]
     async fn test_move_for_steps_accelerated(){

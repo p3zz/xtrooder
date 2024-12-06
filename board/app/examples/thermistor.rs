@@ -6,7 +6,7 @@ use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel, Resolution, SampleTime};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
-use static_cell::StaticCell;
+use static_cell::ConstStaticCell;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
 
 use {defmt_rtt as _, panic_probe as _};
@@ -15,7 +15,7 @@ use {defmt_rtt as _, panic_probe as _};
 use defmt::info;
 
 #[link_section = ".ram_d3"]
-static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
+static DMA_BUF: ConstStaticCell<DmaBufType> = ConstStaticCell::new([0u16; 1]);
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -54,7 +54,7 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
-    let readings = DMA_BUF.init_with(||[0u16; 1]);
+    let readings = DMA_BUF.take();
 
     let mut adc = Adc::new(p.ADC1);
     adc.set_sample_time(SampleTime::CYCLES32_5);

@@ -19,7 +19,6 @@ use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterE
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use common::PwmBase;
-use defmt::error;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
@@ -298,7 +297,7 @@ async fn hotend_handler(
             let data = hotend.update(dt.into(), pwm, adc).await;
             last_temperature.replace(data.0);
             #[cfg(feature = "defmt-log")]
-            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0, data.1);
+            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
         }
 
         #[cfg(feature="defmt-log")]
@@ -432,7 +431,7 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             let data = heatbed.update(dt.into(), pwm, adc).await;
             last_temperature.replace(data.0);
             #[cfg(feature = "defmt-log")]
-            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0, data.1);
+            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
         }
 
         #[cfg(feature="defmt-log")]

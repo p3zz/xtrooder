@@ -251,6 +251,10 @@ pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPin
         &mut Option<I>,
     ),
 ) -> Result<Duration, StepperError> {
+    let start = Vector3D::new(steppers.0.get_position(), steppers.1.get_position(), steppers.2.get_position());
+    let distance = (dest - start).get_magnitude();
+    let duration = distance / speed;
+    let e_speed = (e_dest - steppers.3.get_position()) / duration;
     match join!(
         linear_move_to_3d::<P, T, I>(
             (steppers.0, steppers.1, steppers.2),
@@ -258,7 +262,7 @@ pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPin
             speed,
             (endstops.0, endstops.1, endstops.2)
         ),
-        linear_move_to::<P, T, I>(steppers.3, e_dest, speed, endstops.3)
+        linear_move_to::<P, T, I>(steppers.3, e_dest, e_speed, endstops.3)
     ) {
         (Ok(dabc), Ok(de)) => {
             let max = dabc.max(de);
@@ -360,6 +364,9 @@ pub async fn arc_move_3d_e_center<P: OutputPinBase, T: TimerBase, I: ExtiInputPi
     let z_delta = dest.get_z() - steppers.2.get_position();
     let z_speed = z_delta / time;
 
+    let e_delta = e_dest - steppers.3.get_position();
+    let e_speed = e_delta / time;
+
     match join!(
         arc_move_2d_arc_length::<P, T, I>(
             (steppers.0, steppers.1),
@@ -371,7 +378,7 @@ pub async fn arc_move_3d_e_center<P: OutputPinBase, T: TimerBase, I: ExtiInputPi
             (endstops.0, endstops.1)
         ),
         linear_move_to::<P, T, I>(steppers.2, dest.get_z(), z_speed, endstops.2),
-        linear_move_to::<P, T, I>(steppers.3, e_dest, speed, endstops.3)
+        linear_move_to::<P, T, I>(steppers.3, e_dest, e_speed, endstops.3)
     ) {
         (Ok(dab), Ok(dc), Ok(de)) => {
             let max = dab.max(dc).max(de);

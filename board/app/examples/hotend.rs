@@ -12,7 +12,7 @@ use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::timer::{low_level::CountingMode, Channel};
 use embassy_time::{Duration, Timer};
 use math::measurements::{Resistance, Temperature};
-use static_cell::StaticCell;
+use static_cell::ConstStaticCell;
 use thermal_actuator::controller::ThermalActuator;
 use thermal_actuator::heater::Heater;
 use thermal_actuator::thermistor::{DmaBufType, Thermistor};
@@ -22,7 +22,7 @@ use {defmt_rtt as _, panic_probe as _};
 use defmt::{error, info, println};
 
 #[link_section = ".ram_d3"]
-static DMA_BUF: StaticCell<DmaBufType> = StaticCell::new();
+static DMA_BUF: ConstStaticCell<DmaBufType> = ConstStaticCell::new([0u16; 1]);
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -61,14 +61,14 @@ async fn main(_spawner: Spawner) {
 
     let p = embassy_stm32::init(config);
 
-    let readings = DMA_BUF.init([0u16; 1]);
+    let readings = DMA_BUF.take();
 
     let mut adc = Adc::new(p.ADC1);
     adc.set_sample_time(SampleTime::CYCLES32_5);
     let mut adc = AdcWrapper::new(adc, p.DMA1_CH0, ResolutionWrapper::new(Resolution::BITS12));
 
     let thermistor: Thermistor<'_, _> = Thermistor::new(
-        p.PA0.degrade_adc(),
+        p.PA6.degrade_adc(),
         readings,
         ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(10_000.0),
@@ -79,26 +79,26 @@ async fn main(_spawner: Spawner) {
     );
 
     let heater_out = SimplePwm::new(
-        p.TIM4,
+        p.TIM2,
         None,
         None,
+        Some(PwmPin::new_ch3(p.PB10, OutputType::PushPull)),
         None,
-        Some(PwmPin::new_ch4(p.PB9, OutputType::PushPull)),
         khz(1),
         CountingMode::EdgeAlignedUp,
     );
 
     let mut heater_out_wrapper = SimplePwmWrapper::new(heater_out);
 
-    let channel = 4;
+    let channel = 3;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
 
     let heater = Heater::new(
         channel,
         PidConfig {
-            k_p: 400.0,
-            k_i: 5.0,
-            k_d: 1.0,
+            k_p: 12000.0,
+            k_i: 3.0,
+            k_d: 0.0,
         },
     );
 
@@ -106,11 +106,11 @@ async fn main(_spawner: Spawner) {
 
     hotend.enable(&mut heater_out_wrapper);
 
-    hotend.set_temperature(Temperature::from_celsius(200f64));
+    hotend.set_temperature(Temperature::from_celsius(60f64));
 
     #[cfg(feature = "defmt-log")]
     info!("ThermalActuator example");
-    let dt = Duration::from_millis(10);
+    let dt = Duration::from_millis(100);
     #[cfg(feature = "defmt-log")]
     println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
