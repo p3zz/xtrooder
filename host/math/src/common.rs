@@ -22,6 +22,17 @@ impl From<RotationDirection> for i8 {
     }
 }
 
+impl From<i8> for RotationDirection {
+    fn from(value: i8) -> Self {
+        if value.is_positive(){
+            RotationDirection::Clockwise
+        }
+        else{
+            RotationDirection::CounterClockwise   
+        }
+    }
+}
+
 impl From<&str> for RotationDirection {
     fn from(value: &str) -> Self {
         match value {

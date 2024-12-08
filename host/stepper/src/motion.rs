@@ -468,6 +468,30 @@ pub async fn arc_move_3d_e_offset_from_center<
     .await
 }
 
+pub async fn calibrate<I: ExtiInputPinBase, O: OutputPinBase, T: TimerBase>(
+    stepper: &mut Stepper<O, Attached>,
+    trigger: &I,
+) -> Result<Duration, StepperError> {
+    // set the rotation direction to positive
+    let mut duration = Duration::ZERO;
+    let direction = RotationDirection::from(-i8::from(stepper.get_options().positive_direction));
+    stepper.set_direction(direction);
+    stepper.set_speed(AngularVelocity::from_rpm(90.0));
+    let step_duration = stepper.get_step_duration();
+    // calibrate x
+    while !trigger.is_high() {
+        stepper.step_unchecked();
+        T::after(step_duration).await;
+        duration += step_duration;
+    }
+    let bounds = stepper
+        .get_options()
+        .bounds
+        .ok_or(StepperError::MoveNotValid)?;
+    stepper.set_position(bounds.0);
+    Ok(duration)
+}
+
 pub async fn auto_home<I: ExtiInputPinBase, O: OutputPinBase, T: TimerBase>(
     stepper: &mut Stepper<O, Attached>,
     trigger: &I,
@@ -507,8 +531,8 @@ pub async fn retract<O: OutputPinBase, T: TimerBase, I: ExtiInputPinBase>(
     let z_speed = z_distance / e_time;
 
     match join!(
-        linear_move_to::<O, T, I>(steppers.1, e_destination, e_speed, endstops.1),
-        linear_move_to::<O, T, I>(steppers.0, z_destination, z_speed, endstops.0)
+        linear_move_to::<_, T, _>(steppers.1, e_destination, e_speed, endstops.1),
+        linear_move_to::<_, T, _>(steppers.0, z_destination, z_speed, endstops.0)
     ) {
         (Ok(da), Ok(db)) => {
             let duration = da.max(db);
