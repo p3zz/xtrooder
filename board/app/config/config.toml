@@ -59,11 +59,11 @@ step.pin = "PD2"
 dir.pin = "PC12"
 
 [steppers.e]
-stepping_mode = "full"
+stepping_mode = "half"
 distance_per_step = 0.1
 steps_per_revolution = 200
-bounds.min = 0
-bounds.max = 0
+bounds.min = -5000000
+bounds.max = 5000000
 positive_direction = "counterclockwise"
 step.pin = "PG2"
 dir.pin = "PG3"
@@ -81,10 +81,10 @@ tx.dma.peripheral = "DMA1_CH1"
 # ------------- pwm --------------
 [pwm]
 frequency = 0
-timer = "TIM2"
-ch1 = "PA0"
-ch2 = "PB3"
-ch3 = "PB10"
+timer = "TIM3"
+ch1 = "PC6"
+ch2 = "PC7"
+ch3 = "PB0"
 
 # ------------- adc ----------------
 
@@ -125,7 +125,7 @@ k_d = 1
 
 [heatbed.thermistor]
 r_series = 10000
-r0 = 120000
+r0 = 100000
 b = 3676.85
 samples = 5
 adc.pin = "PA6"
@@ -141,16 +141,16 @@ channel = 3
 # ------------- sdcard ---------------
 
 [sdcard.spi]
-peripheral = "SPI2"
+peripheral = "SPI3"
 
 [sdcard.spi.clk]
-peripheral = "PD3"
+peripheral = "PB3"
 
 [sdcard.spi.mosi]
-pin = "PC3"
+pin = "PB5"
 
 [sdcard.spi.miso]
-pin = "PC2"
+pin = "PB4"
 
 [sdcard.spi.cs]
-pin = "PD7"
+pin = "PA4"
