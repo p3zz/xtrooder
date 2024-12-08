@@ -35,11 +35,11 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(embassy_stm32::Config::default());
 
     let mut stepper_x = init_stepper!(
-        p.PC9,
-        p.PC8,
+        p.PG2,
+        p.PG3,
         StepperOptions {
             steps_per_revolution: 200,
-            stepping_mode: SteppingMode::FullStep,
+            stepping_mode: SteppingMode::HalfStep,
             bounds: None,
             positive_direction: RotationDirection::CounterClockwise,
             acceleration: Some(AngularVelocity::from_rpm(6.0))
@@ -48,22 +48,22 @@ async fn main(_spawner: Spawner) {
             distance_per_step: Length::from_millimeters(0.15)
         }
     );
-    stepper_x.set_speed(AngularVelocity::from_rpm(200.0));
-    let mut stepper_y = init_stepper!(
-        p.PC11,
-        p.PC10,
-        StepperOptions {
-            steps_per_revolution: 200,
-            stepping_mode: SteppingMode::FullStep,
-            bounds: None,
-            positive_direction: RotationDirection::CounterClockwise,
-            acceleration: Some(AngularVelocity::from_rpm(6.0))
-        },
-        StepperAttachment {
-            distance_per_step: Length::from_millimeters(0.15)
-        }
-    );
-    stepper_y.set_speed(AngularVelocity::from_rpm(200.0));
+    stepper_x.set_speed(AngularVelocity::from_rpm(30.0));
+    // let mut stepper_y = init_stepper!(
+    //     p.PC11,
+    //     p.PC10,
+    //     StepperOptions {
+    //         steps_per_revolution: 200,
+    //         stepping_mode: SteppingMode::FullStep,
+    //         bounds: None,
+    //         positive_direction: RotationDirection::CounterClockwise,
+    //         acceleration: Some(AngularVelocity::from_rpm(6.0))
+    //     },
+    //     StepperAttachment {
+    //         distance_per_step: Length::from_millimeters(0.15)
+    //     }
+    // );
+    // stepper_y.set_speed(AngularVelocity::from_rpm(200.0));
     // let mut stepper_z = init_stepper!(p.PD2, p.PC12, StepperOptions::default(), StepperAttachment {
     //     distance_per_step: Length::from_millimeters(0.15)
     // });
@@ -85,20 +85,20 @@ async fn main(_spawner: Spawner) {
             info!("duration: {}", d);
         }
 
-        stepper_y.set_direction(RotationDirection::Clockwise);
-        if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
-            500, 
-            AngularVelocity::from_rpm(30.0)).await{
-            #[cfg(feature="defmt-log")]
-            info!("duration: {}", d);
-        }
-        stepper_y.set_direction(RotationDirection::CounterClockwise);
-        if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
-            500,
-            AngularVelocity::from_rpm(30.0)).await{
-            #[cfg(feature="defmt-log")]
-            info!("duration: {}", d);
-        }
+        // stepper_y.set_direction(RotationDirection::Clockwise);
+        // if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
+        //     500, 
+        //     AngularVelocity::from_rpm(30.0)).await{
+        //     #[cfg(feature="defmt-log")]
+        //     info!("duration: {}", d);
+        // }
+        // stepper_y.set_direction(RotationDirection::CounterClockwise);
+        // if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
+        //     500,
+        //     AngularVelocity::from_rpm(30.0)).await{
+        //     #[cfg(feature="defmt-log")]
+        //     info!("duration: {}", d);
+        // }
 
         // if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(500).await{
         // }
