@@ -40,6 +40,7 @@ use embassy_stm32::{
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
+use embassy_sync::priority_channel::{PriorityChannel, Max};
 use embassy_sync::pubsub::PubSubChannel;
 use embassy_sync::watch::Watch;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
@@ -61,13 +62,68 @@ use {defmt_rtt as _, panic_probe as _};
 #[cfg(feature = "defmt-log")]
 use defmt::{error, info};
 
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq)]
+enum TaskMessagePriority{
+    Low,
+    Medium,
+    High
+}
+
+#[derive(Clone, PartialEq, PartialOrd, Eq)]
+struct TaskMessage{
+    msg: String<MAX_MESSAGE_LEN>,
+    priority: TaskMessagePriority
+}
+
+impl Ord for TaskMessage{
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        if self.priority > other.priority{
+            core::cmp::Ordering::Greater
+        }
+        else if self.priority < other.priority{
+            core::cmp::Ordering::Less
+        }
+        else{
+            core::cmp::Ordering::Equal
+        }
+    }
+    
+    fn max(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        core::cmp::max_by(self, other, Ord::cmp)
+    }
+    
+    fn min(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        core::cmp::min_by(self, other, Ord::cmp)
+    }
+    
+    fn clamp(self, min: Self, max: Self) -> Self
+    where
+        Self: Sized,
+    {
+        assert!(min <= max);
+        if self < min {
+            min
+        } else if self > max {
+            max
+        } else {
+            self
+        }
+    }
+}
+
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
 const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 8;
 const FEEDBACK_CHANNEL_LEN: usize = 8;
 const EVENT_CHANNEL_CAPACITY: usize = 8;
-const EVENT_CHANNEL_SUBSCRIBERS: usize = 8;
-const EVENT_CHANNEL_PUBLISHERS: usize = 8;
+const EVENT_CHANNEL_SUBSCRIBERS: usize = 7;
+const EVENT_CHANNEL_PUBLISHERS: usize = 7;
 
 const HOTEND_LABEL: &'_ str = "HOTEND";
 const HEATBED_LABEL: &'_ str = "HEATBED";
@@ -75,16 +131,20 @@ const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
 static WATCH: Watch<ThreadModeRawMutex, GCommand, 7> = Watch::new();
-static COMMAND_DISPATCHER_CHANNEL: Channel<
+
+static COMMAND_DISPATCHER_CHANNEL: PriorityChannel<
     ThreadModeRawMutex,
-    String<MAX_MESSAGE_LEN>,
+    TaskMessage,
+    Max,
     COMMAND_DISPATCHER_CHANNEL_LEN,
-> = Channel::new();
+> = PriorityChannel::new();
+
 static FEEDBACK_CHANNEL: Channel<
     ThreadModeRawMutex,
     String<MAX_MESSAGE_LEN>,
     FEEDBACK_CHANNEL_LEN,
 > = Channel::new();
+
 static EVENT_CHANNEL: PubSubChannel<
     ThreadModeRawMutex,
     PrinterEvent,
@@ -128,7 +188,11 @@ async fn input_handler() {
             Ok(n) => {
                 for b in &tmp[0..n] {
                     if *b == b'\n' {
-                        COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                        let cmd = TaskMessage{
+                            msg: msg.clone(),
+                            priority: TaskMessagePriority::High
+                        };
+                        COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
                         #[cfg(feature = "defmt-log")]
                         info!("[INPUT_HANDLER] {}", msg.as_str());
                         msg.clear();
@@ -184,8 +248,8 @@ async fn command_dispatcher_task() {
     loop {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
         #[cfg(feature = "defmt-log")]
-        info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
-        if let Some(cmd) = parser.parse(msg.as_str()) {
+        info!("[COMMAND DISPATCHER] received message {}", msg.msg.as_str());
+        if let Some(cmd) = parser.parse(&msg.msg) {
             match cmd {
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
                 GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
@@ -647,7 +711,11 @@ async fn sdcard_handler(
             else{
                 for b in &tmp[0..n] {
                     if *b == b'\n' {
-                        COMMAND_DISPATCHER_CHANNEL.send(msg.clone()).await;
+                        let cmd = TaskMessage{
+                            msg: msg.clone(),
+                            priority: TaskMessagePriority::Low
+                        };
+                        COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
                         #[cfg(feature = "defmt-log")]
                         info!("[{}] {}", SD_CARD_LABEL, msg.as_str());
                         msg.clear();
