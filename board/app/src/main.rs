@@ -41,6 +41,7 @@ use embassy_stm32::{
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::pubsub::PubSubChannel;
+use embassy_sync::watch::Watch;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_time::{Delay, Duration, Instant, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
@@ -63,10 +64,6 @@ use defmt::{error, info};
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
 const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 8;
-const SD_CARD_CHANNEL_LEN: usize = 8;
-const HOTEND_CHANNEL_LEN: usize = 8;
-const HEATBED_CHANNEL_LEN: usize = 8;
-const PLANNER_CHANNEL_LEN: usize = 8;
 const FEEDBACK_CHANNEL_LEN: usize = 8;
 const EVENT_CHANNEL_CAPACITY: usize = 8;
 const EVENT_CHANNEL_SUBSCRIBERS: usize = 8;
@@ -77,15 +74,12 @@ const HEATBED_LABEL: &'_ str = "HEATBED";
 const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
+static WATCH: Watch<ThreadModeRawMutex, GCommand, 7> = Watch::new();
 static COMMAND_DISPATCHER_CHANNEL: Channel<
     ThreadModeRawMutex,
     String<MAX_MESSAGE_LEN>,
     COMMAND_DISPATCHER_CHANNEL_LEN,
 > = Channel::new();
-static SD_CARD_CHANNEL: Channel<ThreadModeRawMutex, GCommand, SD_CARD_CHANNEL_LEN> = Channel::new();
-static HOTEND_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HOTEND_CHANNEL_LEN> = Channel::new();
-static HEATBED_CHANNEL: Channel<ThreadModeRawMutex, GCommand, HEATBED_CHANNEL_LEN> = Channel::new();
-static PLANNER_CHANNEL: Channel<ThreadModeRawMutex, GCommand, PLANNER_CHANNEL_LEN> = Channel::new();
 static FEEDBACK_CHANNEL: Channel<
     ThreadModeRawMutex,
     String<MAX_MESSAGE_LEN>,
@@ -182,6 +176,8 @@ async fn output_handler() {
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
     let dt = Duration::from_millis(500);
+    let watch_sender = WATCH.sender();
+
     #[cfg(feature = "defmt-log")]
     info!("Starting command dispatcher loop");
 
@@ -190,9 +186,10 @@ async fn command_dispatcher_task() {
         #[cfg(feature = "defmt-log")]
         info!("[COMMAND DISPATCHER] received message {}", msg.as_str());
         if let Some(cmd) = parser.parse(msg.as_str()) {
-            // info!("[COMMAND DISPATCHER] {}", cmd);
             match cmd {
-                // every movement command is redirected to the planner channel
+                GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
+                GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
+                GCommand::M149 { u } => parser.set_temperature_unit(u),
                 GCommand::G0 { .. }
                 | GCommand::G1 { .. }
                 | GCommand::G2 { .. }
@@ -206,38 +203,21 @@ async fn command_dispatcher_task() {
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. }
                 | GCommand::M220 { .. }
-                | GCommand::M114 => {
-                    PLANNER_CHANNEL.send(cmd).await;
-                }
-                GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
-                GCommand::G21 => parser.set_distance_unit(DistanceUnit::Millimeter),
-                // ThermalActuator target temperature is used to update the target temperature of the ThermalActuator task
-                GCommand::M104 { .. } | GCommand::M106 { .. } => {
-                    HOTEND_CHANNEL.send(cmd).await;
-                }
-                GCommand::M105 { .. } => {
-                    HOTEND_CHANNEL.send(cmd.clone()).await;
-                    HEATBED_CHANNEL.send(cmd.clone()).await;
-                }
-                // heatbed target temperature is used to update the target temperature of the ThermalActuator task
-                GCommand::M140 { .. } => {
-                    HOTEND_CHANNEL.send(cmd).await;
-                }
-                GCommand::M149 { u } => {
-                    parser.set_temperature_unit(u);
-                }
-                GCommand::M155 { .. } => {
-                    HOTEND_CHANNEL.send(cmd.clone()).await;
-                    HEATBED_CHANNEL.send(cmd.clone()).await;
-                }
-                GCommand::M20
+                | GCommand::M114
+                | GCommand::M104 { .. }
+                | GCommand::M106 { .. }
+                | GCommand::M105 { .. }
+                | GCommand::M140 { .. }
+                | GCommand::M155 { .. }
+                | GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
                 | GCommand::M23 { .. }
                 | GCommand::M24 { .. }
                 | GCommand::M25
                 | GCommand::M31 => {
-                    SD_CARD_CHANNEL.send(cmd).await;
+                    watch_sender.send(cmd);
+
                 }
                 _ => {
                     #[cfg(feature = "defmt-log")]
@@ -280,11 +260,12 @@ async fn hotend_handler(
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
-        .dyn_subscriber()
+        .subscriber()
         .expect("Cannot retrieve error subscriber");
     let event_channel_publisher = EVENT_CHANNEL
-        .dyn_publisher()
+        .publisher()
         .expect("Cannot retrieve error subscriber");
+    let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
@@ -296,12 +277,12 @@ async fn hotend_handler(
             let adc = adc.as_mut().expect("ADC not initialized");
             let data = hotend.update(dt.into(), pwm, adc).await;
             last_temperature.replace(data.0);
-            #[cfg(feature = "defmt-log")]
-            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
+            // #[cfg(feature = "defmt-log")]
+            // info!("[HOTEND] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
         }
 
-        #[cfg(feature="defmt-log")]
-        info!("[{}] Temperature: {}", HOTEND_LABEL, last_temperature.unwrap().as_celsius());
+        // #[cfg(feature="defmt-log")]
+        // info!("[{}] Temperature: {}", HOTEND_LABEL, last_temperature.unwrap().as_celsius());
         // SAFETY - unwrap last_temperature because it's set on the previous line
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             // SAFETY - unwrap last_temperature because it's set on the previous line
@@ -326,7 +307,6 @@ async fn hotend_handler(
                 }
                 _ => (),
             }
-            HOTEND_CHANNEL.clear();
         }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
@@ -345,7 +325,7 @@ async fn hotend_handler(
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
-        if let Ok(cmd) = HOTEND_CHANNEL.try_receive() {
+        if let Some(cmd) = watch_receiver.try_changed() {
             match cmd {
                 GCommand::M104 { s } => {
                     #[cfg(feature = "defmt-log")]
@@ -415,11 +395,12 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
     let mut counter = Duration::from_secs(0);
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
-        .dyn_subscriber()
+        .subscriber()
         .expect("Cannot retrieve error subscriber");
     let event_channel_publisher = EVENT_CHANNEL
-        .dyn_publisher()
+        .publisher()
         .expect("Cannot retrieve error subscriber");
+    let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
     let mut last_temperature: Option<Temperature> = None;
 
     loop {
@@ -430,12 +411,12 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             let adc = adc.as_mut().expect("ADC not initialized");
             let data = heatbed.update(dt.into(), pwm, adc).await;
             last_temperature.replace(data.0);
-            #[cfg(feature = "defmt-log")]
-            info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
+            // #[cfg(feature = "defmt-log")]
+            // info!("[HEATBED] Temperature: {}\tDuty cycle: {}", data.0.as_celsius(), data.1);
         }
 
-        #[cfg(feature="defmt-log")]
-        info!("[{}] Temperature: {}", HEATBED_LABEL, last_temperature.unwrap().as_celsius());
+        // #[cfg(feature="defmt-log")]
+        // info!("[{}] Temperature: {}", HEATBED_LABEL, last_temperature.unwrap().as_celsius());
 
         if last_temperature.unwrap() > config.heater.temperature_limit.1 {
             let e = PrinterEvent::HeatbedOverheating(last_temperature.unwrap());
@@ -459,7 +440,6 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
                 }
                 _ => (),
             }
-            HEATBED_CHANNEL.clear();
         }
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
@@ -472,7 +452,7 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             counter = Duration::from_secs(0);
         }
 
-        if let Ok(cmd) = HEATBED_CHANNEL.try_receive() {
+        if let Some(cmd) = watch_receiver.try_changed() {
             match cmd {
                 GCommand::M140 { s } => heatbed.set_temperature(s),
                 GCommand::M105 => {
@@ -533,35 +513,38 @@ async fn sdcard_handler(
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
-        .dyn_subscriber()
+        .subscriber()
         .expect("Cannot retrieve error subscriber");
     let event_channel_publisher = EVENT_CHANNEL
-        .dyn_publisher()
+        .publisher()
         .expect("Cannot retrieve error subscriber");
-
     let dt = Duration::from_millis(500);
+    let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
+
     loop {
         if event_channel_subscriber.try_next_message_pure().is_some() {
             if let Some(wf) = working_file {
-                volume_manager.close_file(wf).unwrap();
+                volume_manager.close_file(wf).expect("cannot close file");
+                working_file = None;
                 #[cfg(feature = "defmt-log")]
                 info!("File closed");
             }
             if let Some(wd) = working_dir {
-                volume_manager.close_dir(wd).unwrap();
+                volume_manager.close_dir(wd).expect("cannot close directory");
+                working_dir = None;
                 #[cfg(feature = "defmt-log")]
                 info!("Directory closed");
             }
             if let Some(wv) = working_volume {
-                volume_manager.close_volume(wv).unwrap();
+                volume_manager.close_volume(wv).expect("cannot close volume");
+                working_volume = None;
                 #[cfg(feature = "defmt-log")]
                 info!("Volume closed");
             }
             running = false;
-            SD_CARD_CHANNEL.clear();
         }
 
-        if let Ok(cmd) = SD_CARD_CHANNEL.try_receive() {
+        if let Some(cmd) = watch_receiver.try_changed() {
             // info!("[SDCARD] command received: {}", cmd);
             match cmd {
                 GCommand::M20 => {
@@ -578,6 +561,7 @@ async fn sdcard_handler(
                         })
                         .expect("Error while listing files");
                     msg.push_str("End file list").unwrap();
+                    FEEDBACK_CHANNEL.send(msg.clone()).await;
                     // TODO send message to UART
                 }
                 GCommand::M21 => {
@@ -790,11 +774,12 @@ async fn planner_handler(
 
     let dt = Duration::from_millis(20);
     let mut event_channel_subscriber = EVENT_CHANNEL
-        .dyn_subscriber()
+        .subscriber()
         .expect("Cannot retrieve error subscriber");
     let event_channel_publisher = EVENT_CHANNEL
-        .dyn_publisher()
+        .publisher()
         .expect("Cannot retrieve error subscriber");
+    let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
 
     let mut is_eof = false;
 
@@ -804,20 +789,20 @@ async fn planner_handler(
                 PrinterEvent::EOF => {
                     is_eof = true;
                 }
-                _ => {
-                    PLANNER_CHANNEL.clear();
-                }
+                _ => {}
             }
         }
 
-        if is_eof && PLANNER_CHANNEL.is_empty() {
+        // FIXME
+        if is_eof {
             is_eof = false;
             event_channel_publisher
                 .publish(PrinterEvent::PrintCompleted)
                 .await;
         }
 
-        let cmd = PLANNER_CHANNEL.receive().await;
+        let cmd = watch_receiver.changed().await;
+        // #[cfg(feature = "defmt-log")]
         // info!("[PLANNER HANDLER] {}", cmd);
         match cmd {
             GCommand::G0 { .. }

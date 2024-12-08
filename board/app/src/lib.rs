@@ -26,6 +26,8 @@ pub enum PrinterEvent {
     HeatbedUnderheating(Temperature),
     Stepper(StepperError),
     EOF,
+    PrintStart,
+    PrintStop,
     PrintCompleted,
 }
 
@@ -53,6 +55,12 @@ impl Display for PrinterEvent {
             PrinterEvent::PrintCompleted => {
                 core::write!(f, "Print completed")
             }
+            PrinterEvent::PrintStop => {
+                core::write!(f, "Print stopped")
+            },
+            PrinterEvent::PrintStart => {
+                core::write!(f, "Print start")
+            },
         }
     }
 }
@@ -116,7 +124,7 @@ impl TimerBase for StepperTimer {
 #[macro_export]
 macro_rules! init_output_pin {
     ($config: expr) => {
-        app::OutputPinWrapper::new(Output::new($config, Level::Low, PinSpeed::Low))
+        app::OutputPinWrapper::new(embassy_stm32::gpio::Output::new($config, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low))
     };
 }
 
