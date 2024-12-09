@@ -20,7 +20,7 @@ use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
-use embassy_stm32::adc::{Adc, AdcChannel};
+use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
@@ -147,9 +147,9 @@ struct TaskGCommand{
 }
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
-const MAX_MESSAGE_LEN: usize = 255;
-const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 8;
-const FEEDBACK_CHANNEL_LEN: usize = 8;
+const MAX_MESSAGE_LEN: usize = 256;
+const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 16;
+const FEEDBACK_CHANNEL_LEN: usize = 16;
 const EVENT_CHANNEL_CAPACITY: usize = 8;
 const EVENT_CHANNEL_SUBSCRIBERS: usize = 7;
 const EVENT_CHANNEL_PUBLISHERS: usize = 7;
@@ -317,7 +317,8 @@ async fn command_dispatcher_task() {
                 | GCommand::M23 { .. }
                 | GCommand::M24 { .. }
                 | GCommand::M25
-                | GCommand::M31 => {
+                | GCommand::M31
+                | GCommand::M524 => {
                     destination = 1u8 << u8::from(TaskId::SdCard);
                 }
                 _ => {
@@ -425,17 +426,21 @@ async fn hotend_handler(
             }
         }
         // temperature report period must be a multiple of the loop delay
+        // #[cfg(feature = "defmt-log")]
+        // info!("{} {}", counter, temperature_report_dt);
+
         if temperature_report_dt.is_some()
             // SAFETY - unwrap temperature_report_dt because it's set on the previous line
-            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+            && counter >= temperature_report_dt.unwrap()
         {
             report.clear();
+            let temp = last_temperature.unwrap();
             // SAFETY: last temperature is set before this instruction
             task_write!(
                 &mut report,
                 HOTEND_LABEL,
-                "Temperature: {}",
-                last_temperature.unwrap()
+                "Temperature: {:.2}°C",
+                temp.as_celsius()
             )
             .unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
@@ -486,8 +491,9 @@ async fn hotend_handler(
         }
 
         Timer::after(dt).await;
-
-        if counter.checked_add(dt).is_none() {
+        if let Some(d) = counter.checked_add(dt) {
+            counter = d;
+        }else{
             counter = Duration::from_secs(0);
         }
     }
@@ -560,13 +566,17 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
                 _ => (),
             }
         }
+
+        // #[cfg(feature = "defmt-log")]
+        // info!("{} {}", counter, temperature_report_dt);
+
         // temperature report period must be a multiple of the loop delay
         if temperature_report_dt.is_some()
-            && counter.as_millis() % temperature_report_dt.unwrap().as_millis() == 0
+            && counter >= temperature_report_dt.unwrap()
         {
             let temp = last_temperature.unwrap();
             report.clear();
-            task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
+            task_write!(&mut report, HEATBED_LABEL, "Temperature: {:.2}°C", temp.as_celsius()).unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
@@ -592,7 +602,9 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         };
 
         Timer::after(dt).await;
-        if counter.checked_add(dt).is_none() {
+        if let Some(d) = counter.checked_add(dt) {
+            counter = d;
+        }else{
             counter = Duration::from_secs(0);
         }
     }
@@ -631,7 +643,7 @@ async fn sdcard_handler(
     let mut working_volume = None;
     let mut running = false;
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let mut tmp: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
+    let mut tmp: [u8; 32] = [0u8; 32];
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
@@ -640,7 +652,7 @@ async fn sdcard_handler(
     let event_channel_publisher = EVENT_CHANNEL
         .publisher()
         .expect("Cannot retrieve error subscriber");
-    let dt = Duration::from_millis(100);
+    let dt = Duration::from_millis(20);
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
 
     loop {
@@ -735,12 +747,18 @@ async fn sdcard_handler(
                         if !running {
                             clock.start();
                             running = true;
+                            // event_channel_publisher
+                            // .publish(PrinterEvent::PrintStarted)
+                            // .await;
                         }
                     }
                     GCommand::M25 => {
                         if running {
                             clock.stop();
                             running = false;
+                            // event_channel_publisher
+                            // .publish(PrinterEvent::PrintStarted)
+                            // .await;
                         }
                     }
                     GCommand::M31 => {
@@ -752,6 +770,14 @@ async fn sdcard_handler(
                             clock.measure().as_millis()
                         )
                         .unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                    }
+                    GCommand::M524 => {
+                        event_channel_publisher
+                            .publish(PrinterEvent::PrintAborted)
+                            .await;
+                        report.clear();
+                        task_write!(&mut report, PLANNER_LABEL, "Print aborted", ).unwrap();
                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                     }
                     _ => (),
@@ -940,34 +966,7 @@ async fn planner_handler(
                 | GCommand::G91
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. } => match planner.execute(cmd.cmd.clone()).await {
-                    Ok(duration) => {
-                        if debug && duration.is_some() {
-                            // match cmd {
-                            //     GCommand::G0 { .. } => {
-                            //         let x = planner.get_x_position();
-                            //         let y = planner.get_x_position();
-                            //         let z = planner.get_x_position();
-                            //         let t = duration.unwrap();
-                            //         let res = GCommand::D0 { x, y, z, t };
-                            //         report.clear();
-                            //         write!(&mut report, "{}", &res).unwrap();
-                            //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                            //     }
-                            //     GCommand::G1 { .. } => {
-                            //         let x = planner.get_x_position();
-                            //         let y = planner.get_x_position();
-                            //         let z = planner.get_x_position();
-                            //         let e = planner.get_e_position();
-                            //         let t = duration.unwrap();
-                            //         let res = GCommand::D1 { x, y, z, e, t };
-                            //         report.clear();
-                            //         write!(&mut report, "{}", &res).unwrap();
-                            //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                            //     }
-                            //     _ => todo!(),
-                            // }
-                        }
-                    }
+                    Ok(duration) => {}
                     Err(e) => {
                         event_channel_publisher
                             .publish(PrinterEvent::Stepper(e))
@@ -989,12 +988,6 @@ async fn planner_handler(
                     )
                     .unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                }
-                GCommand::D114 => {
-                    debug = true;
-                }
-                GCommand::D115 => {
-                    debug = false;
                 }
                 _ => {
                     // #[cfg(feature = "defmt-log")]
@@ -1102,6 +1095,7 @@ async fn main(spawner: Spawner) {
         adc,
         printer_config.adc.dma,
         ResolutionWrapper::new(Resolution::BITS12),
+        SampleTime::CYCLES64_5
     );
     {
         let mut adc_global = ADC.lock().await;

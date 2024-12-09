@@ -798,8 +798,8 @@ fn main() {
 
     let heatbed_pwm_output_channel = conf.heatbed.get_heater().get_pwm().get_channel();
     let heatbed_heater_r0 = conf.heatbed.get_thermistor().get_r0();
-    let heatbed_heater_r_series = conf.heatbed.get_thermistor().get_r0();
-    let heatbed_heater_b = conf.heatbed.get_thermistor().get_r_series();
+    let heatbed_heater_r_series = conf.heatbed.get_thermistor().get_r_series();
+    let heatbed_heater_b = conf.heatbed.get_thermistor().get_b();
     let heatbed_thermistor_samples = conf.heatbed.get_thermistor().get_samples();
     let heatbed_heater_pid = conf.heatbed.get_heater().get_pid();
     let heatbed_heater_pid_kp = heatbed_heater_pid.get_k_p();

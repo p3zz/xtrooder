@@ -63,9 +63,13 @@ async fn main(_spawner: Spawner) {
 
     let readings = DMA_BUF.take();
 
-    let mut adc = Adc::new(p.ADC1);
-    adc.set_sample_time(SampleTime::CYCLES32_5);
-    let mut adc = AdcWrapper::new(adc, p.DMA1_CH0, ResolutionWrapper::new(Resolution::BITS12));
+    let adc = Adc::new(p.ADC1);
+    let mut adc = AdcWrapper::new(
+        adc,
+        p.DMA1_CH0,
+        ResolutionWrapper::new(Resolution::BITS12),
+        SampleTime::CYCLES32_5
+    );
 
     let thermistor: Thermistor<'_, _> = Thermistor::new(
         p.PA6.degrade_adc(),

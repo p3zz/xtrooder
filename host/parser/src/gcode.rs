@@ -547,7 +547,7 @@ impl Display for GCommand {
 
 fn extract_speed(cmd: &LinearMap<&str, &str, 16>, key: &str, unit: DistanceUnit) -> Option<Speed> {
     let distance = extract_distance(cmd, key, unit)?;
-    Some(Speed::from_meters_per_second(distance.as_meters()))
+    Some(Speed::from_meters_per_second(distance.as_meters() / 60.0))
 }
 
 fn extract_distance(

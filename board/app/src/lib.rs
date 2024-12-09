@@ -26,8 +26,9 @@ pub enum PrinterEvent {
     HeatbedUnderheating(Temperature),
     Stepper(StepperError),
     EOF,
-    PrintStart,
-    PrintStop,
+    PrintStarted,
+    PrintStopped,
+    PrintAborted,
     PrintCompleted,
 }
 
@@ -55,11 +56,14 @@ impl Display for PrinterEvent {
             PrinterEvent::PrintCompleted => {
                 core::write!(f, "Print completed")
             }
-            PrinterEvent::PrintStop => {
+            PrinterEvent::PrintStopped => {
                 core::write!(f, "Print stopped")
             },
-            PrinterEvent::PrintStart => {
+            PrinterEvent::PrintStarted => {
                 core::write!(f, "Print start")
+            },
+            PrinterEvent::PrintAborted => {
+                core::write!(f, "Print aborted")
             },
         }
     }
@@ -167,7 +171,7 @@ macro_rules! task_write {
             let time = embassy_time::Instant::now().as_millis();
              core::write!(
                 $dst,
-                "[{}] [{}] {}",
+                "[{}] [{}] {}\n",
                 time,
                 $label,
                 core::format_args!($fmt, $($tokens)*)
@@ -239,9 +243,10 @@ pub struct AdcWrapper<'a, T: Instance, D: RxDma<T>> {
 }
 
 impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
-    pub fn new(adc: Adc<'a, T>, dma: D, resolution: ResolutionWrapper) -> Self {
+    pub fn new(adc: Adc<'a, T>, dma: D, resolution: ResolutionWrapper, sample_time: SampleTime) -> Self {
         let mut adc = adc;
         adc.set_resolution(resolution.inner);
+        adc.set_sample_time(sample_time);
         Self {
             inner: adc,
             dma,
