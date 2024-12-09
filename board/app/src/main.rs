@@ -7,7 +7,6 @@ use core::str::FromStr;
 
 use app::config::{
     EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig,
-    ThermistorConfig,
 };
 use app::ext::{
     peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin,
@@ -15,15 +14,15 @@ use app::ext::{
     SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin,
     YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin,
 };
-use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
+use app::{init_input_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
-use common::PwmBase;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::Spawner;
-use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
+use embassy_futures::join::join;
+use embassy_stm32::adc::{Adc, AdcChannel};
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::{OutputType, Pin, Pull};
+use embassy_stm32::gpio::{OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
@@ -35,16 +34,16 @@ use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
     bind_interrupts,
-    gpio::{Level, Output, Speed as PinSpeed},
-    timer::Channel as TimerChannel,
+    gpio::{Level, Output},
 };
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::priority_channel::{PriorityChannel, Max};
 use embassy_sync::pubsub::PubSubChannel;
+use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
-use embassy_time::{Delay, Duration, Instant, Timer};
+use embassy_time::{Delay, Duration, Timer};
 use embedded_sdmmc::{SdCard, VolumeIdx, VolumeManager};
 use fan::FanController;
 use heapless::{String, Vec};
@@ -52,11 +51,10 @@ use math::{measurements::Temperature, DistanceUnit};
 use parser::gcode::{GCodeParser, GCommand};
 use static_cell::{ConstStaticCell, StaticCell};
 use stepper::planner::Planner;
-use stepper::stepper::{Stepper, StepperAttachment, StepperOptions};
+use stepper::stepper::{StepperAttachment, StepperOptions};
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };
-
 use {defmt_rtt as _, panic_probe as _};
 
 #[cfg(feature = "defmt-log")]
@@ -117,6 +115,37 @@ impl Ord for TaskMessage{
     }
 }
 
+#[derive(Clone, Copy)]
+enum TaskId{
+    Input,
+    Output,
+    CommandDispatcher,
+    Hotend,
+    Heatbed,
+    SdCard,
+    Planner
+}
+
+impl From<TaskId> for u8{
+    fn from(value: TaskId) -> Self {
+        match value{
+            TaskId::Input => 0,
+            TaskId::Output => 1,
+            TaskId::CommandDispatcher => 2,
+            TaskId::Hotend => 3,
+            TaskId::Heatbed => 4,
+            TaskId::SdCard => 5,
+            TaskId::Planner => 6,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TaskGCommand{
+    cmd: GCommand,
+    destination: u8
+}
+
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
 const MAX_MESSAGE_LEN: usize = 255;
 const COMMAND_DISPATCHER_CHANNEL_LEN: usize = 8;
@@ -130,7 +159,9 @@ const HEATBED_LABEL: &'_ str = "HEATBED";
 const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
-static WATCH: Watch<ThreadModeRawMutex, GCommand, 7> = Watch::new();
+static WATCH: Watch<ThreadModeRawMutex, TaskGCommand, 7> = Watch::new();
+
+static SIGNAL: Signal<ThreadModeRawMutex, TaskId> = Signal::new();
 
 static COMMAND_DISPATCHER_CHANNEL: PriorityChannel<
     ThreadModeRawMutex,
@@ -239,7 +270,7 @@ async fn output_handler() {
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
-    let dt = Duration::from_millis(500);
+    let dt = Duration::from_millis(20);
     let watch_sender = WATCH.sender();
 
     #[cfg(feature = "defmt-log")]
@@ -249,6 +280,7 @@ async fn command_dispatcher_task() {
         let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
         #[cfg(feature = "defmt-log")]
         info!("[COMMAND DISPATCHER] received message {}", msg.msg.as_str());
+        let mut destination = 0u8;
         if let Some(cmd) = parser.parse(&msg.msg) {
             match cmd {
                 GCommand::G20 => parser.set_distance_unit(DistanceUnit::Inch),
@@ -259,20 +291,26 @@ async fn command_dispatcher_task() {
                 | GCommand::G2 { .. }
                 | GCommand::G3 { .. }
                 | GCommand::G4 { .. }
-                | GCommand::G90
-                | GCommand::G91
                 | GCommand::G10
                 | GCommand::G11
                 | GCommand::G28 { .. }
+                | GCommand::G90
+                | GCommand::G91
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. }
-                | GCommand::M220 { .. }
-                | GCommand::M114
-                | GCommand::M104 { .. }
-                | GCommand::M106 { .. }
-                | GCommand::M105 { .. }
-                | GCommand::M140 { .. }
-                | GCommand::M155 { .. }
+                | GCommand::M220 { .. } => {
+                    destination = 1u8 << u8::from(TaskId::Planner);
+                }
+                GCommand::M104 { .. }
+                | GCommand::M106 { .. } => {
+                    destination = 1u8 << u8::from(TaskId::Hotend);
+                }
+                GCommand::M105 { .. } | GCommand::M155 { .. } => {
+                    destination = 1u8 << u8::from(TaskId::Hotend) | 1u8 << u8::from(TaskId::Heatbed);
+                }
+                GCommand::M140 { .. } => {
+                    destination = 1u8 << u8::from(TaskId::Heatbed);
+                }
                 | GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
@@ -280,14 +318,28 @@ async fn command_dispatcher_task() {
                 | GCommand::M24 { .. }
                 | GCommand::M25
                 | GCommand::M31 => {
-                    watch_sender.send(cmd);
-
+                    destination = 1u8 << u8::from(TaskId::SdCard);
                 }
                 _ => {
                     #[cfg(feature = "defmt-log")]
                     error!("[COMMAND DISPATCHER] command not handler")
                 }
             }
+            let task_command = TaskGCommand{
+                cmd,
+                destination
+            };
+            watch_sender.send(task_command);
+            // wait for tasks response before proceeding to parse the next command
+            let mut res = 0u8;
+            while res & destination != destination {
+                let s = SIGNAL.wait().await;
+                res |= 1u8 << u8::from(s);
+                #[cfg(feature = "defmt-log")]
+                info!("Signal received from {}", u8::from(s));
+            }
+            #[cfg(feature = "defmt-log")]
+            info!("Every response has been received");
         } else {
             #[cfg(feature = "defmt-log")]
             error!("[COMMAND DISPATCHER] Invalid command");
@@ -390,43 +442,46 @@ async fn hotend_handler(
             counter = Duration::from_secs(0);
         }
         if let Some(cmd) = watch_receiver.try_changed() {
-            match cmd {
-                GCommand::M104 { s } => {
-                    #[cfg(feature = "defmt-log")]
-                    info!("[HOTEND] Target temperature: {}", s.as_celsius());
-                    hotend.set_temperature(s);
-                }
-                GCommand::M105 => {
-                    report.clear();
-                    // SAFETY: last temperature is set before this instruction
-                    task_write!(
-                        &mut report,
-                        HOTEND_LABEL,
-                        "Temperature: {}",
-                        last_temperature.unwrap()
-                    )
-                    .unwrap();
-                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
-                }
-                GCommand::M106 { s } => {
-                    let multiplier = f64::from(255) / f64::from(s);
-                    let speed = fan_controller.get_max_speed() * multiplier;
-                    {
-                        let mut pwm = PMW.lock().await;
-                        let pwm = pwm.as_mut().expect("PWM not initialized");
-                        fan_controller.set_speed(speed, pwm);
+            if cmd.destination & (1u8 << u8::from(TaskId::Hotend)) != 0{
+                match cmd.cmd {
+                    GCommand::M104 { s } => {
+                        #[cfg(feature = "defmt-log")]
+                        info!("[HOTEND] Target temperature: {}", s.as_celsius());
+                        hotend.set_temperature(s);
                     }
-                    #[cfg(feature = "defmt-log")]
-                    info!(
-                        "[ThermalActuator HANDLER] Fan speed: {} revs/s",
-                        speed.as_rpm()
-                    );
+                    GCommand::M105 => {
+                        report.clear();
+                        // SAFETY: last temperature is set before this instruction
+                        task_write!(
+                            &mut report,
+                            HOTEND_LABEL,
+                            "Temperature: {}",
+                            last_temperature.unwrap()
+                        )
+                        .unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                    }
+                    GCommand::M106 { s } => {
+                        let multiplier = f64::from(255) / f64::from(s);
+                        let speed = fan_controller.get_max_speed() * multiplier;
+                        {
+                            let mut pwm = PMW.lock().await;
+                            let pwm = pwm.as_mut().expect("PWM not initialized");
+                            fan_controller.set_speed(speed, pwm);
+                        }
+                        #[cfg(feature = "defmt-log")]
+                        info!(
+                            "[ThermalActuator HANDLER] Fan speed: {} revs/s",
+                            speed.as_rpm()
+                        );
+                    }
+                    GCommand::M155 { s } => {
+                        let duration = Duration::from_millis(s.as_millis() as u64);
+                        temperature_report_dt.replace(duration);
+                    }
+                    _ => (),
                 }
-                GCommand::M155 { s } => {
-                    let duration = Duration::from_millis(s.as_millis() as u64);
-                    temperature_report_dt.replace(duration);
-                }
-                _ => (),
+                SIGNAL.signal(TaskId::Hotend);
             }
         }
 
@@ -517,19 +572,22 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         }
 
         if let Some(cmd) = watch_receiver.try_changed() {
-            match cmd {
-                GCommand::M140 { s } => heatbed.set_temperature(s),
-                GCommand::M105 => {
-                    let temp = last_temperature.unwrap();
-                    report.clear();
-                    task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
-                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+            if cmd.destination & (1u8 << u8::from(TaskId::Heatbed)) != 0{
+                match cmd.cmd {
+                    GCommand::M140 { s } => heatbed.set_temperature(s),
+                    GCommand::M105 => {
+                        let temp = last_temperature.unwrap();
+                        report.clear();
+                        task_write!(&mut report, HEATBED_LABEL, "Temperature: {}", temp).unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
+                    }
+                    GCommand::M155 { s } => {
+                        let duration = Duration::from_millis(s.as_millis() as u64);
+                        temperature_report_dt.replace(duration);
+                    }
+                    _ => (),
                 }
-                GCommand::M155 { s } => {
-                    let duration = Duration::from_millis(s.as_millis() as u64);
-                    temperature_report_dt.replace(duration);
-                }
-                _ => (),
+                SIGNAL.signal(TaskId::Heatbed);
             }
         };
 
@@ -582,7 +640,7 @@ async fn sdcard_handler(
     let event_channel_publisher = EVENT_CHANNEL
         .publisher()
         .expect("Cannot retrieve error subscriber");
-    let dt = Duration::from_millis(500);
+    let dt = Duration::from_millis(100);
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
 
     loop {
@@ -609,94 +667,96 @@ async fn sdcard_handler(
         }
 
         if let Some(cmd) = watch_receiver.try_changed() {
-            // info!("[SDCARD] command received: {}", cmd);
-            match cmd {
-                GCommand::M20 => {
-                    let dir = working_dir.expect("Working directory not set");
-                    let mut msg: String<MAX_MESSAGE_LEN> =
-                        String::from_str("Begin file list").unwrap();
-                    volume_manager
-                        .iterate_dir(dir, |d| {
-                            let name_vec: Vec<u8, 16> =
-                                Vec::from_slice(d.clone().name.base_name()).unwrap();
-                            let name = String::from_utf8(name_vec).unwrap();
-                            msg.push_str(name.as_str()).unwrap();
-                            msg.push('\n').unwrap();
-                        })
-                        .expect("Error while listing files");
-                    msg.push_str("End file list").unwrap();
-                    FEEDBACK_CHANNEL.send(msg.clone()).await;
-                    // TODO send message to UART
-                }
-                GCommand::M21 => {
-                    working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)) {
-                        Ok(v) => Some(v),
-                        Err(_) => panic!("Cannot find module"),
-                    };
-                    working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
-                        Ok(d) => Some(d),
-                        Err(_) => panic!("Cannot open root dir"),
-                    };
-                    #[cfg(feature = "defmt-log")]
-                    info!("Directory open");
-                }
-                GCommand::M22 => {
-                    if working_file.is_some() {
-                        volume_manager.close_file(working_file.unwrap()).unwrap();
-                        #[cfg(feature = "defmt-log")]
-                        info!("File closed");
-                    }
-                    if working_dir.is_some() {
-                        volume_manager.close_dir(working_dir.unwrap()).unwrap();
-                        #[cfg(feature = "defmt-log")]
-                        info!("Directory closed");
-                    }
-                    if working_volume.is_some() {
+            if cmd.destination & (1 << u8::from(TaskId::SdCard)) != 0{
+                match cmd.cmd {
+                    GCommand::M20 => {
+                        let dir = working_dir.expect("Working directory not set");
+                        let mut msg: String<MAX_MESSAGE_LEN> =
+                            String::from_str("Begin file list\n").unwrap();
                         volume_manager
-                            .close_volume(working_volume.unwrap())
-                            .unwrap();
+                            .iterate_dir(dir, |d| {
+                                let name_vec: Vec<u8, 16> =
+                                    Vec::from_slice(d.clone().name.base_name()).unwrap();
+                                let name = String::from_utf8(name_vec).unwrap();
+                                msg.push_str(name.as_str()).unwrap();
+                                msg.push('\n').unwrap();
+                            })
+                            .expect("Error while listing files");
+                        msg.push_str("End file list").unwrap();
+                        FEEDBACK_CHANNEL.send(msg.clone()).await;
+                        // TODO send message to UART
+                    }
+                    GCommand::M21 => {
+                        working_volume = match volume_manager.open_raw_volume(VolumeIdx(0)) {
+                            Ok(v) => Some(v),
+                            Err(_) => panic!("Cannot find module"),
+                        };
+                        working_dir = match volume_manager.open_root_dir(working_volume.unwrap()) {
+                            Ok(d) => Some(d),
+                            Err(_) => panic!("Cannot open root dir"),
+                        };
                         #[cfg(feature = "defmt-log")]
-                        info!("Volume closed");
+                        info!("Directory open");
                     }
-                }
-                GCommand::M23 { filename } => {
-                    let dir = working_dir.expect("Working directory not set");
-                    working_file = match volume_manager.open_file_in_dir(
-                        dir,
-                        filename.as_str(),
-                        embedded_sdmmc::Mode::ReadOnly,
-                    ) {
-                        Ok(f) => Some(f),
-                        Err(_) => panic!("File not found"),
-                    };
-                    #[cfg(feature = "defmt-log")]
-                    info!("Working file set");
-                }
-                // ignore the parameters of M24, just start/resume the print
-                GCommand::M24 { .. } => {
-                    if !running {
-                        clock.start();
-                        running = true;
+                    GCommand::M22 => {
+                        if working_file.is_some() {
+                            volume_manager.close_file(working_file.unwrap()).unwrap();
+                            #[cfg(feature = "defmt-log")]
+                            info!("File closed");
+                        }
+                        if working_dir.is_some() {
+                            volume_manager.close_dir(working_dir.unwrap()).unwrap();
+                            #[cfg(feature = "defmt-log")]
+                            info!("Directory closed");
+                        }
+                        if working_volume.is_some() {
+                            volume_manager
+                                .close_volume(working_volume.unwrap())
+                                .unwrap();
+                            #[cfg(feature = "defmt-log")]
+                            info!("Volume closed");
+                        }
                     }
-                }
-                GCommand::M25 => {
-                    if running {
-                        clock.stop();
-                        running = false;
+                    GCommand::M23 { filename } => {
+                        let dir = working_dir.expect("Working directory not set");
+                        working_file = match volume_manager.open_file_in_dir(
+                            dir,
+                            filename.as_str(),
+                            embedded_sdmmc::Mode::ReadOnly,
+                        ) {
+                            Ok(f) => Some(f),
+                            Err(_) => panic!("File not found"),
+                        };
+                        #[cfg(feature = "defmt-log")]
+                        info!("Working file set");
                     }
+                    // ignore the parameters of M24, just start/resume the print
+                    GCommand::M24 { .. } => {
+                        if !running {
+                            clock.start();
+                            running = true;
+                        }
+                    }
+                    GCommand::M25 => {
+                        if running {
+                            clock.stop();
+                            running = false;
+                        }
+                    }
+                    GCommand::M31 => {
+                        report.clear();
+                        task_write!(
+                            &mut report,
+                            SD_CARD_LABEL,
+                            "Time elapsed: {}",
+                            clock.measure().as_millis()
+                        )
+                        .unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                    }
+                    _ => (),
                 }
-                GCommand::M31 => {
-                    report.clear();
-                    task_write!(
-                        &mut report,
-                        SD_CARD_LABEL,
-                        "Time elapsed: {}",
-                        clock.measure().as_millis()
-                    )
-                    .unwrap();
-                    FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                }
-                _ => todo!(),
+                SIGNAL.signal(TaskId::SdCard);
             }
         }
 
@@ -849,105 +909,100 @@ async fn planner_handler(
         .expect("Cannot retrieve error subscriber");
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
 
-    let mut is_eof = false;
-
     loop {
         if let Some(e) = event_channel_subscriber.try_next_message_pure() {
             match e {
                 PrinterEvent::EOF => {
-                    is_eof = true;
+                    event_channel_publisher
+                    .publish(PrinterEvent::PrintCompleted)
+                    .await;
                 }
                 _ => {}
             }
         }
 
-        // FIXME
-        if is_eof {
-            is_eof = false;
-            event_channel_publisher
-                .publish(PrinterEvent::PrintCompleted)
-                .await;
-        }
-
         let cmd = watch_receiver.changed().await;
-        // #[cfg(feature = "defmt-log")]
-        // info!("[PLANNER HANDLER] {}", cmd);
-        match cmd {
-            GCommand::G0 { .. }
-            | GCommand::G1 { .. }
-            | GCommand::G2 { .. }
-            | GCommand::G3 { .. }
-            | GCommand::G4 { .. }
-            | GCommand::G10
-            | GCommand::G11
-            | GCommand::G28 { .. }
-            | GCommand::G90
-            | GCommand::G91
-            | GCommand::M207 { .. }
-            | GCommand::M208 { .. } => match planner.execute(cmd.clone()).await {
-                Ok(duration) => {
-                    if debug && duration.is_some() {
-                        // match cmd {
-                        //     GCommand::G0 { .. } => {
-                        //         let x = planner.get_x_position();
-                        //         let y = planner.get_x_position();
-                        //         let z = planner.get_x_position();
-                        //         let t = duration.unwrap();
-                        //         let res = GCommand::D0 { x, y, z, t };
-                        //         report.clear();
-                        //         write!(&mut report, "{}", &res).unwrap();
-                        //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                        //     }
-                        //     GCommand::G1 { .. } => {
-                        //         let x = planner.get_x_position();
-                        //         let y = planner.get_x_position();
-                        //         let z = planner.get_x_position();
-                        //         let e = planner.get_e_position();
-                        //         let t = duration.unwrap();
-                        //         let res = GCommand::D1 { x, y, z, e, t };
-                        //         report.clear();
-                        //         write!(&mut report, "{}", &res).unwrap();
-                        //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
-                        //     }
-                        //     _ => todo!(),
-                        // }
+
+        if cmd.destination & (1u8 << u8::from(TaskId::Planner)) != 0{
+
+            #[cfg(feature = "defmt-log")]
+            info!("[PLANNER HANDLER] command received");
+            match cmd.cmd {
+                GCommand::G0 { .. }
+                | GCommand::G1 { .. }
+                | GCommand::G2 { .. }
+                | GCommand::G3 { .. }
+                | GCommand::G4 { .. }
+                | GCommand::G10
+                | GCommand::G11
+                | GCommand::G28 { .. }
+                | GCommand::G90
+                | GCommand::G91
+                | GCommand::M207 { .. }
+                | GCommand::M208 { .. } => match planner.execute(cmd.cmd.clone()).await {
+                    Ok(duration) => {
+                        if debug && duration.is_some() {
+                            // match cmd {
+                            //     GCommand::G0 { .. } => {
+                            //         let x = planner.get_x_position();
+                            //         let y = planner.get_x_position();
+                            //         let z = planner.get_x_position();
+                            //         let t = duration.unwrap();
+                            //         let res = GCommand::D0 { x, y, z, t };
+                            //         report.clear();
+                            //         write!(&mut report, "{}", &res).unwrap();
+                            //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                            //     }
+                            //     GCommand::G1 { .. } => {
+                            //         let x = planner.get_x_position();
+                            //         let y = planner.get_x_position();
+                            //         let z = planner.get_x_position();
+                            //         let e = planner.get_e_position();
+                            //         let t = duration.unwrap();
+                            //         let res = GCommand::D1 { x, y, z, e, t };
+                            //         report.clear();
+                            //         write!(&mut report, "{}", &res).unwrap();
+                            //         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                            //     }
+                            //     _ => todo!(),
+                            // }
+                        }
                     }
-                }
-                Err(e) => {
-                    event_channel_publisher
-                        .publish(PrinterEvent::Stepper(e))
-                        .await;
+                    Err(e) => {
+                        event_channel_publisher
+                            .publish(PrinterEvent::Stepper(e))
+                            .await;
+                        report.clear();
+                        task_write!(&mut report, PLANNER_LABEL, "{}", e).unwrap();
+                        FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                    }
+                },
+                GCommand::M114 => {
                     report.clear();
-                    task_write!(&mut report, PLANNER_LABEL, "{}", e).unwrap();
+                    task_write!(
+                        &mut report,
+                        PLANNER_LABEL,
+                        "Head position: [X:{}] [Y:{}] [Z:{}]",
+                        planner.get_x_position(),
+                        planner.get_y_position(),
+                        planner.get_z_position(),
+                    )
+                    .unwrap();
                     FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                 }
-            },
-            GCommand::M114 => {
-                report.clear();
-                task_write!(
-                    &mut report,
-                    PLANNER_LABEL,
-                    "Head position: [X:{}] [Y:{}] [Z:{}]",
-                    planner.get_x_position(),
-                    planner.get_y_position(),
-                    planner.get_z_position(),
-                )
-                .unwrap();
-                FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
+                GCommand::D114 => {
+                    debug = true;
+                }
+                GCommand::D115 => {
+                    debug = false;
+                }
+                _ => {
+                    // #[cfg(feature = "defmt-log")]
+                    // error!("[PLANNER HANDLER] command not handled")
+                }
             }
-            GCommand::D114 => {
-                debug = true;
-            }
-            GCommand::D115 => {
-                debug = false;
-            }
-            _ => {
-                #[cfg(feature = "defmt-log")]
-                error!("[PLANNER HANDLER] command not handled")
-            }
+            SIGNAL.signal(TaskId::Planner);
         }
-        #[cfg(feature = "defmt-log")]
-        info!("[PLANNER HANDLER] Move completed");
         Timer::after(dt).await;
     }
 }
