@@ -133,6 +133,7 @@ mod external {
         arc_unit_length: f64,
         feedrate: f64,
         positioning: String,
+        e_positioning: String,
         feedrate_multiplier: f64,
         retraction: RetractionMotionConfig,
         recover: RecoverMotionConfig,
@@ -150,6 +151,10 @@ mod external {
 
         pub fn get_positioning(&self) -> Option<String> {
             get_string_value(self.positioning.clone())
+        }
+
+        pub fn get_e_positioning(&self) -> Option<String> {
+            get_string_value(self.e_positioning.clone())
         }
 
         pub fn get_retraction(&self) -> RetractionMotionConfig {
@@ -536,6 +541,12 @@ fn main() {
         .expect("Motion positioning is missing");
     let motion_positioning = motion_positioning.as_str();
     let _ = Positioning::from(motion_positioning);
+    let motion_e_positioning = conf
+        .motion
+        .get_e_positioning()
+        .expect("Motion positioning is missing");
+    let motion_e_positioning = motion_e_positioning.as_str();
+    let _ = Positioning::from(motion_e_positioning);
     let motion_feedrate_multiplier = conf.motion.get_feedrate_multiplier();
 
     let motion_retraction_z_lift = conf.motion.get_retraction().get_zlift();
@@ -940,17 +951,18 @@ fn main() {
             PrinterConfig{
                 motion: MotionConfig{
                     arc_unit_length: Length::from_millimeters(#motion_arc_unit_len),
-                    feedrate: Speed::from_meters_per_second(#motion_feedrate / 1000.0),
+                    feedrate: Speed::from_meters_per_second(#motion_feedrate / (1000.0 * 60.0)),
                     positioning: Positioning::from(#motion_positioning),
+                    e_positioning: Positioning::from(#motion_e_positioning),
                     feedrate_multiplier: #motion_feedrate_multiplier,
                     retraction: RetractionMotionConfig{
-                        feedrate: Speed::from_meters_per_second(#motion_retraction_feedrate),
-                        length: Length::from_meters(#motion_retraction_len * 1000.0),
-                        z_lift: Length::from_meters(#motion_retraction_z_lift * 1000.0),
+                        feedrate: Speed::from_meters_per_second(#motion_retraction_feedrate / (1000.0 * 60.0)),
+                        length: Length::from_millimeters(#motion_retraction_len),
+                        z_lift: Length::from_millimeters(#motion_retraction_z_lift),
                     },
                     recover: RecoverMotionConfig{
-                        feedrate: Speed::from_meters_per_second(#motion_recover_feedrate),
-                        length: Length::from_meters(#motion_recover_len * 1000.0),
+                        feedrate: Speed::from_meters_per_second(#motion_recover_feedrate / (1000.0 * 60.0)),
+                        length: Length::from_millimeters(#motion_recover_len),
                     },
                 },
                 endstops: EndstopsConfig{

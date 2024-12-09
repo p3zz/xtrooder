@@ -3,6 +3,7 @@
 arc_unit_length = 1.0
 feedrate = 0.0
 positioning = "absolute"
+e_positioning = "absolute"
 feedrate_multiplier = 1
 
 [motion.retraction]

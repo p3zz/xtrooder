@@ -98,6 +98,10 @@ pub enum GCommand {
     M27,
     // report print time
     M31,
+    // E absolute
+    M82,
+    // E relative
+    M83,
     // set hotend temperature
     M104 {
         s: Temperature,
@@ -805,6 +809,8 @@ impl GCodeParser {
             }),
             (GCommandType::M, 25) => Some(GCommand::M25),
             (GCommandType::M, 31) => Some(GCommand::M31),
+            (GCommandType::M, 82) => Some(GCommand::M82),
+            (GCommandType::M, 83) => Some(GCommand::M83),
             (GCommandType::M, 104) => {
                 let s = extract_temperature(&args, "S", self.temperature_unit)?;
                 Some(GCommand::M104 { s })

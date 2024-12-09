@@ -10,7 +10,7 @@ use crate::stepper::{Attached, AttachmentMode, Stepper, StepperError};
 
 use common::{ExtiInputPinBase, OutputPinBase, TimerBase};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Positioning {
     Relative,
     Absolute,
@@ -217,6 +217,7 @@ pub async fn linear_move_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBas
     speed: Speed,
     e_dest: Distance,
     positioning: Positioning,
+    e_positioning: Positioning,
     endstops: (
         &mut Option<I>,
         &mut Option<I>,
@@ -226,9 +227,17 @@ pub async fn linear_move_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBas
 ) -> Result<Duration, StepperError> {
     match positioning {
         Positioning::Relative => {
+            let e_dest = match e_positioning{
+                Positioning::Relative => e_dest,
+                Positioning::Absolute => e_dest - steppers.3.get_position(),
+            };
             linear_move_for_3d_e::<P, T, I>(steppers, dest, speed, e_dest, endstops).await
         }
         Positioning::Absolute => {
+            let e_dest = match e_positioning{
+                Positioning::Absolute => e_dest,
+                Positioning::Relative => e_dest + steppers.3.get_position(),
+            };
             linear_move_to_3d_e::<P, T, I>(steppers, dest, speed, e_dest, endstops).await
         }
     }

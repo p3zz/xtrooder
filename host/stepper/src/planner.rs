@@ -31,6 +31,7 @@ pub struct MotionConfig {
     pub arc_unit_length: Length,
     pub feedrate: Speed,
     pub positioning: Positioning,
+    pub e_positioning: Positioning,
     pub feedrate_multiplier: f64,
     pub retraction: RetractionMotionConfig,
     pub recover: RecoverMotionConfig,
@@ -142,6 +143,14 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
                 let duration = self.g28((x, y, z)).await?;
                 Ok(Some(duration))
             }
+            GCommand::M82 => {
+                self.m82();
+                Ok(None)
+            }
+            GCommand::M83 => {
+                self.m83();
+                Ok(None)
+            }
             GCommand::M207 { f, s, z } => {
                 self.m207(f, s, z);
                 Ok(None)
@@ -175,6 +184,14 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
 
     fn g91(&mut self) {
         self.config.positioning = Positioning::Relative;
+    }
+
+    fn m82(&mut self) {
+        self.config.e_positioning = Positioning::Absolute;
+    }
+
+    fn m83(&mut self) {
+        self.config.e_positioning = Positioning::Relative;
     }
 
     // firmware retraction settings
@@ -280,6 +297,7 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
             feedrate,
             e,
             self.config.positioning,
+            self.config.e_positioning,
             (
                 &mut self.endstops.0,
                 &mut self.endstops.1,
