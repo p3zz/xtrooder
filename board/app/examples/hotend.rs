@@ -72,7 +72,7 @@ async fn main(_spawner: Spawner) {
     );
 
     let thermistor: Thermistor<'_, _> = Thermistor::new(
-        p.PA6.degrade_adc(),
+        p.PA5.degrade_adc(),
         readings,
         ThermistorOptionsConfig {
             r_series: Resistance::from_ohms(10_000.0),
@@ -83,10 +83,10 @@ async fn main(_spawner: Spawner) {
     );
 
     let heater_out = SimplePwm::new(
-        p.TIM2,
+        p.TIM3,
+        Some(PwmPin::new_ch1(p.PC6, OutputType::PushPull)),
         None,
         None,
-        Some(PwmPin::new_ch3(p.PB10, OutputType::PushPull)),
         None,
         khz(1),
         CountingMode::EdgeAlignedUp,
@@ -94,7 +94,7 @@ async fn main(_spawner: Spawner) {
 
     let mut heater_out_wrapper = SimplePwmWrapper::new(heater_out);
 
-    let channel = 3;
+    let channel = 1;
     let channel = timer_channel!(channel).expect("Invalid timer channel");
 
     let heater = Heater::new(
@@ -110,7 +110,7 @@ async fn main(_spawner: Spawner) {
 
     hotend.enable(&mut heater_out_wrapper);
 
-    hotend.set_temperature(Temperature::from_celsius(60f64));
+    hotend.set_temperature(Temperature::from_celsius(200f64));
 
     #[cfg(feature = "defmt-log")]
     info!("ThermalActuator example");
