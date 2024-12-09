@@ -643,7 +643,7 @@ async fn sdcard_handler(
     let mut working_volume = None;
     let mut running = false;
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let mut tmp: [u8; 32] = [0u8; 32];
+    let mut tmp: [u8; 64] = [0u8; 64];
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
@@ -687,14 +687,18 @@ async fn sdcard_handler(
                             String::from_str("Begin file list\n").unwrap();
                         volume_manager
                             .iterate_dir(dir, |d| {
-                                let name_vec: Vec<u8, 16> =
-                                    Vec::from_slice(d.clone().name.base_name()).unwrap();
+                                let mut name_vec: Vec<u8, 16> = 
+                                    Vec::from_slice(d.name.base_name()).unwrap();
+                                if d.name.extension().len() > 0{
+                                    name_vec.extend_from_slice(&[b'.']).unwrap();
+                                    name_vec.extend_from_slice(d.name.extension()).unwrap();
+                                }
                                 let name = String::from_utf8(name_vec).unwrap();
                                 msg.push_str(name.as_str()).unwrap();
                                 msg.push('\n').unwrap();
                             })
                             .expect("Error while listing files");
-                        msg.push_str("End file list").unwrap();
+                        msg.push_str("End file list\n").unwrap();
                         FEEDBACK_CHANNEL.send(msg.clone()).await;
                         // TODO send message to UART
                     }
