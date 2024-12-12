@@ -1,7 +1,7 @@
 # ------------- motion ---------------
 [motion]
 arc_unit_length = 1.0
-feedrate = 0.0
+feedrate = 1000.0
 positioning = "absolute"
 e_positioning = "absolute"
 feedrate_multiplier = 1
@@ -31,7 +31,7 @@ exti = "EXTI2"
 
 [steppers.x]
 stepping_mode = "half"
-distance_per_step = 0.15
+distance_per_step = 0.16
 steps_per_revolution = 200
 bounds.min = -100
 bounds.max = 100
@@ -41,7 +41,7 @@ dir.pin = "PC10"
 
 [steppers.y]
 stepping_mode = "half"
-distance_per_step = 0.15
+distance_per_step = 0.16
 steps_per_revolution = 200
 bounds.min = -100
 bounds.max = 100
@@ -50,22 +50,22 @@ step.pin = "PC9"
 dir.pin = "PC8"
 
 [steppers.z]
-stepping_mode = "half"
-distance_per_step = 0.15
+stepping_mode = "quarter"
+distance_per_step = 0.04
 steps_per_revolution = 200
-bounds.min = 0
+bounds.min = -200
 bounds.max = 200
 positive_direction = "clockwise"
 step.pin = "PD2"
 dir.pin = "PC12"
 
 [steppers.e]
-stepping_mode = "half"
-distance_per_step = 0.1
+stepping_mode = "quarter"
+distance_per_step = 0.2
 steps_per_revolution = 200
 bounds.min = -5000000
 bounds.max = 5000000
-positive_direction = "counterclockwise"
+positive_direction = "clockwise"
 step.pin = "PG2"
 dir.pin = "PG3"
 
@@ -101,9 +101,9 @@ max_temperature_limit=240
 min_temperature_limit=180
 
 [hotend.heater.pid]
-k_p = 400
-k_i = 5
-k_d = 1
+k_p = 5000
+k_i = 4
+k_d = 0
 
 [hotend.thermistor]
 r_series = 10000
@@ -120,9 +120,9 @@ max_temperature_limit=240
 min_temperature_limit=180
 
 [heatbed.heater.pid]
-k_p = 400
-k_i = 5
-k_d = 1
+k_p = 5000
+k_i = 4
+k_d = 0
 
 [heatbed.thermistor]
 r_series = 10000
