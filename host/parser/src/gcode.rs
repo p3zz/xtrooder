@@ -314,7 +314,7 @@ impl Display for GCommand {
                     core::write!(&mut z_t, " Z{}", z.as_millimeters())?;
                 }
                 if let Some(f) = f {
-                    core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
+                    core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0 * 60.0)?;
                 }
                 core::write!(fmt, "G0{}{}{}{}", x_t, y_t, z_t, f_t)
             }
@@ -337,7 +337,7 @@ impl Display for GCommand {
                     core::write!(&mut e_t, " E{}", e.as_millimeters())?;
                 }
                 if let Some(f) = f {
-                    core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0)?;
+                    core::write!(&mut f_t, " F{}", f.as_meters_per_second() * 1000.0 * 60.0)?;
                 }
                 core::write!(fmt, "G1{}{}{}{}{}", x_t, y_t, z_t, e_t, f_t)
             }
@@ -911,7 +911,7 @@ mod tests {
                     x: Some(Distance::from_millimeters(10.1)),
                     y: Some(Distance::from_millimeters(9.0)),
                     z: Some(Distance::from_millimeters(1.0)),
-                    f: Some(Speed::from_meters_per_second(1.2))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -928,7 +928,7 @@ mod tests {
                     x: Some(Distance::from_millimeters(10.1)),
                     y: None,
                     z: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -968,7 +968,7 @@ mod tests {
                     y: Some(Distance::from_millimeters(9.0)),
                     z: Some(Distance::from_millimeters(1.0)),
                     e: Some(Distance::from_millimeters(2.0)),
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1018,7 +1018,7 @@ mod tests {
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1090,7 +1090,7 @@ mod tests {
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1108,7 +1108,7 @@ mod tests {
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1134,7 +1134,7 @@ mod tests {
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1152,7 +1152,7 @@ mod tests {
                     y: None,
                     z: None,
                     e: None,
-                    f: Some(Speed::from_meters_per_second(1.20))
+                    f: Some(Speed::from_meters_per_second(0.02))
                 }
         );
     }
@@ -1179,7 +1179,7 @@ mod tests {
             f: Some(Speed::from_meters_per_second(1.0)),
         };
         let res = cmd.to_string();
-        assert_eq!("G0 X3.1 F1000", res.as_str());
+        assert_eq!("G0 X3.1 F60000", res.as_str());
     }
 
     #[test]
@@ -1192,6 +1192,6 @@ mod tests {
             f: Some(Speed::from_meters_per_second(1.0)),
         };
         let res = cmd.to_string();
-        assert_eq!("G1 X3.1 E31.45 F1000", res.as_str());
+        assert_eq!("G1 X3.1 E31.45 F60000", res.as_str());
     }
 }
