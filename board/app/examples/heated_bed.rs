@@ -100,8 +100,8 @@ async fn main(_spawner: Spawner) {
     let heater = Heater::new(
         channel,
         PidConfig {
-            k_p: 2000.0,
-            k_i: 3.0,
+            k_p: 5000.0,
+            k_i: 4.0,
             k_d: 0.0,
         },
     );
@@ -114,7 +114,8 @@ async fn main(_spawner: Spawner) {
 
     #[cfg(feature = "defmt-log")]
     info!("ThermalActuator example");
-    let dt = Duration::from_millis(100);
+    let dt = Duration::from_millis(50);
+    let mut counter = Duration::from_secs(0);
     #[cfg(feature = "defmt-log")]
     println!("Max duty cycle: {}", heater_out_wrapper.get_max_duty());
 
@@ -122,13 +123,17 @@ async fn main(_spawner: Spawner) {
         let data = hotend
             .update(dt.into(), &mut heater_out_wrapper, &mut adc)
             .await;
-        #[cfg(feature = "defmt-log")]
-        println!(
-            "Dt: {}\tTemperaure: {}\tDuty cycle: {:?}",
-            dt.as_millis(),
-            data.0.as_celsius(),
-            data.1
-        );
+        if counter >= Duration::from_secs(1){
+            #[cfg(feature = "defmt-log")]
+            println!(
+                "Dt: {}\tTemperaure: {}\tDuty cycle: {:?}",
+                dt.as_millis(),
+                data.0.as_celsius(),
+                data.1
+            );
+            counter = Duration::from_secs(0);
+        }
+        counter = counter.checked_add(dt).unwrap();
         Timer::after(dt).await;
     }
 }

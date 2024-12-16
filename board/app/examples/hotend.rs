@@ -100,7 +100,7 @@ async fn main(_spawner: Spawner) {
     let heater = Heater::new(
         channel,
         PidConfig {
-            k_p: 12000.0,
+            k_p: 4000.0,
             k_i: 3.0,
             k_d: 0.0,
         },
@@ -110,7 +110,7 @@ async fn main(_spawner: Spawner) {
 
     hotend.enable(&mut heater_out_wrapper);
 
-    hotend.set_temperature(Temperature::from_celsius(200f64));
+    hotend.set_temperature(Temperature::from_celsius(180f64));
 
     #[cfg(feature = "defmt-log")]
     info!("ThermalActuator example");
