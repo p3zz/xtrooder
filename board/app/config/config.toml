@@ -30,7 +30,7 @@ exti = "EXTI2"
 # ------------- steppers ---------------
 
 [steppers.x]
-stepping_mode = "half"
+stepping_mode = "quarter"
 distance_per_step = 0.16
 steps_per_revolution = 200
 bounds.min = -100
@@ -40,18 +40,18 @@ step.pin = "PC11"
 dir.pin = "PC10"
 
 [steppers.y]
-stepping_mode = "half"
+stepping_mode = "quarter"
 distance_per_step = 0.16
 steps_per_revolution = 200
 bounds.min = -100
 bounds.max = 100
-positive_direction = "counterclockwise"
+positive_direction = "clockwise"
 step.pin = "PC9"
 dir.pin = "PC8"
 
 [steppers.z]
 stepping_mode = "quarter"
-distance_per_step = 0.04
+distance_per_step = 0.05
 steps_per_revolution = 200
 bounds.min = -200
 bounds.max = 200
@@ -61,10 +61,10 @@ dir.pin = "PC12"
 
 [steppers.e]
 stepping_mode = "quarter"
-distance_per_step = 0.2
+distance_per_step = 0.19
 steps_per_revolution = 200
-bounds.min = -5000000
-bounds.max = 5000000
+bounds.min = -500000000
+bounds.max = 500000000
 positive_direction = "clockwise"
 step.pin = "PG2"
 dir.pin = "PG3"
@@ -81,7 +81,7 @@ tx.dma.peripheral = "DMA1_CH1"
 
 # ------------- pwm --------------
 [pwm]
-frequency = 0
+frequency = 100000
 timer = "TIM3"
 ch1 = "PC6"
 ch2 = "PC7"
@@ -97,12 +97,12 @@ dma.peripheral = "DMA1_CH2"
 
 [hotend.heater]
 pwm.channel = 1
-max_temperature_limit=240
+max_temperature_limit=300
 min_temperature_limit=180
 
 [hotend.heater.pid]
-k_p = 5000
-k_i = 4
+k_p = 150
+k_i = 0.5
 k_d = 0
 
 [hotend.thermistor]
@@ -116,7 +116,7 @@ adc.pin = "PA5"
 
 [heatbed.heater]
 pwm.channel = 2
-max_temperature_limit=240
+max_temperature_limit=300
 min_temperature_limit=180
 
 [heatbed.heater.pid]
