@@ -262,8 +262,14 @@ pub async fn linear_move_to_3d_e<P: OutputPinBase, T: TimerBase, I: ExtiInputPin
 ) -> Result<Duration, StepperError> {
     let start = Vector3D::new(steppers.0.get_position(), steppers.1.get_position(), steppers.2.get_position());
     let distance = (dest - start).get_magnitude();
-    let duration = distance / speed;
-    let e_speed = (e_dest - steppers.3.get_position()) / duration;
+    // TODO check threshold value
+    let e_speed = if distance.as_millimeters() < 1e-6 {
+        speed
+    }else{
+        let duration = distance / speed;
+        let e_speed = (e_dest - steppers.3.get_position()) / duration;
+        e_speed
+    };
     match join!(
         linear_move_to_3d::<P, T, I>(
             (steppers.0, steppers.1, steppers.2),
@@ -977,6 +983,69 @@ mod tests {
             s_z.get_speed_from_attachment().as_meters_per_second(),
             epsilon = 0.00001
         );
+    }
+
+    #[tokio::test]
+    async fn test_linear_move_to_3d_e() {
+        let mut s_x = Stepper::new_with_attachment(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions::default(),
+            StepperAttachment::default(),
+        );
+        let mut s_y = Stepper::new_with_attachment(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions::default(),
+            StepperAttachment::default(),
+        );
+        let mut s_z = Stepper::new_with_attachment(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions::default(),
+            StepperAttachment::default(),
+        );
+        let mut s_e = Stepper::new_with_attachment(
+            StatefulOutputPinMock::new(),
+            StatefulOutputPinMock::new(),
+            StepperOptions::default(),
+            StepperAttachment::default(),
+        );
+        let mut endstop_x = None;
+        let mut endstop_y = None;
+        let mut endstop_z = None;
+        let mut endstop_e = None;
+        let destination = Vector3D::new(
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+            Distance::from_millimeters(0.0),
+        );
+        let e_destination = Distance::from_millimeters(3.0);
+        let speed = Speed::from_meters_per_second(0.01);
+        s_x.set_stepping_mode(SteppingMode::FullStep);
+        s_y.set_stepping_mode(SteppingMode::FullStep);
+        s_z.set_stepping_mode(SteppingMode::FullStep);
+        s_e.set_stepping_mode(SteppingMode::FullStep);
+        let res = linear_move_to_3d_e::<StatefulOutputPinMock, StepperTimer, InputPinMock>(
+            (&mut s_x, &mut s_y, &mut s_z, &mut s_e),
+            destination,
+            speed,
+            e_destination,
+            (&mut endstop_x, &mut endstop_y, &mut endstop_z, &mut endstop_e),
+        )
+        .await;
+        assert!(res.is_ok());
+        assert_abs_diff_eq!(s_x.get_steps(), 0.0);
+        assert_abs_diff_eq!(s_y.get_steps(), 0.0);
+        assert_abs_diff_eq!(s_z.get_steps(), 0.0);
+        assert_abs_diff_eq!(s_e.get_steps(), 3.0);
+        assert_abs_diff_eq!(s_x.get_position().as_millimeters(), 0.0);
+        assert_abs_diff_eq!(s_y.get_position().as_millimeters(), 0.0);
+        assert_abs_diff_eq!(s_z.get_position().as_millimeters(), 0.0);
+        assert_abs_diff_eq!(s_e.get_position().as_millimeters(), 3.0);
+        assert_eq!(s_x.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s_y.get_direction(), RotationDirection::Clockwise);
+        assert_eq!(s_z.get_direction(), RotationDirection::Clockwise);
     }
 
     #[tokio::test]
