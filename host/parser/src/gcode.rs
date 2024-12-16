@@ -76,7 +76,12 @@ pub enum GCommand {
     // set positioning as relative
     G91,
     // TODO set steppers position
-    // G92,
+    G92{
+        x: Option<Distance>,
+        y: Option<Distance>,
+        z: Option<Distance>,
+        e: Option<Distance>,
+    },
     // List SD Card files
     M20,
     // Init SD card (mount fs)
@@ -490,6 +495,10 @@ impl Display for GCommand {
             GCommand::G91 => {
                 core::write!(fmt, "G91")
             }
+            // FIXME format
+            GCommand::G92 { .. } => {
+                core::write!(fmt, "G92")
+            }
             GCommand::M20 => {
                 core::write!(fmt, "M20")
             }
@@ -791,6 +800,13 @@ impl GCodeParser {
             }
             (GCommandType::G, 90) => Some(GCommand::G90),
             (GCommandType::G, 91) => Some(GCommand::G91),
+            (GCommandType::G, 92) => {
+                let x = extract_distance(&args, "X", self.distance_unit);
+                let y = extract_distance(&args, "Y", self.distance_unit);
+                let z = extract_distance(&args, "Z", self.distance_unit);
+                let e = extract_distance(&args, "E", self.distance_unit);
+                Some(GCommand::G92 { x, y, z, e })
+            }
             (GCommandType::M, 20) => Some(GCommand::M20),
             (GCommandType::M, 21) => Some(GCommand::M21),
             (GCommandType::M, 22) => Some(GCommand::M22),

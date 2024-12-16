@@ -131,6 +131,10 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
                 self.g91();
                 Ok(None)
             }
+            GCommand::G92 { x, y, z, e} => {
+                self.g92(x, y, z, e);
+                Ok(None)
+            }
             GCommand::G10 => {
                 self.g10().await?;
                 Ok(None)
@@ -184,6 +188,21 @@ impl<P: OutputPinBase, T: TimerBase, I: ExtiInputPinBase> Planner<P, T, I> {
 
     fn g91(&mut self) {
         self.config.positioning = Positioning::Relative;
+    }
+
+    fn g92(&mut self, x: Option<Distance>, y: Option<Distance>, z: Option<Distance>, e: Option<Distance>) {
+        if let Some(x) = x{
+            self.x_stepper.set_position(x);
+        }
+        if let Some(y) = y{
+            self.y_stepper.set_position(y);
+        }
+        if let Some(z) = z{
+            self.z_stepper.set_position(z);
+        }
+        if let Some(e) = e{
+            self.e_stepper.set_position(e);
+        }
     }
 
     fn m82(&mut self) {
