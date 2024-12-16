@@ -18,7 +18,7 @@ use app::{init_input_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
-use embassy_executor::Spawner;
+use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::join::join;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
@@ -26,7 +26,7 @@ use embassy_stm32::gpio::{OutputType, Pull};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
-use embassy_stm32::time::khz;
+use embassy_stm32::time::{hz, khz};
 use embassy_stm32::timer::low_level::CountingMode;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
@@ -36,6 +36,7 @@ use embassy_stm32::{
     bind_interrupts,
     gpio::{Level, Output},
 };
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::priority_channel::{PriorityChannel, Max};
@@ -55,10 +56,20 @@ use stepper::stepper::{StepperAttachment, StepperOptions};
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };
+use common::PwmBase;
+use embassy_stm32::interrupt;
+use embassy_stm32::interrupt::{InterruptExt, Priority};
 use {defmt_rtt as _, panic_probe as _};
 
 #[cfg(feature = "defmt-log")]
 use defmt::{error, info};
+
+static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
+
+#[interrupt]
+unsafe fn TIM2() {
+    EXECUTOR_HIGH.on_interrupt()
+}
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq)]
 enum TaskMessagePriority{
@@ -159,25 +170,32 @@ const HEATBED_LABEL: &'_ str = "HEATBED";
 const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
-static WATCH: Watch<ThreadModeRawMutex, TaskGCommand, 7> = Watch::new();
+static WATCH: Watch<
+    CriticalSectionRawMutex,
+    TaskGCommand, 
+    7
+> = Watch::new();
 
-static SIGNAL: Signal<ThreadModeRawMutex, TaskId> = Signal::new();
+static SIGNAL: Signal<
+    CriticalSectionRawMutex,
+    TaskId
+> = Signal::new();
 
 static COMMAND_DISPATCHER_CHANNEL: PriorityChannel<
-    ThreadModeRawMutex,
+    CriticalSectionRawMutex,
     TaskMessage,
     Max,
     COMMAND_DISPATCHER_CHANNEL_LEN,
 > = PriorityChannel::new();
 
 static FEEDBACK_CHANNEL: Channel<
-    ThreadModeRawMutex,
+    CriticalSectionRawMutex,
     String<MAX_MESSAGE_LEN>,
     FEEDBACK_CHANNEL_LEN,
 > = Channel::new();
 
 static EVENT_CHANNEL: PubSubChannel<
-    ThreadModeRawMutex,
+    CriticalSectionRawMutex,
     PrinterEvent,
     EVENT_CHANNEL_CAPACITY,
     EVENT_CHANNEL_SUBSCRIBERS,
@@ -239,7 +257,7 @@ async fn input_handler() {
                 error!("Cannot read from UART: {}", e);
             }
         }
-        Timer::after(dt).await;
+        // Timer::after(dt).await;
     }
 }
 
@@ -270,14 +288,15 @@ async fn output_handler() {
 #[embassy_executor::task]
 async fn command_dispatcher_task() {
     let mut parser = GCodeParser::new();
-    let dt = Duration::from_millis(20);
+    let dt = Duration::from_millis(50);
+    let command_receiver = COMMAND_DISPATCHER_CHANNEL.receiver();
     let watch_sender = WATCH.sender();
 
     #[cfg(feature = "defmt-log")]
     info!("Starting command dispatcher loop");
 
     loop {
-        let msg = COMMAND_DISPATCHER_CHANNEL.receive().await;
+        let msg = command_receiver.receive().await;
         #[cfg(feature = "defmt-log")]
         info!("[COMMAND DISPATCHER] received message {}", msg.msg.as_str());
         let mut destination = 0u8;
@@ -296,6 +315,7 @@ async fn command_dispatcher_task() {
                 | GCommand::G28 { .. }
                 | GCommand::G90
                 | GCommand::G91
+                | GCommand::G92 { .. }
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. }
                 | GCommand::M220 { .. } => {
@@ -346,7 +366,7 @@ async fn command_dispatcher_task() {
             error!("[COMMAND DISPATCHER] Invalid command");
         }
 
-        Timer::after(dt).await;
+        // Timer::after(dt).await;
     }
 }
 
@@ -453,6 +473,11 @@ async fn hotend_handler(
                         #[cfg(feature = "defmt-log")]
                         info!("[HOTEND] Target temperature: {}", s.as_celsius());
                         hotend.set_temperature(s);
+                        {
+                            let mut pwm = PMW.lock().await;
+                            let pwm = pwm.as_mut().expect("PWM not initialized");
+                            hotend.enable(pwm);
+                        }
                     }
                     GCommand::M105 => {
                         report.clear();
@@ -584,7 +609,14 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         if let Some(cmd) = watch_receiver.try_changed() {
             if cmd.destination & (1u8 << u8::from(TaskId::Heatbed)) != 0{
                 match cmd.cmd {
-                    GCommand::M140 { s } => heatbed.set_temperature(s),
+                    GCommand::M140 { s } => {
+                        heatbed.set_temperature(s);
+                        {
+                            let mut pwm = PMW.lock().await;
+                            let pwm = pwm.as_mut().expect("PWM not initialized");
+                            heatbed.enable(pwm);
+                        }
+                    },
                     GCommand::M105 => {
                         let temp = last_temperature.unwrap();
                         report.clear();
@@ -643,7 +675,7 @@ async fn sdcard_handler(
     let mut working_volume = None;
     let mut running = false;
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let mut tmp: [u8; 64] = [0u8; 64];
+    let mut tmp: [u8; 128] = [0u8; 128];
     let mut clock = Clock::new();
     let mut report: String<MAX_MESSAGE_LEN> = String::new();
     let mut event_channel_subscriber = EVENT_CHANNEL
@@ -652,7 +684,7 @@ async fn sdcard_handler(
     let event_channel_publisher = EVENT_CHANNEL
         .publisher()
         .expect("Cannot retrieve error subscriber");
-    let dt = Duration::from_millis(20);
+    let dt = Duration::from_millis(100);
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
 
     loop {
@@ -968,8 +1000,10 @@ async fn planner_handler(
                 | GCommand::G28 { .. }
                 | GCommand::G90
                 | GCommand::G91
+                | GCommand::G92 { .. }
                 | GCommand::M207 { .. }
-                | GCommand::M208 { .. } => match planner.execute(cmd.cmd.clone()).await {
+                | GCommand::M208 { .. }
+                | GCommand::M220 { .. } => match planner.execute(cmd.cmd.clone()).await {
                     Ok(duration) => {}
                     Err(e) => {
                         event_channel_publisher
@@ -1000,7 +1034,7 @@ async fn planner_handler(
             }
             SIGNAL.signal(TaskId::Planner);
         }
-        Timer::after(dt).await;
+        // Timer::after(dt).await;
     }
 }
 
@@ -1084,10 +1118,21 @@ async fn main(spawner: Spawner) {
             OutputType::PushPull,
         )),
         None,
-        khz(1),
+        // FIXME change PWM configuration to u32
+        hz(printer_config.pwm.frequency as u32),
         CountingMode::EdgeAlignedUp,
     );
-    let pwm = SimplePwmWrapper::new(pwm);
+    let mut pwm = SimplePwmWrapper::new(pwm);
+    pwm.enable(embassy_stm32::timer::Channel::Ch1);
+    pwm.set_duty(embassy_stm32::timer::Channel::Ch1, 0);
+    pwm.disable(embassy_stm32::timer::Channel::Ch2);
+    pwm.set_duty(embassy_stm32::timer::Channel::Ch2, 0);
+    pwm.disable(embassy_stm32::timer::Channel::Ch3);
+    pwm.set_duty(embassy_stm32::timer::Channel::Ch3, 0);
+    pwm.disable(embassy_stm32::timer::Channel::Ch4);
+    pwm.set_duty(embassy_stm32::timer::Channel::Ch4, 0);
+    #[cfg(feature="defmt-log")]
+    info!("Duty cycle: {}", pwm.get_max_duty());
 
     {
         let mut pwm_global = PMW.lock().await;
@@ -1120,7 +1165,10 @@ async fn main(spawner: Spawner) {
         .spawn(hotend_handler(printer_config.hotend, printer_config.fan))
         .unwrap();
 
-    spawner
+    interrupt::TIM2.set_priority(interrupt::Priority::P6);
+    let planner_spawner = EXECUTOR_HIGH.start(interrupt::TIM2);
+
+    planner_spawner
         .spawn(planner_handler(
             printer_config.steppers,
             printer_config.motion,
