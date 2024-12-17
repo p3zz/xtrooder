@@ -1,15 +1,1 @@
-https://www.martyncurrey.com/arduino-with-hc-05-bluetooth-module-at-mode/
-https://www.robotstore.it/Modulo-convertitore-Seriale-Bluetooth-HC-05
-https://components101.com/sites/default/files/component_datasheet/HC-05%20Datasheet.pdf
-https://tweedegolf.nl/en/blog/65/async-rust-vs-rtos-showdown
-https://prusa3d.github.io/Prusa-Firmware-Buddy-Doc/#:~:text=RTOS%20also%20takes%20care%20of,RTOS%20semaphores%20(see%20below).
-https://rtic.rs/2/book/en/rtic_and_embassy.html
-https://rtic.rs/1/book/en/
-https://www.klipper3d.org/Features.html
-https://github.com/MarlinFirmware/Marlin/issues/10549
-https://circuitdigest.com/tutorial/what-is-stepper-motor-and-how-it-works
-https://www.electricaltechnology.org/2021/11/thermistor.html
-https://www.monolithicpower.com/learning/resources/stepper-motors-basics-types-uses
-https://www.omega.com/en-us/resources/cartridge-heaters
-https://www.3deasy.it/wp/2020/01/16/hotend/
-https://github.com/japaric/cargo-call-stack
+# Xtrooder - An embedded firmware for 3D printers, written in Rust
