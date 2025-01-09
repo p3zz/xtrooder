@@ -208,14 +208,18 @@ static PMW: Mutex<ThreadModeRawMutex, Option<SimplePwmWrapper<'_, PwmTimer>>> = 
 static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDma>>> =
     Mutex::new(None);
 
+// WARN these buffers are used by the DMA to write/read data through ADC and UART
+// it would be useful to find a struct that can wrap these buffers, such as ConstStaticCell,
+// which unfortunately panics when a soft reset happens, both via reset button or removing power
+// to the board and them repowering.
 #[link_section = ".ram_d3"]
-static UART_RX_DMA_BUF: ConstStaticCell<[u8; MAX_MESSAGE_LEN]> = ConstStaticCell::new([0u8; MAX_MESSAGE_LEN]);
+static mut UART_RX_DMA_BUF: [u8; MAX_MESSAGE_LEN] =[0u8; MAX_MESSAGE_LEN];
 #[link_section = ".ram_d3"]
-static UART_TX_DMA_BUF: ConstStaticCell<[u8; MAX_MESSAGE_LEN]> = ConstStaticCell::new([0u8; MAX_MESSAGE_LEN]);
+static mut UART_TX_DMA_BUF: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
 #[link_section = ".ram_d3"]
-static HOTEND_DMA_BUF: ConstStaticCell<thermistor::DmaBufType> = ConstStaticCell::new([0u16; 1]);
+static mut HOTEND_DMA_BUF: thermistor::DmaBufType = [0u16; 1];
 #[link_section = ".ram_d3"]
-static HEATBED_DMA_BUF: ConstStaticCell<thermistor::DmaBufType> = ConstStaticCell::new([0u16; 1]);
+static mut HEATBED_DMA_BUF: thermistor::DmaBufType = [0u16; 1];
 
 bind_interrupts!(struct Irqs {
     UART4 => usart::InterruptHandler<UART4>;
@@ -224,7 +228,8 @@ bind_interrupts!(struct Irqs {
 #[embassy_executor::task]
 async fn input_handler() {
     let mut msg: String<MAX_MESSAGE_LEN> = String::new();
-    let tmp = UART_RX_DMA_BUF.take();
+    // SAFETY - UART_RX_DMA_BUF is used only in this task
+    let tmp = unsafe { &mut UART_RX_DMA_BUF };
     let mut rx = UART_RX.lock().await;
     let rx = rx.as_mut().expect("UART RX not initialized");
     let dt = Duration::from_millis(50);
@@ -263,7 +268,8 @@ async fn input_handler() {
 
 #[embassy_executor::task]
 async fn output_handler() {
-    let tmp = UART_TX_DMA_BUF.take();
+    // SAFETY - UART_TX_DMA_BUF is used only in this task
+    let tmp = unsafe { &mut UART_TX_DMA_BUF };
     let mut tx = UART_TX.lock().await;
     let tx = tx.as_mut().expect("UART TX not initialized");
     let dt = Duration::from_millis(100);
@@ -376,7 +382,8 @@ async fn hotend_handler(
     config: ThermalActuatorConfig<HotendAdcInputPin>,
     fan_config: FanConfig
 ) {
-    let readings = HOTEND_DMA_BUF.take();
+    // SAFETY - HOTEND_DMA_BUF is used only in this task
+    let readings = unsafe { &mut HOTEND_DMA_BUF };
 
     let thermistor: Thermistor<'_, AdcWrapper<_, _>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
@@ -529,7 +536,8 @@ async fn hotend_handler(
 async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
     // TODO adjust the period using the dt of the loop
     let mut temperature_report_dt: Option<Duration> = None;
-    let readings = HEATBED_DMA_BUF.take();
+    // SAFETY - HEATBED_DMA_BUF is used only in this task
+    let readings = unsafe { &mut HEATBED_DMA_BUF };
 
     let thermistor: Thermistor<'_, AdcWrapper<'_, _, _>> = Thermistor::new(
         config.thermistor.input.degrade_adc(),
