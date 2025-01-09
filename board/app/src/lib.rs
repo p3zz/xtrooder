@@ -79,6 +79,12 @@ impl<'a> OutputPinWrapper<'a> {
     }
 }
 
+impl OutputPinWrapper<'_>{
+    pub fn toggle(&mut self) {
+        self.pin.toggle();
+    }
+}
+
 impl OutputPinBase for OutputPinWrapper<'_> {
     fn set_high(&mut self) {
         self.pin.set_high();

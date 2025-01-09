@@ -14,7 +14,7 @@ use app::ext::{
     SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin,
     YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin,
 };
-use app::{init_input_pin, init_stepper, timer_channel, PrinterEvent};
+use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
@@ -22,7 +22,7 @@ use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::join::join;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::{OutputType, Pull};
+use embassy_stm32::gpio::{OutputType, Pull, Speed};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
@@ -1180,9 +1180,12 @@ async fn main(spawner: Spawner) {
         .spawn(sdcard_handler(printer_config.sdcard))
         .unwrap();
 
+    let mut alive_led = init_output_pin!(printer_config.debug.alive_led);
+
     loop {
         #[cfg(feature = "defmt-log")]
         info!("[MAIN LOOP] alive");
-        Timer::after(Duration::from_secs(5)).await;
+        alive_led.toggle();
+        Timer::after(Duration::from_secs(2)).await;
     }
 }

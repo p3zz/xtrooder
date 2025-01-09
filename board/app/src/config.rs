@@ -81,6 +81,7 @@ pub struct PrinterConfig<
     YEE,
     ZEP,
     ZEE,
+    LED
 > {
     pub steppers: SteppersConfig<XP, XD, YP, YD, ZP, ZD, EP, ED>,
     pub pwm: PwmConfig<PWMT, CH1, CH2, CH3>,
@@ -92,6 +93,7 @@ pub struct PrinterConfig<
     pub sdcard: SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
     pub motion: MotionConfig,
     pub endstops: EndstopsConfig<XEP, XEE, YEP, YEE, ZEP, ZEE>,
+    pub debug: DebugConfig<LED>
 }
 
 pub struct AdcConfig<I, D> {
@@ -142,4 +144,8 @@ pub struct FanConfig {
 
 pub struct SdCardConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS> {
     pub spi: SpiConfig<SPIP, SPIT, SPIMO, SPIMI, SPICS>,
+}
+
+pub struct DebugConfig<A>{
+    pub alive_led: A
 }
