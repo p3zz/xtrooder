@@ -328,7 +328,7 @@ async fn command_dispatcher_task() {
                     destination = 1u8 << u8::from(TaskId::Planner);
                 }
                 GCommand::M104 { .. }
-                | GCommand::M106 { .. } | GCommand::M109 { .. } => {
+                | GCommand::M106 { .. } | GCommand::M107 | GCommand::M109 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Hotend);
                 }
                 GCommand::M105 { .. } | GCommand::M155 { .. } => {
@@ -509,7 +509,7 @@ async fn hotend_handler(
                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(())
                     }
                     GCommand::M106 { s } => {
-                        let multiplier = f64::from(255) / f64::from(s);
+                        let multiplier = f64::from(s) / f64::from(255);
                         let speed = fan_controller.get_max_speed() * multiplier;
                         {
                             let mut pwm = PMW.lock().await;
@@ -521,6 +521,11 @@ async fn hotend_handler(
                             "[ThermalActuator HANDLER] Fan speed: {} revs/s",
                             speed.as_rpm()
                         );
+                    }
+                    GCommand::M107 => {
+                        let mut pwm = PMW.lock().await;
+                        let pwm = pwm.as_mut().expect("PWM not initialized");
+                        fan_controller.disable(pwm);
                     }
                     GCommand::M109 { s } => {
                         waiting_for_target_temperature = true;
