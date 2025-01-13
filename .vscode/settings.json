@@ -8,5 +8,8 @@
         "./host/math/Cargo.toml",
         "./host/parser/Cargo.toml",
         "./host/stepper/Cargo.toml",
+        "./host/thermal_actuator/Cargo.toml",
+        "./host/fan/Cargo.toml",
+        "./host/common/Cargo.toml",
     ],
 }
