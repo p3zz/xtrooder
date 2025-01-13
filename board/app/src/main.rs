@@ -850,7 +850,6 @@ async fn sdcard_handler(
                         info!("[{}] {}", SD_CARD_LABEL, msg.as_str());
                         msg.clear();
                     } else {
-                        // TODO handle buffer overflow
                         if msg.push((*b).into()).is_err(){
                             msg.clear();
                             #[cfg(feature = "defmt-log")]
