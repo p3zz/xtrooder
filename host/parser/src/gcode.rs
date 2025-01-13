@@ -118,9 +118,8 @@ pub enum GCommand {
     M106 {
         s: u8,
     },
-    // [future] wait for hotend temperature
+    // wait for hotend temperature
     M109 {
-        r: Temperature,
         s: Temperature,
     },
     // report position
@@ -839,6 +838,10 @@ impl GCodeParser {
                 } else {
                     None
                 }
+            }
+            (GCommandType::M, 109) => {
+                let s = extract_temperature(&args, "S", self.temperature_unit)?;
+                Some(GCommand::M109 { s })
             }
             (GCommandType::M, 114) => Some(GCommand::M114),
             (GCommandType::M, 123) => {
