@@ -88,10 +88,16 @@ async fn main(_spawner: Spawner) -> ! {
     let clock = Clock::new();
     let mut volume_mgr = VolumeManager::new(sdcard, clock);
 
-    let volume0 = volume_mgr.open_raw_volume(VolumeIdx(0)).expect("cannot open raw volume");
-    let root_dir = volume_mgr.open_root_dir(volume0).expect("Cannot open root dir");
+    let volume0 = volume_mgr
+        .open_raw_volume(VolumeIdx(0))
+        .expect("cannot open raw volume");
+    let root_dir = volume_mgr
+        .open_root_dir(volume0)
+        .expect("Cannot open root dir");
     let filename = "test.gc";
-    let my_file = volume_mgr.open_file_in_dir(root_dir, filename, Mode::ReadOnly).expect("Cannot open file");
+    let my_file = volume_mgr
+        .open_file_in_dir(root_dir, filename, Mode::ReadOnly)
+        .expect("Cannot open file");
 
     let mut buf = [0u8; 64];
 

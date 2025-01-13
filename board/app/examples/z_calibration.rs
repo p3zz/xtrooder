@@ -1,9 +1,25 @@
 #![no_std]
 #![no_main]
 
-use {app::{init_input_pin, init_stepper, ExtiInputPinWrapper, StepperTimer}, defmt::info, defmt_rtt as _, embassy_executor::Spawner, embassy_stm32::{exti::ExtiInput, gpio::Pull}, embassy_time::{Duration, Timer}, math::{common::RotationDirection, measurements::{AngularVelocity, Distance, Length, Speed}}, panic_probe as _, stepper::{motion::{auto_home, calibrate, linear_move_to}, stepper::{StepperAttachment, StepperOptions, SteppingMode}}};
 use common::ExtiInputPinBase;
 use embassy_futures::join::join;
+use {
+    app::{init_input_pin, init_stepper, ExtiInputPinWrapper, StepperTimer},
+    defmt::info,
+    defmt_rtt as _,
+    embassy_executor::Spawner,
+    embassy_stm32::{exti::ExtiInput, gpio::Pull},
+    embassy_time::{Duration, Timer},
+    math::{
+        common::RotationDirection,
+        measurements::{AngularVelocity, Distance, Length, Speed},
+    },
+    panic_probe as _,
+    stepper::{
+        motion::{auto_home, calibrate, linear_move_to},
+        stepper::{StepperAttachment, StepperOptions, SteppingMode},
+    },
+};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
@@ -17,7 +33,10 @@ async fn main(_spawner: Spawner) {
         StepperOptions {
             steps_per_revolution: 200,
             stepping_mode: SteppingMode::HalfStep,
-            bounds: Some((Distance::from_millimeters(-150.0), Distance::from_millimeters(150.0))),
+            bounds: Some((
+                Distance::from_millimeters(-150.0),
+                Distance::from_millimeters(150.0)
+            )),
             positive_direction: RotationDirection::Clockwise,
             acceleration: None
         },
@@ -35,7 +54,10 @@ async fn main(_spawner: Spawner) {
         StepperOptions {
             steps_per_revolution: 200,
             stepping_mode: SteppingMode::HalfStep,
-            bounds: Some((Distance::from_millimeters(-150.0), Distance::from_millimeters(150.0))),
+            bounds: Some((
+                Distance::from_millimeters(-150.0),
+                Distance::from_millimeters(150.0)
+            )),
             positive_direction: RotationDirection::Clockwise,
             acceleration: None
         },
@@ -44,19 +66,21 @@ async fn main(_spawner: Spawner) {
         }
     );
 
-    loop{
+    loop {
         #[cfg(feature = "defmt-log")]
         info!("waiting for endstop hit");
         let res = join(
             calibrate::<_, _, StepperTimer>(&mut stepper_z1, &endstop_z1),
             calibrate::<_, _, StepperTimer>(&mut stepper_z2, &endstop_z2),
-        ).await;
+        )
+        .await;
         info!("endstop hit!");
         Timer::after(Duration::from_millis(500)).await;
         let res = join(
             stepper_z1.home::<StepperTimer>(),
             stepper_z2.home::<StepperTimer>(),
-        ).await;
+        )
+        .await;
         Timer::after(Duration::from_millis(1000)).await;
     }
 }

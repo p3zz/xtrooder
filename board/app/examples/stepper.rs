@@ -71,22 +71,18 @@ async fn main(_spawner: Spawner) {
 
     loop {
         stepper_x.set_direction(RotationDirection::Clockwise);
-        if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(
-            600
-        ).await{
-            #[cfg(feature="defmt-log")]
+        if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(600).await {
+            #[cfg(feature = "defmt-log")]
             info!("duration: {}", d);
         }
         stepper_x.set_direction(RotationDirection::CounterClockwise);
-        if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(
-            600
-        ).await{
-            #[cfg(feature="defmt-log")]
+        if let Ok(d) = stepper_x.move_for_steps::<StepperTimer>(600).await {
+            #[cfg(feature = "defmt-log")]
             info!("duration: {}", d);
         }
         // stepper_x.set_direction(RotationDirection::CounterClockwise);
         // if let Ok(d) = stepper_x.move_for_steps_accelerated::<StepperTimer>(
-        //     500, 
+        //     500,
         //     AngularVelocity::from_rpm(30.0)).await{
         //     #[cfg(feature="defmt-log")]
         //     info!("duration: {}", d);
@@ -94,7 +90,7 @@ async fn main(_spawner: Spawner) {
 
         // stepper_y.set_direction(RotationDirection::Clockwise);
         // if let Ok(d) = stepper_y.move_for_steps_accelerated::<StepperTimer>(
-        //     500, 
+        //     500,
         //     AngularVelocity::from_rpm(30.0)).await{
         //     #[cfg(feature="defmt-log")]
         //     info!("duration: {}", d);

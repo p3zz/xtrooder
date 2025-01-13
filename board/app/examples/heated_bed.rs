@@ -68,7 +68,7 @@ async fn main(_spawner: Spawner) {
         adc,
         p.DMA1_CH0,
         ResolutionWrapper::new(Resolution::BITS12),
-        SampleTime::CYCLES32_5
+        SampleTime::CYCLES32_5,
     );
 
     let thermistor: Thermistor<'_, _> = Thermistor::new(
@@ -123,7 +123,7 @@ async fn main(_spawner: Spawner) {
         let data = hotend
             .update(dt.into(), &mut heater_out_wrapper, &mut adc)
             .await;
-        if counter >= Duration::from_secs(1){
+        if counter >= Duration::from_secs(1) {
             #[cfg(feature = "defmt-log")]
             println!(
                 "Dt: {}\tTemperaure: {}\tDuty cycle: {:?}",

@@ -515,11 +515,11 @@ mod external {
     }
 
     #[derive(Default, Debug, Serialize, Deserialize, Clone)]
-    pub struct DebugConfig{
-        alive_led: PinConfig
+    pub struct DebugConfig {
+        alive_led: PinConfig,
     }
 
-    impl DebugConfig{
+    impl DebugConfig {
         pub fn get_alive_led(&self) -> PinConfig {
             self.alive_led.clone()
         }
@@ -536,7 +536,7 @@ mod external {
         pub fan: FanConfig,
         pub sdcard: SdCardConfig,
         pub motion: MotionConfig,
-        pub debug: DebugConfig
+        pub debug: DebugConfig,
     }
 }
 
@@ -883,7 +883,11 @@ fn main() {
         panic!("Fan PWM channel must be between 1 and 4");
     }
 
-    let debug_alive_led = conf.debug.get_alive_led().get_pin().expect("Alive LED pin is missing");
+    let debug_alive_led = conf
+        .debug
+        .get_alive_led()
+        .get_pin()
+        .expect("Alive LED pin is missing");
     let debug_alive_led = Ident::new(debug_alive_led.as_str(), Span::call_site());
 
     let tokens = quote! {
@@ -931,7 +935,7 @@ fn main() {
         pub type YEndstopExti = #motion_endstop_y_exti;
         pub type ZEndstopPin = #motion_endstop_z;
         pub type ZEndstopExti = #motion_endstop_z_exti;
-        pub type DebugAliveLedPin = #debug_alive_led;        
+        pub type DebugAliveLedPin = #debug_alive_led;
 
         pub fn peripherals_init(p: embassy_stm32::Peripherals) -> PrinterConfig<
             XStepPin,

@@ -58,13 +58,13 @@ impl Display for PrinterEvent {
             }
             PrinterEvent::PrintStopped => {
                 core::write!(f, "Print stopped")
-            },
+            }
             PrinterEvent::PrintStarted => {
                 core::write!(f, "Print start")
-            },
+            }
             PrinterEvent::PrintAborted => {
                 core::write!(f, "Print aborted")
-            },
+            }
         }
     }
 }
@@ -79,7 +79,7 @@ impl<'a> OutputPinWrapper<'a> {
     }
 }
 
-impl OutputPinWrapper<'_>{
+impl OutputPinWrapper<'_> {
     pub fn toggle(&mut self) {
         self.pin.toggle();
     }
@@ -134,7 +134,11 @@ impl TimerBase for StepperTimer {
 #[macro_export]
 macro_rules! init_output_pin {
     ($config: expr) => {
-        app::OutputPinWrapper::new(embassy_stm32::gpio::Output::new($config, embassy_stm32::gpio::Level::Low, embassy_stm32::gpio::Speed::Low))
+        app::OutputPinWrapper::new(embassy_stm32::gpio::Output::new(
+            $config,
+            embassy_stm32::gpio::Level::Low,
+            embassy_stm32::gpio::Speed::Low,
+        ))
     };
 }
 
@@ -249,7 +253,12 @@ pub struct AdcWrapper<'a, T: Instance, D: RxDma<T>> {
 }
 
 impl<'a, T: Instance, D: RxDma<T>> AdcWrapper<'a, T, D> {
-    pub fn new(adc: Adc<'a, T>, dma: D, resolution: ResolutionWrapper, sample_time: SampleTime) -> Self {
+    pub fn new(
+        adc: Adc<'a, T>,
+        dma: D,
+        resolution: ResolutionWrapper,
+        sample_time: SampleTime,
+    ) -> Self {
         let mut adc = adc;
         adc.set_resolution(resolution.inner);
         adc.set_sample_time(sample_time);

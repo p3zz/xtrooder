@@ -8,18 +8,19 @@ use core::str::FromStr;
 use app::config::{
     EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig,
 };
-use app::ext::{
-    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin, HotendAdcInputPin, Irqs, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin
-};
+use app::ext::*;
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
 use app::{AdcWrapper, ResolutionWrapper, SimplePwmWrapper};
+use common::PwmBase;
 use embassy_embedded_hal::shared_bus::blocking::spi::SpiDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::join::join;
 use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{OutputType, Pull, Speed};
+use embassy_stm32::interrupt;
+use embassy_stm32::interrupt::{InterruptExt, Priority};
 use embassy_stm32::mode::{Async, Blocking};
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::time::{hz, khz};
@@ -34,7 +35,7 @@ use embassy_stm32::{
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::blocking_mutex::NoopMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_sync::priority_channel::{PriorityChannel, Max};
+use embassy_sync::priority_channel::{Max, PriorityChannel};
 use embassy_sync::pubsub::PubSubChannel;
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
@@ -51,9 +52,6 @@ use stepper::stepper::{StepperAttachment, StepperOptions};
 use thermal_actuator::{
     controller::ThermalActuator, heater::Heater, thermistor, thermistor::Thermistor,
 };
-use common::PwmBase;
-use embassy_stm32::interrupt;
-use embassy_stm32::interrupt::{InterruptExt, Priority};
 use {defmt_rtt as _, panic_probe as _};
 
 #[cfg(feature = "defmt-log")]
@@ -67,45 +65,43 @@ unsafe fn TIM2() {
 }
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq)]
-enum TaskMessagePriority{
+enum TaskMessagePriority {
     Low,
     Medium,
-    High
+    High,
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Eq)]
-struct TaskMessage{
+struct TaskMessage {
     msg: String<MAX_MESSAGE_LEN>,
-    priority: TaskMessagePriority
+    priority: TaskMessagePriority,
 }
 
-impl Ord for TaskMessage{
+impl Ord for TaskMessage {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        if self.priority > other.priority{
+        if self.priority > other.priority {
             core::cmp::Ordering::Greater
-        }
-        else if self.priority < other.priority{
+        } else if self.priority < other.priority {
             core::cmp::Ordering::Less
-        }
-        else{
+        } else {
             core::cmp::Ordering::Equal
         }
     }
-    
+
     fn max(self, other: Self) -> Self
     where
         Self: Sized,
     {
         core::cmp::max_by(self, other, Ord::cmp)
     }
-    
+
     fn min(self, other: Self) -> Self
     where
         Self: Sized,
     {
         core::cmp::min_by(self, other, Ord::cmp)
     }
-    
+
     fn clamp(self, min: Self, max: Self) -> Self
     where
         Self: Sized,
@@ -122,19 +118,19 @@ impl Ord for TaskMessage{
 }
 
 #[derive(Clone, Copy)]
-enum TaskId{
+enum TaskId {
     Input,
     Output,
     CommandDispatcher,
     Hotend,
     Heatbed,
     SdCard,
-    Planner
+    Planner,
 }
 
-impl From<TaskId> for u8{
+impl From<TaskId> for u8 {
     fn from(value: TaskId) -> Self {
-        match value{
+        match value {
             TaskId::Input => 0,
             TaskId::Output => 1,
             TaskId::CommandDispatcher => 2,
@@ -147,9 +143,9 @@ impl From<TaskId> for u8{
 }
 
 #[derive(Clone)]
-struct TaskGCommand{
+struct TaskGCommand {
     cmd: GCommand,
-    destination: u8
+    destination: u8,
 }
 
 // https://dev.to/theembeddedrustacean/sharing-data-among-tasks-in-rust-embassy-synchronization-primitives-59hk
@@ -165,16 +161,9 @@ const HEATBED_LABEL: &'_ str = "HEATBED";
 const PLANNER_LABEL: &'_ str = "PLANNER";
 const SD_CARD_LABEL: &'_ str = "SD-CARD";
 
-static WATCH: Watch<
-    CriticalSectionRawMutex,
-    TaskGCommand, 
-    7
-> = Watch::new();
+static WATCH: Watch<CriticalSectionRawMutex, TaskGCommand, 7> = Watch::new();
 
-static SIGNAL: Signal<
-    CriticalSectionRawMutex,
-    TaskId
-> = Signal::new();
+static SIGNAL: Signal<CriticalSectionRawMutex, TaskId> = Signal::new();
 
 static COMMAND_DISPATCHER_CHANNEL: PriorityChannel<
     CriticalSectionRawMutex,
@@ -208,7 +197,7 @@ static ADC: Mutex<ThreadModeRawMutex, Option<AdcWrapper<'_, AdcPeripheral, AdcDm
 // which unfortunately panics when a soft reset happens, both via reset button or removing power
 // to the board and them repowering.
 #[link_section = ".ram_d3"]
-static mut UART_RX_DMA_BUF: [u8; MAX_MESSAGE_LEN] =[0u8; MAX_MESSAGE_LEN];
+static mut UART_RX_DMA_BUF: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
 #[link_section = ".ram_d3"]
 static mut UART_TX_DMA_BUF: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
 #[link_section = ".ram_d3"]
@@ -229,13 +218,13 @@ async fn input_handler() {
     info!("Starting input handler loop");
 
     loop {
-        match rx.read_until_idle(tmp).await{
+        match rx.read_until_idle(tmp).await {
             Ok(n) => {
                 for b in &tmp[0..n] {
                     if *b == b'\n' {
-                        let cmd = TaskMessage{
+                        let cmd = TaskMessage {
                             msg: msg.clone(),
-                            priority: TaskMessagePriority::High
+                            priority: TaskMessagePriority::High,
                         };
                         COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
                         #[cfg(feature = "defmt-log")]
@@ -319,16 +308,19 @@ async fn command_dispatcher_task() {
                     destination = 1u8 << u8::from(TaskId::Planner);
                 }
                 GCommand::M104 { .. }
-                | GCommand::M106 { .. } | GCommand::M107 | GCommand::M109 { .. } => {
+                | GCommand::M106 { .. }
+                | GCommand::M107
+                | GCommand::M109 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Hotend);
                 }
                 GCommand::M105 { .. } | GCommand::M155 { .. } => {
-                    destination = 1u8 << u8::from(TaskId::Hotend) | 1u8 << u8::from(TaskId::Heatbed);
+                    destination =
+                        1u8 << u8::from(TaskId::Hotend) | 1u8 << u8::from(TaskId::Heatbed);
                 }
                 GCommand::M140 { .. } | GCommand::M190 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Heatbed);
                 }
-                | GCommand::M20
+                GCommand::M20
                 | GCommand::M21
                 | GCommand::M22
                 | GCommand::M23 { .. }
@@ -343,10 +335,7 @@ async fn command_dispatcher_task() {
                     error!("[COMMAND DISPATCHER] command not handler")
                 }
             }
-            let task_command = TaskGCommand{
-                cmd,
-                destination
-            };
+            let task_command = TaskGCommand { cmd, destination };
             watch_sender.send(task_command);
             // wait for tasks response before proceeding to parse the next command
             let mut res = 0u8;
@@ -369,10 +358,7 @@ async fn command_dispatcher_task() {
 
 // https://dev.to/apollolabsbin/embedded-rust-embassy-analog-sensing-with-adcs-1e2n
 #[embassy_executor::task]
-async fn hotend_handler(
-    config: ThermalActuatorConfig<HotendAdcInputPin>,
-    fan_config: FanConfig
-) {
+async fn hotend_handler(config: ThermalActuatorConfig<HotendAdcInputPin>, fan_config: FanConfig) {
     // SAFETY - HOTEND_DMA_BUF is used only in this task
     let readings = unsafe { &mut HOTEND_DMA_BUF };
 
@@ -402,12 +388,11 @@ async fn hotend_handler(
         .expect("Cannot retrieve error subscriber");
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
     let mut last_temperature: Option<Temperature> = None;
-    
+
     let mut waiting_for_target_temperature = false;
     let mut target_temperature: Option<Temperature> = None;
 
     loop {
-
         {
             let mut pwm = PMW.lock().await;
             let pwm = pwm.as_mut().expect("PWM not initialized");
@@ -475,7 +460,7 @@ async fn hotend_handler(
         }
 
         if let Some(cmd) = watch_receiver.try_changed() {
-            if cmd.destination & (1u8 << u8::from(TaskId::Hotend)) != 0{
+            if cmd.destination & (1u8 << u8::from(TaskId::Hotend)) != 0 {
                 match cmd.cmd {
                     GCommand::M104 { s } => {
                         #[cfg(feature = "defmt-log")]
@@ -535,7 +520,7 @@ async fn hotend_handler(
         Timer::after(dt).await;
         if let Some(d) = counter.checked_add(dt) {
             counter = d;
-        }else{
+        } else {
             counter = Duration::from_secs(0);
         }
     }
@@ -616,12 +601,16 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         // info!("{} {}", counter, temperature_report_dt);
 
         // temperature report period must be a multiple of the loop delay
-        if temperature_report_dt.is_some()
-            && counter >= temperature_report_dt.unwrap()
-        {
+        if temperature_report_dt.is_some() && counter >= temperature_report_dt.unwrap() {
             let temp = last_temperature.unwrap();
             report.clear();
-            task_write!(&mut report, HEATBED_LABEL, "Temperature: {:.2}°C", temp.as_celsius()).unwrap();
+            task_write!(
+                &mut report,
+                HEATBED_LABEL,
+                "Temperature: {:.2}°C",
+                temp.as_celsius()
+            )
+            .unwrap();
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
@@ -633,7 +622,7 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         }
 
         if let Some(cmd) = watch_receiver.try_changed() {
-            if cmd.destination & (1u8 << u8::from(TaskId::Heatbed)) != 0{
+            if cmd.destination & (1u8 << u8::from(TaskId::Heatbed)) != 0 {
                 match cmd.cmd {
                     GCommand::M140 { s } => {
                         heatbed.set_temperature(s);
@@ -642,7 +631,7 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
                             let pwm = pwm.as_mut().expect("PWM not initialized");
                             heatbed.enable(pwm);
                         }
-                    },
+                    }
                     GCommand::M105 => {
                         let temp = last_temperature.unwrap();
                         report.clear();
@@ -666,7 +655,7 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         Timer::after(dt).await;
         if let Some(d) = counter.checked_add(dt) {
             counter = d;
-        }else{
+        } else {
             counter = Duration::from_secs(0);
         }
     }
@@ -726,13 +715,17 @@ async fn sdcard_handler(
                 info!("File closed");
             }
             if let Some(wd) = working_dir {
-                volume_manager.close_dir(wd).expect("cannot close directory");
+                volume_manager
+                    .close_dir(wd)
+                    .expect("cannot close directory");
                 working_dir = None;
                 #[cfg(feature = "defmt-log")]
                 info!("Directory closed");
             }
             if let Some(wv) = working_volume {
-                volume_manager.close_volume(wv).expect("cannot close volume");
+                volume_manager
+                    .close_volume(wv)
+                    .expect("cannot close volume");
                 working_volume = None;
                 #[cfg(feature = "defmt-log")]
                 info!("Volume closed");
@@ -741,7 +734,7 @@ async fn sdcard_handler(
         }
 
         if let Some(cmd) = watch_receiver.try_changed() {
-            if cmd.destination & (1 << u8::from(TaskId::SdCard)) != 0{
+            if cmd.destination & (1 << u8::from(TaskId::SdCard)) != 0 {
                 match cmd.cmd {
                     GCommand::M20 => {
                         let dir = working_dir.expect("Working directory not set");
@@ -749,9 +742,9 @@ async fn sdcard_handler(
                             String::from_str("Begin file list\n").unwrap();
                         volume_manager
                             .iterate_dir(dir, |d| {
-                                let mut name_vec: Vec<u8, 16> = 
+                                let mut name_vec: Vec<u8, 16> =
                                     Vec::from_slice(d.name.base_name()).unwrap();
-                                if d.name.extension().len() > 0{
+                                if d.name.extension().len() > 0 {
                                     name_vec.extend_from_slice(&[b'.']).unwrap();
                                     name_vec.extend_from_slice(d.name.extension()).unwrap();
                                 }
@@ -843,7 +836,7 @@ async fn sdcard_handler(
                             .publish(PrinterEvent::PrintAborted)
                             .await;
                         report.clear();
-                        task_write!(&mut report, PLANNER_LABEL, "Print aborted", ).unwrap();
+                        task_write!(&mut report, PLANNER_LABEL, "Print aborted",).unwrap();
                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                     }
                     _ => (),
@@ -853,26 +846,24 @@ async fn sdcard_handler(
         }
 
         if running && working_file.is_some() {
-            let n = volume_manager.read(
-                working_file.unwrap(),
-                &mut tmp
-            ).expect("Something went wrong during the SD-Card file reading");
-            if n == 0{
+            let n = volume_manager
+                .read(working_file.unwrap(), &mut tmp)
+                .expect("Something went wrong during the SD-Card file reading");
+            if n == 0 {
                 event_channel_publisher.publish(PrinterEvent::EOF).await;
-            }
-            else{
+            } else {
                 for b in &tmp[0..n] {
                     if *b == b'\n' {
-                        let cmd = TaskMessage{
+                        let cmd = TaskMessage {
                             msg: msg.clone(),
-                            priority: TaskMessagePriority::Low
+                            priority: TaskMessagePriority::Low,
                         };
                         COMMAND_DISPATCHER_CHANNEL.send(cmd).await;
                         #[cfg(feature = "defmt-log")]
                         info!("[{}] {}", SD_CARD_LABEL, msg.as_str());
                         msg.clear();
                     } else {
-                        if msg.push((*b).into()).is_err(){
+                        if msg.push((*b).into()).is_err() {
                             msg.clear();
                             #[cfg(feature = "defmt-log")]
                             error!("[{}] Message too long", SD_CARD_LABEL);
@@ -1005,8 +996,8 @@ async fn planner_handler(
             match e {
                 PrinterEvent::EOF => {
                     event_channel_publisher
-                    .publish(PrinterEvent::PrintCompleted)
-                    .await;
+                        .publish(PrinterEvent::PrintCompleted)
+                        .await;
                 }
                 _ => {}
             }
@@ -1014,8 +1005,7 @@ async fn planner_handler(
 
         let cmd = watch_receiver.changed().await;
 
-        if cmd.destination & (1u8 << u8::from(TaskId::Planner)) != 0{
-
+        if cmd.destination & (1u8 << u8::from(TaskId::Planner)) != 0 {
             #[cfg(feature = "defmt-log")]
             info!("[PLANNER HANDLER] command received");
             match cmd.cmd {
@@ -1159,7 +1149,7 @@ async fn main(spawner: Spawner) {
     pwm.set_duty(embassy_stm32::timer::Channel::Ch3, 0);
     pwm.disable(embassy_stm32::timer::Channel::Ch4);
     pwm.set_duty(embassy_stm32::timer::Channel::Ch4, 0);
-    #[cfg(feature="defmt-log")]
+    #[cfg(feature = "defmt-log")]
     info!("Duty cycle: {}", pwm.get_max_duty());
 
     {
@@ -1172,7 +1162,7 @@ async fn main(spawner: Spawner) {
         adc,
         printer_config.adc.dma,
         ResolutionWrapper::new(Resolution::BITS12),
-        SampleTime::CYCLES64_5
+        SampleTime::CYCLES64_5,
     );
     {
         let mut adc_global = ADC.lock().await;

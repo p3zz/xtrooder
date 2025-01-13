@@ -68,7 +68,7 @@ async fn main(_spawner: Spawner) {
         adc,
         p.DMA1_CH0,
         ResolutionWrapper::new(Resolution::BITS12),
-        SampleTime::CYCLES32_5
+        SampleTime::CYCLES32_5,
     );
 
     let thermistor: Thermistor<'_, _> = Thermistor::new(

@@ -29,7 +29,7 @@ async fn main_task() {
     )
     .unwrap();
 
-    let tmp = DMA_BUF.init_with(||[0u8; 32]);
+    let tmp = DMA_BUF.init_with(|| [0u8; 32]);
 
     loop {
         match uart.read_until_idle(tmp).await {
