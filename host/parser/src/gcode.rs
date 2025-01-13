@@ -1,5 +1,5 @@
 use core::{
-    fmt::{Display, Write},
+    fmt::Write,
     str::FromStr,
     time::Duration,
 };
@@ -292,9 +292,7 @@ impl GCodeParser {
                     }
                 },
                 ParserState::ReadingComment(start) => {
-                    if start == '(' && b == ')' {
-                        state = ParserState::ReadingCommand;
-                    } else if start == ';' && b == ';' {
+                    if (start == '(' && b == ')') || (start == ';' && b == ';') {
                         state = ParserState::ReadingCommand;
                     }
                 }
