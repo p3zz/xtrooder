@@ -328,13 +328,13 @@ async fn command_dispatcher_task() {
                     destination = 1u8 << u8::from(TaskId::Planner);
                 }
                 GCommand::M104 { .. }
-                | GCommand::M106 { .. } => {
+                | GCommand::M106 { .. } | GCommand::M109 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Hotend);
                 }
                 GCommand::M105 { .. } | GCommand::M155 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Hotend) | 1u8 << u8::from(TaskId::Heatbed);
                 }
-                GCommand::M140 { .. } => {
+                GCommand::M140 { .. } | GCommand::M190 { .. } => {
                     destination = 1u8 << u8::from(TaskId::Heatbed);
                 }
                 | GCommand::M20
@@ -411,6 +411,9 @@ async fn hotend_handler(
         .expect("Cannot retrieve error subscriber");
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
     let mut last_temperature: Option<Temperature> = None;
+    
+    let mut waiting_for_target_temperature = false;
+    let mut target_temperature: Option<Temperature> = None;
 
     loop {
 
@@ -473,6 +476,13 @@ async fn hotend_handler(
             FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
             counter = Duration::from_secs(0);
         }
+
+        if waiting_for_target_temperature && last_temperature >= target_temperature {
+            waiting_for_target_temperature = false;
+            target_temperature = None;
+            SIGNAL.signal(TaskId::Hotend);
+        }
+
         if let Some(cmd) = watch_receiver.try_changed() {
             if cmd.destination & (1u8 << u8::from(TaskId::Hotend)) != 0{
                 match cmd.cmd {
@@ -511,6 +521,10 @@ async fn hotend_handler(
                             "[ThermalActuator HANDLER] Fan speed: {} revs/s",
                             speed.as_rpm()
                         );
+                    }
+                    GCommand::M109 { s } => {
+                        waiting_for_target_temperature = true;
+                        target_temperature = Some(s);
                     }
                     GCommand::M155 { s } => {
                         let duration = Duration::from_millis(s.as_millis() as u64);
@@ -560,6 +574,8 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
         .expect("Cannot retrieve error subscriber");
     let mut watch_receiver = WATCH.receiver().expect("Cannot retrieve receiver");
     let mut last_temperature: Option<Temperature> = None;
+    let mut waiting_for_target_temperature = false;
+    let mut target_temperature: Option<Temperature> = None;
 
     loop {
         {
@@ -614,6 +630,12 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
             counter = Duration::from_secs(0);
         }
 
+        if waiting_for_target_temperature && last_temperature >= target_temperature {
+            waiting_for_target_temperature = false;
+            target_temperature = None;
+            SIGNAL.signal(TaskId::Hotend);
+        }
+
         if let Some(cmd) = watch_receiver.try_changed() {
             if cmd.destination & (1u8 << u8::from(TaskId::Heatbed)) != 0{
                 match cmd.cmd {
@@ -634,6 +656,10 @@ async fn heatbed_handler(config: ThermalActuatorConfig<HeatbedAdcInputPin>) {
                     GCommand::M155 { s } => {
                         let duration = Duration::from_millis(s.as_millis() as u64);
                         temperature_report_dt.replace(duration);
+                    }
+                    GCommand::M190 { s } => {
+                        waiting_for_target_temperature = true;
+                        target_temperature = Some(s);
                     }
                     _ => (),
                 }

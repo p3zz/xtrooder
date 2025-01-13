@@ -118,6 +118,7 @@ pub enum GCommand {
     M106 {
         s: u8,
     },
+    // fan off
     M107,
     // wait for hotend temperature
     M109 {
@@ -146,9 +147,8 @@ pub enum GCommand {
     M155 {
         s: Duration,
     },
-    // [future] wait for bed temperature
+    // wait for bed temperature
     M190 {
-        r: Temperature,
         s: Temperature,
     },
     // [future] wait for probe temperature
@@ -496,6 +496,10 @@ impl GCodeParser {
             (GCommandType::M, 155) => {
                 let s = extract_duration(&args, 'S', DurationUnit::Second)?;
                 Some(GCommand::M155 { s })
+            }
+            (GCommandType::M, 190) => {
+                let s = extract_temperature(&args, 'S', self.temperature_unit)?;
+                Some(GCommand::M190 { s })
             }
             (GCommandType::M, 207) => {
                 let f = extract_speed(&args, 'F', self.distance_unit)?;
