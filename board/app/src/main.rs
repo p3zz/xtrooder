@@ -9,10 +9,7 @@ use app::config::{
     EndstopsConfig, FanConfig, MotionConfig, SdCardConfig, SteppersConfig, ThermalActuatorConfig,
 };
 use app::ext::{
-    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin,
-    HotendAdcInputPin, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin,
-    SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin,
-    YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin,
+    peripherals_init, AdcDma, AdcPeripheral, EDirPin, EStepPin, HeatbedAdcInputPin, HotendAdcInputPin, Irqs, PwmTimer, SdCardSpiCsPin, SdCardSpiMisoPin, SdCardSpiMosiPin, SdCardSpiPeripheral, SdCardSpiTimer, XDirPin, XEndstopExti, XEndstopPin, XStepPin, YDirPin, YEndstopExti, YEndstopPin, YStepPin, ZDirPin, ZEndstopExti, ZEndstopPin, ZStepPin
 };
 use app::{init_input_pin, init_output_pin, init_stepper, timer_channel, PrinterEvent};
 use app::{task_write, Clock, ExtiInputPinWrapper, OutputPinWrapper, StepperTimer};
@@ -24,7 +21,6 @@ use embassy_stm32::adc::{Adc, AdcChannel, SampleTime};
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{OutputType, Pull, Speed};
 use embassy_stm32::mode::{Async, Blocking};
-use embassy_stm32::peripherals::UART4;
 use embassy_stm32::spi::{self, Spi};
 use embassy_stm32::time::{hz, khz};
 use embassy_stm32::timer::low_level::CountingMode;
@@ -33,7 +29,6 @@ use embassy_stm32::usart::{self, Uart, UartRx, UartTx};
 use embassy_stm32::Config;
 use embassy_stm32::{
     adc::Resolution,
-    bind_interrupts,
     gpio::{Level, Output},
 };
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -220,10 +215,6 @@ static mut UART_TX_DMA_BUF: [u8; MAX_MESSAGE_LEN] = [0u8; MAX_MESSAGE_LEN];
 static mut HOTEND_DMA_BUF: thermistor::DmaBufType = [0u16; 1];
 #[link_section = ".ram_d3"]
 static mut HEATBED_DMA_BUF: thermistor::DmaBufType = [0u16; 1];
-
-bind_interrupts!(struct Irqs {
-    UART4 => usart::InterruptHandler<UART4>;
-});
 
 #[embassy_executor::task]
 async fn input_handler() {
@@ -1041,9 +1032,8 @@ async fn planner_handler(
                 | GCommand::G92 { .. }
                 | GCommand::M207 { .. }
                 | GCommand::M208 { .. }
-                | GCommand::M220 { .. } => match planner.execute(cmd.cmd.clone()).await {
-                    Ok(duration) => {}
-                    Err(e) => {
+                | GCommand::M220 { .. } => {
+                    if let Err(e) = planner.execute(cmd.cmd.clone()).await {
                         event_channel_publisher
                             .publish(PrinterEvent::Stepper(e))
                             .await;
@@ -1051,7 +1041,7 @@ async fn planner_handler(
                         task_write!(&mut report, PLANNER_LABEL, "{}", e).unwrap();
                         FEEDBACK_CHANNEL.try_send(report.clone()).unwrap_or(());
                     }
-                },
+                }
                 GCommand::M114 => {
                     report.clear();
                     task_write!(

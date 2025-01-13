@@ -887,7 +887,6 @@ fn main() {
     let debug_alive_led = Ident::new(debug_alive_led.as_str(), Span::call_site());
 
     let tokens = quote! {
-        use embassy_stm32::Peripherals;
         use embassy_stm32::peripherals::*;
         use math::measurements::{Speed, Length, Distance, Resistance, Temperature, AngularVelocity};
         use math::common::RotationDirection;
@@ -895,6 +894,10 @@ fn main() {
         use stepper::stepper::SteppingMode;
         use stepper::planner::{MotionConfig, RecoverMotionConfig, RetractionMotionConfig};
         use crate::config::*;
+
+        embassy_stm32::bind_interrupts!(pub struct Irqs {
+            #uart_peripheral => embassy_stm32::usart::InterruptHandler<#uart_peripheral>;
+        });
 
         pub type XStepPin = #steppers_x_step_pin;
         pub type XDirPin = #steppers_x_dir_pin;
@@ -928,9 +931,9 @@ fn main() {
         pub type YEndstopExti = #motion_endstop_y_exti;
         pub type ZEndstopPin = #motion_endstop_z;
         pub type ZEndstopExti = #motion_endstop_z_exti;
-        pub type DebugAliveLedPin = #debug_alive_led;
+        pub type DebugAliveLedPin = #debug_alive_led;        
 
-        pub fn peripherals_init(p: Peripherals) -> PrinterConfig<
+        pub fn peripherals_init(p: embassy_stm32::Peripherals) -> PrinterConfig<
             XStepPin,
             XDirPin,
             YStepPin,
